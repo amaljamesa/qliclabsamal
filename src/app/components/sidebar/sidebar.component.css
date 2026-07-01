@@ -277,4 +277,14 @@
   .collapse-toggle-btn {
     display: none;
   }
+
+  .sidebar-container {
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+
+  :host.open .sidebar-container {
+    transform: translateX(0);
+    box-shadow: 4px 0 12px rgba(0,0,0,0.15);
+  }
 }
