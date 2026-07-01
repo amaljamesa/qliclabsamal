@@ -1,0 +1,231 @@
+/* ── Sidebar Shell ── */
+.sidebar-container {
+  width: 200px;
+  min-width: 200px;
+  height: 100vh;
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── "User" top label ── */
+.sidebar-top-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+  letter-spacing: 0.01em;
+}
+
+/* ── Nav / Menu ── */
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar-menu {
+  list-style: none;
+  padding: 4px 0;
+  margin: 0;
+}
+
+/* ── Section Labels (hidden — not shown in screenshot) ── */
+.menu-section-label {
+  display: none;
+}
+
+/* ── Menu Item Wrapper ── */
+.menu-item-wrapper {
+  margin: 0;
+}
+
+/* ── Menu Item Header (shared for div + a) ── */
+.menu-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 7px 10px 7px 12px;
+  border-left: 3px solid transparent;
+  text-decoration: none;
+  color: #374151;
+  font-size: 12.5px;
+  font-weight: 500;
+  background: transparent;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.menu-item-header:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+/* Active state — teal left border, light blue bg */
+.menu-item-header.active {
+  border-left: 3px solid #0ea5e9;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-weight: 600;
+}
+
+.link-only {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ── Menu Link Content ── */
+.menu-link-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Icon ── */
+.menu-icon {
+  width: 16px;
+  min-width: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.menu-item-header:hover .menu-icon,
+.menu-item-header.active .menu-icon {
+  color: inherit;
+}
+
+.icon-svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── Menu Name ── */
+.menu-name {
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Chevron ── */
+.chevron-icon {
+  color: #9ca3af;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.chevron-icon.rotated {
+  transform: rotate(180deg);
+}
+
+/* ── Submenu ── */
+.submenu-list {
+  list-style: none;
+  padding: 2px 0 4px 28px;
+  margin: 0;
+}
+
+.submenu-item {
+  margin: 0;
+}
+
+.submenu-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  text-decoration: none;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 400;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+
+.submenu-link:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.submenu-link.active {
+  color: #0369a1;
+  font-weight: 600;
+  background: #e0f2fe;
+}
+
+.submenu-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #d1d5db;
+  flex-shrink: 0;
+}
+
+.submenu-link:hover .submenu-dot,
+.submenu-link.active .submenu-dot {
+  background: currentColor;
+}
+
+.submenu-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Inactive Items ── */
+.inactive-item {
+  opacity: 0.8;
+  cursor: default;
+}
+
+.inactive-item:hover {
+  background: transparent !important;
+  color: #374151 !important;
+}
+
+/* ── Logout ── */
+.sidebar-logout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid #e5e7eb;
+  background: #fff1f2;
+  color: #e11d48;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.sidebar-logout:hover {
+  background: #ffe4e6;
+}

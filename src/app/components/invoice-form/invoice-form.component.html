@@ -1,0 +1,299 @@
+<div class="invoice-form-wrapper">
+
+  <!-- Orange Header Bar -->
+  <div class="form-header-bar">
+    <div class="header-left">
+      <button class="back-btn" (click)="goBack()">
+        <span class="back-arrow">←</span>
+        Tax Invoice - test
+      </button>
+    </div>
+    <div class="header-right-info">
+      <div class="header-party">AF, {{ selectedParty }}
+        <button class="header-info-btn">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </button>
+      </div>
+      <div class="header-balance">As On Date Balance: <strong>33,119 Dr</strong></div>
+    </div>
+  </div>
+
+  <!-- Fields Row 1 -->
+  <div class="fields-panel">
+    <div class="fields-row">
+      <div class="field-group">
+        <label class="field-label">Trans Date*</label>
+        <input type="date" [(ngModel)]="invoiceDate" class="field-input" />
+      </div>
+      <div class="field-group">
+        <label class="field-label">Payment*</label>
+        <select [(ngModel)]="paymentMode" class="field-input">
+          <option value="Paid">Paid</option>
+          <option value="Not Paid">Not Paid</option>
+        </select>
+      </div>
+      <div class="field-group party-group">
+        <label class="field-label">Select Party*</label>
+        <div class="party-row">
+          <select [(ngModel)]="selectedParty" class="field-input">
+            <option *ngFor="let p of parties" [value]="p.name">{{ p.name }}</option>
+          </select>
+          <button class="tick-btn" (click)="addNewPartyInline()">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Resource*</label>
+        <select [(ngModel)]="invoiceMeasure" class="field-input">
+          <option value="User">User</option>
+          <option value="Standard">Standard</option>
+        </select>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="rcm" />
+        <label for="rcm">RCM</label>
+      </div>
+    </div>
+
+    <!-- Fields Row 2 -->
+    <div class="fields-row fields-row-2">
+      <div class="field-group">
+        <label class="field-label">Sub Transcation*</label>
+        <select class="field-input">
+          <option value="Sales">Sales</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">GST Region*</label>
+        <select class="field-input">
+          <option value="Local Sales">Local Sales</option>
+          <option value="Interstate Sales">Interstate Sales</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">GST Supply Type*</label>
+        <select class="field-input">
+          <option value="Regular">Regular</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Payment type*</label>
+        <select [(ngModel)]="paymentType" class="field-input">
+          <option value="Credit">Credit</option>
+          <option value="Cash">Cash</option>
+          <option value="UPI">UPI</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Tax type*</label>
+        <select class="field-input">
+          <option value="Inclusive- I">Inclusive- I</option>
+          <option value="Exclusive">Exclusive</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">GST Place of Supply*</label>
+        <select class="field-input">
+          <option value="29 - Karnataka">29 - Karnataka</option>
+        </select>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="autoround" checked />
+        <label for="autoround">Auto Round Off</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Items Table -->
+  <div class="items-panel">
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th class="th-si">Si</th>
+          <th class="th-product">Product Name</th>
+          <th class="th-qty">Qty</th>
+          <th class="th-rate">Rate</th>
+          <th class="th-tax">Tax Rate</th>
+          <th class="th-amount">Amount</th>
+          <th class="th-del"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of items; let i = index" class="item-row">
+          <td class="td-si">{{ i + 1 }}</td>
+          <td class="td-product">
+            <div class="autocomplete-container">
+              <input
+                type="text"
+                [(ngModel)]="item.productName"
+                (input)="onProductSearch(i, $event)"
+                placeholder=""
+                class="cell-input"
+                autocomplete="off"
+              />
+              <!-- Autocomplete Dropdown -->
+              <div class="autocomplete-dropdown" *ngIf="showAutocomplete && activeRowIndex === i">
+                <div class="ac-header-row">
+                  <span class="ac-search-val">{{ item.productName }}</span>
+                  <button class="ac-close-btn" (click)="showAutocomplete=false">×</button>
+                </div>
+                <table class="ac-table">
+                  <tbody>
+                    <tr *ngFor="let prod of filteredProducts; let pi = index"
+                        (click)="selectProduct(i, prod)"
+                        class="ac-row"
+                        [class.ac-row-highlight]="pi === 0">
+                      <td class="ac-name">{{ prod.name }}</td>
+                      <td>MRP: {{ prod.mrp | number:'1.2-2' }}</td>
+                      <td>nan</td>
+                      <td>rehab</td>
+                      <td [class.danger-stock]="prod.stock.startsWith('0') || prod.stock.startsWith('-')">{{ prod.stock }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </td>
+          <td><input type="number" [(ngModel)]="item.qty" (input)="calculateRowAmount(item)" min="1" class="cell-input num-input" /></td>
+          <td><input type="number" [(ngModel)]="item.rate" (input)="calculateRowAmount(item)" min="0" step="0.01" class="cell-input num-input" /></td>
+          <td>
+            <select [(ngModel)]="item.taxRate" (change)="calculateTotals()" class="cell-input tax-select">
+              <option value="GST @ 18%">GST &#64; 18%</option>
+              <option value="GST @ 12%">GST &#64; 12%</option>
+              <option value="GST @ 5%">GST &#64; 5%</option>
+              <option value="GST @ 2%">GST &#64; 2%</option>
+              <option value="GST @ 0%">GST &#64; 0%</option>
+              <option value="Exempted">Exempted</option>
+            </select>
+          </td>
+          <td class="td-amount">{{ item.amount | number:'1.2-2' }}</td>
+          <td class="td-del">
+            <button class="del-btn" (click)="deleteItem(i)">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+            </button>
+          </td>
+        </tr>
+        <!-- New row button row -->
+        <tr class="new-row-tr">
+          <td colspan="7">
+            <button class="new-row-btn" (click)="addItem()">New Row</button>
+          </td>
+        </tr>
+        <tr *ngIf="items.length === 0">
+          <td colspan="7" class="no-items">No items added.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- New Redesigned Bottom Panel -->
+  <div class="bottom-container">
+    <!-- Left Side: Notes Textarea -->
+    <div class="bottom-left-panel">
+      <textarea class="invoice-notes" [(ngModel)]="noteText"></textarea>
+    </div>
+
+    <!-- Right Side: Cards & Actions -->
+    <div class="bottom-right-panel">
+      <!-- Top Row: Cards -->
+      <div class="bottom-cards-row">
+        
+        <!-- TCS Calculation Card -->
+        <div class="summary-card tcs-card">
+          <div class="radio-group">
+            <label class="radio-container">
+              <input type="radio" name="calcMode" value="basic" [(ngModel)]="calcMode" (change)="onCalcModeChange()" />
+              <span class="custom-radio"></span>
+              Basic
+            </label>
+            <label class="radio-container">
+              <input type="radio" name="calcMode" value="invoice" [(ngModel)]="calcMode" (change)="onCalcModeChange()" />
+              <span class="custom-radio"></span>
+              Invoice Value
+            </label>
+          </div>
+          <div class="tcs-inputs-row">
+            <div class="tcs-input-group">
+              <span class="tcs-input-label">TCS %</span>
+              <input type="number" [(ngModel)]="tcsPercent" (input)="onTcsPercentChange()" class="tcs-field-input" />
+            </div>
+            <div class="tcs-input-group">
+              <span class="tcs-input-label">TCS Amt</span>
+              <input type="number" [(ngModel)]="tcs" (input)="onTcsAmtChange()" class="tcs-field-input" />
+            </div>
+            <button class="blue-info-btn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Products Card -->
+        <div class="summary-card products-card">
+          <div class="products-count-text">
+            Products: <strong>{{ productsCount }}</strong>
+          </div>
+        </div>
+
+        <!-- Summary Calculations Card -->
+        <div class="summary-card calculations-card">
+          <table class="calc-table">
+            <tbody>
+              <tr>
+                <td class="calc-label">Subtotal</td>
+                <td class="calc-value">{{ subtotal | number:'1.2-2' }}</td>
+              </tr>
+              <tr>
+                <td class="calc-label">
+                  Tax
+                  <button class="blue-info-btn-inline">
+                    <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  </button>
+                </td>
+                <td class="calc-value">{{ taxAmount | number:'1.2-2' }}</td>
+              </tr>
+              <tr>
+                <td class="calc-label">TCS</td>
+                <td class="calc-value">{{ tcs | number:'1.2-2' }}</td>
+              </tr>
+              <tr>
+                <td class="calc-label">
+                  Disc amt
+                  <button class="blue-info-btn-inline">
+                    <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  </button>
+                </td>
+                <td class="calc-value">
+                  <input type="number" [(ngModel)]="discount" (input)="calculateTotals()" class="discount-inline-input" />
+                </td>
+              </tr>
+              <tr class="total-row">
+                <td class="calc-label-total">Total</td>
+                <td class="calc-value-total">{{ totalAmount | number:'1.2-2' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <!-- Bottom Row: Redesigned Buttons -->
+      <div class="bottom-buttons-row">
+        <button class="btn-new btn-exit" (click)="goBack()">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <span class="underline-shortcut">X</span>: Exit
+        </button>
+        <button class="btn-new btn-update" (click)="saveInvoice()">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span class="underline-shortcut">S</span>: Update
+        </button>
+        <button class="btn-new btn-preview">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span class="underline-shortcut">F6</span>: Preview
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+</div>

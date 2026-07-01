@@ -1,0 +1,171 @@
+<div class="invoice-list-wrapper">
+
+  <!-- Page Header -->
+  <div class="invoice-page-header">
+    <span class="header-title">Invoice - test - test1</span>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="filter-card">
+    <div class="filters-row">
+
+      <div class="filter-item">
+        <label class="filter-label">From Date</label>
+        <input type="date" [(ngModel)]="startDate" (change)="applyFilters()" class="filter-input" />
+      </div>
+
+      <div class="filter-item">
+        <label class="filter-label">To Date</label>
+        <input type="date" [(ngModel)]="endDate" (change)="applyFilters()" class="filter-input" />
+      </div>
+
+      <div class="filter-item">
+        <label class="filter-label">Transaction Type</label>
+        <select class="filter-input">
+          <option value="Sales">Sales</option>
+          <option value="Purchase">Purchase</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label class="filter-label">Branch</label>
+        <select [(ngModel)]="selectedBranch" (change)="applyFilters()" class="filter-input branch-select">
+          <option value="All">Sunshine Limited...</option>
+          <option value="SMB">Sunshine Limited (SMB)</option>
+        </select>
+      </div>
+
+      <div class="filter-item btn-item">
+        <button class="refresh-btn" (click)="applyFilters()">Refresh</button>
+      </div>
+
+      <!-- Brief / Detailed Custom Radios -->
+      <div class="filter-item radio-item">
+        <div class="radio-group-horizontal">
+          <label class="radio-container-inline">
+            <input type="radio" name="viewMode" value="brief" [(ngModel)]="viewMode" />
+            <span class="custom-radio-circle"></span>
+            Brief
+          </label>
+          <label class="radio-container-inline">
+            <input type="radio" name="viewMode" value="detailed" [(ngModel)]="viewMode" />
+            <span class="custom-radio-circle"></span>
+            Detailed
+          </label>
+        </div>
+      </div>
+
+      <!-- Search + kebab aligned to the right -->
+      <div class="filter-item search-item">
+        <div class="search-row">
+          <div class="search-container">
+            <svg class="search-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input
+              type="text"
+              [(ngModel)]="searchQuery"
+              (input)="applyFilters()"
+              placeholder="Search"
+              class="invoice-search-input"
+            />
+          </div>
+          <button class="kebab-btn" title="More options">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Invoices Table -->
+  <div class="table-container-card">
+    <div class="table-responsive">
+      <table class="invoices-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Bill Time</th>
+            <th>Branch</th>
+            <th>Reference</th>
+            <th>Party</th>
+            <th *ngIf="viewMode === 'detailed'">Subtotal</th>
+            <th *ngIf="viewMode === 'detailed'">Tax</th>
+            <th class="amount-th">Amount</th>
+            <th>Payment</th>
+            <th>Payment Type</th>
+            <th class="action-th"></th>
+            <th class="action-th"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let inv of invoices" class="invoice-row" (click)="editInvoice(inv.id)">
+            <td class="date-td">{{ inv.date | date:'dd-MMM-yyyy' }}</td>
+            <td class="time-td">{{ inv.time }}</td>
+            <td class="branch-td">{{ inv.branch }}</td>
+            <td class="invoice-no-td">{{ inv.invoiceNo }}</td>
+            <td class="party-td">{{ inv.partyName }}</td>
+            <td *ngIf="viewMode === 'detailed'" class="amount-col">{{ inv.subtotal | number:'1.2-2' }}</td>
+            <td *ngIf="viewMode === 'detailed'" class="amount-col">{{ inv.taxAmount | number:'1.2-2' }}</td>
+            <td class="amount-td amount-col">{{ inv.totalAmount | number:'1.2-2' }}</td>
+            <td class="payment-td">PAID</td>
+            <td class="type-td">{{ inv.paymentType }}</td>
+            <td class="action-td" (click)="$event.stopPropagation()">
+              <button class="row-icon-btn" (click)="editInvoice(inv.id)" title="Print">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+              </button>
+            </td>
+            <td class="action-td" (click)="$event.stopPropagation()">
+              <button class="row-icon-btn more-btn" (click)="deleteInvoice(inv.id, $event)" title="More">...</button>
+            </td>
+          </tr>
+
+          <tr *ngIf="invoices.length === 0">
+            <td [attr.colspan]="viewMode === 'detailed' ? 12 : 10" class="no-data-row">
+              No invoices found.
+            </td>
+          </tr>
+        </tbody>
+
+        <!-- Summary Footer -->
+        <tfoot *ngIf="invoices.length > 0">
+          <tr class="summary-footer-row">
+            <td [attr.colspan]="viewMode === 'detailed' ? 7 : 5" class="total-label-td">Total Sales</td>
+            <td class="total-val-td amount-col">{{ getTotalSales() | number:'1.2-2' }}</td>
+            <td colspan="4" class="footer-filler-td"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Pagination & FAB inside table container to keep alignment -->
+    <div class="pagination-panel">
+      <div class="pagination-left">
+        <span class="page-size-label">Items per page:</span>
+        <select [(ngModel)]="itemsPerPage" class="page-size-select">
+          <option [value]="10">10</option>
+          <option [value]="25">25</option>
+          <option [value]="50">50</option>
+          <option [value]="100">100</option>
+        </select>
+      </div>
+      <div class="pagination-right">
+        <span class="pagination-info">1 - {{ invoices.length }} of {{ invoices.length }}</span>
+        <div class="pagination-btns">
+          <button class="page-arrow-flat" disabled>|&lt;</button>
+          <button class="page-arrow-flat" disabled>&lt;</button>
+          <button class="page-arrow-flat" disabled>&gt;</button>
+          <button class="page-arrow-flat" disabled>&gt;|</button>
+        </div>
+      </div>
+      
+      <!-- FAB inside pagination relative positioning -->
+      <button class="fab-invoice-btn" (click)="addNewInvoice()" title="Add Invoice">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </button>
+    </div>
+
+  </div>
+
+</div>

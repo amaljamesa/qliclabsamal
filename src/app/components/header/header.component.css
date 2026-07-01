@@ -1,0 +1,180 @@
+.main-header {
+  min-height: 70px;
+  background-color: #e08e45;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 0 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* ── Left ── */
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.welcome-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.welcome-title {
+  font-size: 14px;
+  font-weight: 400;
+  color: #1a1a1a;
+}
+
+.welcome-title strong {
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.welcome-subtitle {
+  font-size: 12px;
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+/* ── Right ── */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Help text link */
+.header-control {
+  font-size: 13px;
+  font-weight: 400;
+  color: #1a1a1a;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.header-control:hover {
+  text-decoration: underline;
+}
+
+/* "en" text */
+.header-pill {
+  font-size: 13px;
+  font-weight: 400;
+  color: #1a1a1a;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.header-pill:hover {
+  text-decoration: underline;
+}
+
+/* Icon buttons (globe, bell) */
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: #1a1a1a;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0;
+}
+
+.icon-btn:hover {
+  opacity: 0.75;
+}
+
+.notification-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 6px;
+  height: 6px;
+  background-color: #1a1a1a;
+  border-radius: 50%;
+}
+
+/* ── User info block — plain text, no card ── */
+.user-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  color: #1a1a1a;
+  text-align: left;
+}
+
+.user-menu-text {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 1px;
+}
+
+.user-menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.user-menu-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a1a1a;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.user-menu-sub {
+  font-size: 12px;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 210px;
+}
+
+.user-menu-extra-text {
+  font-size: 12px;
+  color: #1a1a1a;
+}
+
+.user-menu svg {
+  width: 12px;
+  height: 12px;
+  color: #1a1a1a;
+}
+
+@media (max-width: 768px) {
+  .main-header {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 18px;
+  }
+
+  .header-right {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+}
