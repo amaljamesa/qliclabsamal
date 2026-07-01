@@ -14,6 +14,7 @@ import { filter } from 'rxjs/operators';
 })
 export class AppComponent {
   isSidebarOpen = false;
+  isSidebarCollapsed = false;
 
   constructor(private router: Router) {
     // Close sidebar on mobile when navigating
@@ -30,5 +31,9 @@ export class AppComponent {
 
   closeSidebar(): void {
     this.isSidebarOpen = false;
+  }
+
+  toggleSidebarCollapse(): void {
+    this.isSidebarCollapsed = !this.isSidebarCollapsed;
   }
 }

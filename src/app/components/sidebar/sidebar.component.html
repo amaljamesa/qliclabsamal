@@ -123,3 +123,9 @@
   </div>
 
 </div>
+
+<!-- Floating Collapse Button -->
+<button class="collapse-toggle-btn" (click)="onToggleCollapse()" [attr.aria-label]="isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'">
+  <svg *ngIf="!isCollapsed" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  <svg *ngIf="isCollapsed" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+</button>

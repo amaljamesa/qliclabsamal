@@ -1,4 +1,9 @@
 /* ── Sidebar Shell ── */
+:host {
+  display: block;
+  z-index: 100;
+}
+
 .sidebar-container {
   width: 200px;
   min-width: 200px;
@@ -13,6 +18,11 @@
   z-index: 100;
   overflow-y: auto;
   overflow-x: hidden;
+  transition: transform 0.3s ease;
+}
+
+:host.collapsed .sidebar-container {
+  transform: translateX(-100%);
 }
 
 /* ── "User" top label ── */
@@ -228,4 +238,43 @@
 
 .sidebar-logout:hover {
   background: #ffe4e6;
+}
+
+/* ── Collapse Toggle Button ── */
+.collapse-toggle-btn {
+  position: fixed;
+  top: 18px;
+  left: 186px; /* 200px (sidebar width) - 14px (half button size) */
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 101;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  color: #718096;
+  transition: left 0.3s ease, background-color 0.15s, color 0.15s;
+  outline: none;
+  padding: 0;
+}
+
+.collapse-toggle-btn:hover {
+  background: #f7fafc;
+  color: #2d3748;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.18);
+}
+
+:host.collapsed .collapse-toggle-btn {
+  left: -14px; /* slides to the very left edge of the screen */
+}
+
+/* On mobile views, hide toggle button as sidebar acts as absolute drawer overlay */
+@media (max-width: 992px) {
+  .collapse-toggle-btn {
+    display: none;
+  }
 }

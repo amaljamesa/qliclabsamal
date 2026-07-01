@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 
@@ -19,6 +19,13 @@ interface MenuItem {
   styleUrls: ['./sidebar.component.css']
 })
 export class SidebarComponent {
+  @Input() isCollapsed = false;
+  @Output() toggleCollapse = new EventEmitter<void>();
+
+  onToggleCollapse(): void {
+    this.toggleCollapse.emit();
+  }
+
   menuItems: MenuItem[] = [
     { name: 'Home', icon: 'home', route: '/dashboard' },
     { name: 'Masters', icon: 'database', expanded: false, submenu: [

@@ -17,6 +17,10 @@
   background-color: var(--bg);
 }
 
+.app-layout-grid.collapsed .main-body-container {
+  margin-left: 0;
+}
+
 .page-content-outlet {
   flex: 1;
   display: flex;

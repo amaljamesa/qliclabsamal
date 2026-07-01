@@ -1,6 +1,11 @@
-<div class="app-layout-grid">
+<div class="app-layout-grid" [class.collapsed]="isSidebarCollapsed">
   <!-- Left Sidebar Navigation -->
-  <app-sidebar [class.open]="isSidebarOpen"></app-sidebar>
+  <app-sidebar 
+    [class.open]="isSidebarOpen" 
+    [class.collapsed]="isSidebarCollapsed" 
+    [isCollapsed]="isSidebarCollapsed" 
+    (toggleCollapse)="toggleSidebarCollapse()">
+  </app-sidebar>
 
   <!-- Mobile Sidebar Backdrop Overlay -->
   <div 
