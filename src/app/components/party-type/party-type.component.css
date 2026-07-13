@@ -55,6 +55,14 @@
   overflow-x: auto;
 }
 
+.desktop-only {
+  display: block;
+}
+
+.mobile-only {
+  display: none;
+}
+
 .catalogue-table {
   width: 100%;
   border-collapse: collapse;
@@ -62,40 +70,43 @@
   text-align: left;
 }
 
-/* Header row — light blue bg, dark text */
 .catalogue-table thead tr {
   background-color: #dbeafe;
 }
 
 .catalogue-table th {
-  padding: 9px 16px;
+  padding: 10px 16px;
   font-weight: 500;
   color: #1f2937;
   border-bottom: 1px solid #bfdbfe;
   font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .catalogue-table td {
-  padding: 9px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid #f3f4f6;
   color: #374151;
   font-size: 13px;
+  vertical-align: middle;
 }
 
 .catalogue-table tbody tr:hover td {
   background-color: #f9fafb;
 }
 
-.id-th, .id-td {
+.id-th,
+.id-td {
   width: 60px;
 }
 
-.actions-th, .actions-td {
+.actions-th,
+.actions-td {
   width: 60px;
   text-align: right;
 }
 
-/* "..." dots button */
 .action-dots-btn {
   background: none;
   border: none;
@@ -268,116 +279,147 @@
   transform: scale(1.08);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .party-type-wrapper {
-    padding: 14px 16px;
+    padding: 12px 14px;
   }
 
   .catalogue-header-panel {
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
+    gap: 12px;
   }
 
   .catalogue-search-input {
     width: 100%;
   }
 
-  .catalogue-table,
-  .catalogue-table thead,
-  .catalogue-table tbody,
-  .catalogue-table th,
-  .catalogue-table td,
-  .catalogue-table tr {
-    display: block;
-    width: 100%;
+  .desktop-only {
+    display: none !important;
   }
 
-  .catalogue-table thead {
-    display: none;
+  .mobile-only {
+    display: block !important;
   }
 
-  .catalogue-table tr {
-    margin: 0 0 16px 0;
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
+  .party-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .party-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
     background: #ffffff;
-    overflow: hidden;
-    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
   }
 
-  .catalogue-table td {
-    border: none;
-    border-bottom: 1px solid #f3f4f6;
-    position: relative;
-    padding: 20px 16px 20px 16px;
-    text-align: left;
-    min-height: 56px;
+  .party-card:hover {
+    background: #f8fafc;
   }
 
-  .catalogue-table td:last-child {
-    border-bottom: none;
-  }
-
-  .catalogue-table td:before {
-    position: absolute;
-    top: 16px;
-    left: 16px;
-    color: #6b7280;
-    font-size: 12px;
+  .party-id-badge {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #eff6ff;
+    color: #1d4ed8;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-size: 13px;
+    flex-shrink: 0;
   }
 
-  .id-td:before {
-    content: "ID:";
+  .party-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
   }
 
-  .name-td:before {
-    content: "Name:";
+  .name-line {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .print-td:before {
-    content: "Short Name:";
+  .short-name-line {
+    font-size: 12px;
+    color: #6b7280;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .actions-td:before {
-    content: "Actions:";
-  }
-
-  .catalogue-table td {
-    padding-top: 36px;
+  .party-actions {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .action-dots-btn {
-    width: 100%;
-    text-align: left;
-    padding: 10px 0;
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 50%;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .action-dots-btn:hover {
+    background: #eef2ff;
+    color: #1f2937;
   }
 }
 
 @media (max-width: 480px) {
   .party-type-wrapper {
-    padding: 12px;
+    padding: 10px;
   }
 
-  .catalogue-table th,
-  .catalogue-table td {
-    padding: 7px 10px;
-    font-size: 12px;
-  }
-
-  .catalogue-header-panel {
+  .catalogue-table tr {
+    padding: 10px 10px;
     gap: 10px;
   }
 
-  .panel-left {
-    flex-wrap: wrap;
+  .id-td {
+    width: 36px;
+    height: 36px;
+    font-size: 12px;
   }
 
-  .modal-card {
-    margin: 12px;
-    max-width: calc(100vw - 24px);
+  .name-line {
+    font-size: 13px;
+  }
+
+  .short-name-line {
+    font-size: 11px;
+  }
+
+  .action-dots-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
   }
 }

@@ -5,9 +5,10 @@
 }
 
 .sidebar-container {
-  width: 200px;
-  min-width: 200px;
+  width: min(200px, 85vw);
+  min-width: min(200px, 85vw);
   height: 100vh;
+  height: 100dvh;
   background: #ffffff;
   border-right: 1px solid #e5e7eb;
   display: flex;
@@ -281,6 +282,8 @@
   .sidebar-container {
     transform: translateX(-100%);
     box-shadow: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   :host.open .sidebar-container {

@@ -16,30 +16,43 @@
 
   <!-- TABLE VIEW -->
   <div class="table-card-container">
-    <div class="table-responsive">
+    <div class="table-responsive desktop-only">
       <table class="catalogue-table">
         <thead>
           <tr>
-            <th class="id-th">id</th>
+            <th class="id-th">ID</th>
             <th>Name</th>
-            <th>Short Name</th>
             <th class="actions-th"></th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let party of partyTypes">
             <td class="id-td">{{ party.id }}</td>
-            <td class="name-td">{{ party.name }}</td>
-            <td class="print-td">{{ party.printName }}</td>
+            <td class="name-td">
+              <div class="name-line">{{ party.name }}</div>
+              <div class="short-name-line">{{ party.printName }}</div>
+            </td>
             <td class="actions-td">
               <button class="action-dots-btn" (click)="openEditModal(party, $event)" title="Actions">···</button>
             </td>
           </tr>
           <tr *ngIf="partyTypes.length === 0">
-            <td colspan="4" class="no-data-cell">No party types found.</td>
+            <td colspan="3" class="no-data-cell">No party types found.</td>
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="party-card-list mobile-only">
+      <div *ngFor="let party of partyTypes" class="party-card">
+        <div class="party-id-badge">{{ party.id }}</div>
+        <div class="party-content">
+          <div class="name-line">{{ party.name }}</div>
+          <div class="short-name-line">{{ party.printName }}</div>
+        </div>
+        <button class="action-dots-btn" (click)="openEditModal(party, $event)" title="Actions">···</button>
+      </div>
+      <div *ngIf="partyTypes.length === 0" class="no-data-cell">No party types found.</div>
     </div>
   </div>
 

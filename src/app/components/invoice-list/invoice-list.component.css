@@ -35,6 +35,10 @@
   gap: 12px;
 }
 
+.table-responsive {
+  overflow-x: auto;
+}
+
 .filter-item {
   display: flex;
   flex-direction: column;
@@ -464,4 +468,77 @@ select.filter-input {
 .fab-invoice-btn:hover {
   background: #0bb7fc;
   transform: translateY(-50%) scale(1.08);
+}
+
+@media (max-width: 768px) {
+  .invoice-list-wrapper {
+    padding: 10px 12px;
+  }
+
+  .invoices-table {
+    min-width: 720px;
+  }
+
+  .filters-row {
+    gap: 8px;
+  }
+
+  .filter-item {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 0;
+  }
+
+  .search-item {
+    margin-left: 0;
+    flex: 1 1 100%;
+  }
+
+  .invoice-search-input {
+    width: 100%;
+  }
+
+  .pagination-right {
+    padding-right: 52px;
+  }
+}
+
+@media (max-width: 480px) {
+  .filter-item {
+    flex: 1 1 100%;
+  }
+
+  .invoices-table th,
+  .invoices-table td {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .time-td,
+  .branch-td {
+    display: none;
+  }
+
+  .pagination-panel {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .pagination-right {
+    padding-right: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .fab-invoice-btn {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    top: auto;
+    transform: none;
+  }
+
+  .fab-invoice-btn:hover {
+    transform: scale(1.08);
+  }
 }

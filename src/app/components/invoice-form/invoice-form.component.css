@@ -1,6 +1,7 @@
 .invoice-form-wrapper {
   background: #ffffff;
-  height: calc(100vh - 60px);
+  min-height: calc(100vh - 60px);
+  min-height: calc(100dvh - 60px);
   display: flex;
   flex-direction: column;
   font-size: 12px;
@@ -123,6 +124,8 @@
   height: 28px;
   box-sizing: border-box;
   min-width: 100px;
+  min-width: 0;
+  width: 100%;
 }
 
 .field-input:focus {
@@ -691,4 +694,103 @@ select.field-input {
 
 .underline-shortcut {
   text-decoration: underline;
+}
+
+@media (max-width: 992px) {
+  .fields-row {
+    gap: 8px;
+  }
+
+  .field-group {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 0;
+  }
+
+  .party-group {
+    flex: 1 1 100%;
+    width: auto;
+  }
+
+  .items-panel {
+    overflow-x: auto;
+  }
+
+  .items-table {
+    min-width: 680px;
+  }
+
+  .autocomplete-dropdown {
+    width: min(92vw, 420px);
+  }
+}
+
+@media (max-width: 768px) {
+  .form-header-bar {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 10px;
+    min-height: auto;
+  }
+
+  .header-right-info {
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .fields-panel {
+    padding: 6px 8px;
+  }
+
+  .bottom-container {
+    flex-direction: column;
+    padding: 8px;
+  }
+
+  .bottom-left-panel {
+    width: 100%;
+  }
+
+  .bottom-right-panel {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .bottom-cards-row {
+    flex-wrap: wrap;
+  }
+
+  .summary-card {
+    flex: 1 1 180px;
+    min-width: 0;
+  }
+
+  .tcs-card,
+  .calculations-card {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 540px) {
+  .field-group {
+    flex: 1 1 100%;
+  }
+
+  .checkbox-group {
+    height: auto;
+    padding-bottom: 0;
+  }
+
+  .invoice-notes {
+    min-height: 56px;
+    height: auto;
+  }
+
+  .bottom-buttons-row {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .btn-new {
+    width: 100%;
+  }
 }

@@ -7,12 +7,18 @@
   justify-content: space-between;
   padding: 0 16px 0 20px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  min-width: 0;
 }
 
 /* ── Left ── */
 .header-left {
   display: flex;
   align-items: center;
+  min-width: 0;
+}
+
+.header-right {
+  min-width: 0;
 }
 
 .welcome-text {
@@ -118,6 +124,7 @@
   padding: 0;
   color: #1a1a1a;
   text-align: left;
+  max-width: 100%;
 }
 
 .user-menu-text {
@@ -199,5 +206,36 @@
   .header-right {
     gap: 8px;
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 600px) {
+  .main-header {
+    padding: 8px 12px;
+    min-height: 52px;
+    flex-wrap: nowrap;
+  }
+
+  .header-control,
+  .header-pill,
+  .icon-btn {
+    display: none;
+  }
+
+  .user-menu-sub,
+  .user-menu-extra-text {
+    display: none;
+  }
+
+  .user-menu-name {
+    font-size: 12px;
+  }
+
+  .welcome-subtitle {
+    display: none;
+  }
+
+  .welcome-title {
+    font-size: 13px;
   }
 }
