@@ -4,16 +4,6 @@
   <div class="catalogue-header-panel">
     <div class="panel-left">
       <span class="panel-title">Party Type</span>
-      <button class="view-toggle-btn" (click)="toggleView()" [title]="isCardView ? 'Switch to Table View' : 'Switch to Card View'">
-        <ng-container *ngIf="isCardView; else tableIcon">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          Table View
-        </ng-container>
-        <ng-template #tableIcon>
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
-          Card View
-        </ng-template>
-      </button>
     </div>
     <input
       type="text"
@@ -25,7 +15,7 @@
   </div>
 
   <!-- TABLE VIEW -->
-  <div *ngIf="!isCardView" class="table-card-container">
+  <div class="table-card-container">
     <div class="table-responsive">
       <table class="catalogue-table">
         <thead>
@@ -51,26 +41,6 @@
         </tbody>
       </table>
     </div>
-  </div>
-
-  <!-- CARD VIEW -->
-  <div *ngIf="isCardView" class="cards-grid-container">
-    <div *ngFor="let party of partyTypes" class="party-item-card">
-      <div class="card-id">ID: {{ party.id }}</div>
-      <div class="card-icon">
-        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
-        </svg>
-      </div>
-      <div class="card-name">{{ party.name }}</div>
-      <div class="card-short">{{ party.printName }}</div>
-      <div class="card-actions">
-        <button class="card-btn edit-btn" (click)="openEditModal(party, $event)">Edit</button>
-        <button class="card-btn delete-btn" (click)="deleteParty(party.id, $event)">Delete</button>
-      </div>
-    </div>
-    <div *ngIf="partyTypes.length === 0" class="no-data-cell">No party types found.</div>
   </div>
 
   <!-- Floating Action Button -->

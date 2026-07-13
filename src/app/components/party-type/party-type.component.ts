@@ -13,7 +13,6 @@ import { DataService, PartyType } from '../../services/data.service';
 export class PartyTypeComponent implements OnInit {
   partyTypes: PartyType[] = [];
   searchQuery = '';
-  isCardView = false; // Toggle for table-to-card view conversion
 
   // Modal State
   showModal = false;
@@ -34,10 +33,6 @@ export class PartyTypeComponent implements OnInit {
 
   onSearch(): void {
     this.loadPartyTypes();
-  }
-
-  toggleView(): void {
-    this.isCardView = !this.isCardView;
   }
 
   openAddModal(): void {

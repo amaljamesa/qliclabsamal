@@ -268,115 +268,116 @@
   transform: scale(1.08);
 }
 
-/* View toggle button */
-.view-toggle-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  background: #ffffff;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  padding: 5px 10px;
-  font-size: 12px;
-  color: #374151;
-  cursor: pointer;
-  transition: background 0.15s;
+@media (max-width: 900px) {
+  .party-type-wrapper {
+    padding: 14px 16px;
+  }
+
+  .catalogue-header-panel {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .catalogue-search-input {
+    width: 100%;
+  }
+
+  .catalogue-table,
+  .catalogue-table thead,
+  .catalogue-table tbody,
+  .catalogue-table th,
+  .catalogue-table td,
+  .catalogue-table tr {
+    display: block;
+    width: 100%;
+  }
+
+  .catalogue-table thead {
+    display: none;
+  }
+
+  .catalogue-table tr {
+    margin: 0 0 16px 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #ffffff;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+  }
+
+  .catalogue-table td {
+    border: none;
+    border-bottom: 1px solid #f3f4f6;
+    position: relative;
+    padding: 20px 16px 20px 16px;
+    text-align: left;
+    min-height: 56px;
+  }
+
+  .catalogue-table td:last-child {
+    border-bottom: none;
+  }
+
+  .catalogue-table td:before {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .id-td:before {
+    content: "ID:";
+  }
+
+  .name-td:before {
+    content: "Name:";
+  }
+
+  .print-td:before {
+    content: "Short Name:";
+  }
+
+  .actions-td:before {
+    content: "Actions:";
+  }
+
+  .catalogue-table td {
+    padding-top: 36px;
+  }
+
+  .action-dots-btn {
+    width: 100%;
+    text-align: left;
+    padding: 10px 0;
+  }
 }
 
-.view-toggle-btn:hover {
-  background: #f3f4f6;
-}
+@media (max-width: 480px) {
+  .party-type-wrapper {
+    padding: 12px;
+  }
 
-/* Card view grid */
-.cards-grid-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-}
+  .catalogue-table th,
+  .catalogue-table td {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
 
-.party-item-card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  position: relative;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-  transition: box-shadow 0.2s;
-}
+  .catalogue-header-panel {
+    gap: 10px;
+  }
 
-.party-item-card:hover {
-  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-}
+  .panel-left {
+    flex-wrap: wrap;
+  }
 
-.card-id {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  font-size: 11px;
-  color: #9ca3af;
-  font-family: monospace;
-}
-
-.card-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: #eff6ff;
-  color: #3b82f6;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 8px;
-}
-
-.card-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #111827;
-  text-align: center;
-}
-
-.card-short {
-  font-size: 12px;
-  color: #6b7280;
-  text-align: center;
-}
-
-.card-actions {
-  display: flex;
-  gap: 8px;
-  width: 100%;
-  margin-top: 4px;
-}
-
-.card-btn {
-  flex: 1;
-  padding: 6px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid #e5e7eb;
-  background: none;
-  transition: background 0.15s;
-}
-
-.card-btn.edit-btn {
-  color: #3b82f6;
-}
-
-.card-btn.edit-btn:hover {
-  background: #eff6ff;
-}
-
-.card-btn.delete-btn {
-  color: #ef4444;
-}
-
-.card-btn.delete-btn:hover {
-  background: #fef2f2;
+  .modal-card {
+    margin: 12px;
+    max-width: calc(100vw - 24px);
+  }
 }
