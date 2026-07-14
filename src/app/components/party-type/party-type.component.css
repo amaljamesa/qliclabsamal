@@ -292,7 +292,7 @@
   transform: scale(1.08);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 600px) {
   .party-type-wrapper {
     padding: 12px 14px;
   }
@@ -391,7 +391,7 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 400px) {
   .party-type-wrapper {
     padding: 10px;
   }
