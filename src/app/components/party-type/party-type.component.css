@@ -57,13 +57,7 @@
   overflow-y: auto;
 }
 
-.desktop-only {
-  display: block;
-}
 
-.mobile-only {
-  display: none;
-}
 
 .catalogue-table {
   width: 100%;
@@ -313,42 +307,40 @@
     width: 100%;
   }
 
-  .desktop-only {
-    display: none !important;
+  .catalogue-table thead {
+    display: none;
   }
 
-  .mobile-only {
-    display: block !important;
+  .catalogue-table,
+  .catalogue-table tbody,
+  .catalogue-table tr,
+  .catalogue-table td {
+    display: block;
+    width: 100%;
   }
 
-  .party-card-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .party-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 14px 16px;
+  .catalogue-table tr {
     background: #ffffff;
     border: 1px solid #e5e7eb;
     border-radius: 16px;
     box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    margin-bottom: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
   }
 
-  .party-card:hover {
-    background: #f8fafc;
+  .catalogue-table td {
+    border: none;
+    padding: 0;
   }
 
-  .party-id-badge {
+  .idTd {
     width: 42px;
-    height: 42px;
     min-width: 42px;
-    min-height: 42px;
-    display: inline-flex;
+    height: 42px;
+    display: inline-flex !important;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
@@ -357,39 +349,33 @@
     font-weight: 700;
     font-size: 13px;
     flex-shrink: 0;
+    padding-left: 0;
   }
 
-  .party-content {
+  .nameTd {
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 2px;
-    min-width: 0;
-  }
-
-  .name-line {
     font-size: 14px;
     font-weight: 600;
     color: #111827;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    width: auto;
   }
 
-  .short-name-line {
+  .shortNameTd {
     font-size: 12px;
     color: #6b7280;
+    width: auto;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .party-actions {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  .actionsTd {
+    width: auto;
+    padding-right: 0;
+    text-align: right;
   }
 
   .action-dots-btn {
@@ -401,14 +387,7 @@
     padding: 0;
     border-radius: 50%;
     background: #f8fafc;
-    color: #475569;
     font-size: 18px;
-    line-height: 1;
-  }
-
-  .action-dots-btn:hover {
-    background: #eef2ff;
-    color: #1f2937;
   }
 }
 

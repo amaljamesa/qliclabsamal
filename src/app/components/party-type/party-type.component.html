@@ -14,9 +14,8 @@
     />
   </div>
 
-  <!-- TABLE VIEW -->
   <div class="table-card-container">
-    <div class="table-responsive desktop-only">
+    <div class="table-responsive">
       <table class="catalogue-table">
         <thead>
           <tr>
@@ -28,9 +27,9 @@
         </thead>
         <tbody>
           <tr *ngFor="let party of partyTypes">
-            <td class="idTd">{{ party.id }}</td>
-            <td class="nameTd">{{ party.name }}</td>
-            <td class="shortNameTd">{{ party.printName }}</td>
+            <td class="idTd" data-label="Id">{{ party.id }}</td>
+            <td class="nameTd" data-label="Name">{{ party.name }}</td>
+            <td class="shortNameTd" data-label="Short Name">{{ party.printName }}</td>
             <td class="actionsTd">
               <button class="action-dots-btn" (click)="openEditModal(party, $event)" title="Actions">···</button>
             </td>
@@ -40,18 +39,6 @@
           </tr>
         </tbody>
       </table>
-    </div>
-
-    <div class="party-card-list mobile-only">
-      <div *ngFor="let party of partyTypes" class="party-card">
-        <div class="party-id-badge">{{ party.id }}</div>
-        <div class="party-content">
-          <div class="name-line">{{ party.name }}</div>
-          <div class="short-name-line">{{ party.printName }}</div>
-        </div>
-        <button class="action-dots-btn" (click)="openEditModal(party, $event)" title="Actions">···</button>
-      </div>
-      <div *ngIf="partyTypes.length === 0" class="no-data-cell">No party types found.</div>
     </div>
   </div>
 
