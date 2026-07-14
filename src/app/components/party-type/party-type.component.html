@@ -20,24 +20,23 @@
       <table class="catalogue-table">
         <thead>
           <tr>
-            <th class="id-th">ID</th>
+            <th class="idTh">Id</th>
             <th>Name</th>
-            <th class="actions-th"></th>
+            <th class="shortNameTh">Short Name</th>
+            <th class="actionsTh"></th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let party of partyTypes">
-            <td class="id-td">{{ party.id }}</td>
-            <td class="name-td">
-              <div class="name-line">{{ party.name }}</div>
-              <div class="short-name-line">{{ party.printName }}</div>
-            </td>
-            <td class="actions-td">
+            <td class="idTd">{{ party.id }}</td>
+            <td class="nameTd">{{ party.name }}</td>
+            <td class="shortNameTd">{{ party.printName }}</td>
+            <td class="actionsTd">
               <button class="action-dots-btn" (click)="openEditModal(party, $event)" title="Actions">···</button>
             </td>
           </tr>
           <tr *ngIf="partyTypes.length === 0">
-            <td colspan="3" class="no-data-cell">No party types found.</td>
+            <td colspan="4" class="no-data-cell">No party types found.</td>
           </tr>
         </tbody>
       </table>

@@ -48,11 +48,13 @@
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .table-responsive {
   overflow-x: auto;
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
 }
 
 .desktop-only {
@@ -80,8 +82,7 @@
   color: #1f2937;
   border-bottom: 1px solid #bfdbfe;
   font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  text-align: left;
 }
 
 .catalogue-table td {
@@ -96,16 +97,34 @@
   background-color: #f9fafb;
 }
 
-.id-th,
-.id-td {
-  width: 60px;
+.idTh,
+.idTd {
+  width: 80px;
+  text-align: left;
+  padding-left: 20px;
 }
 
-.actions-th,
-.actions-td {
+.shortNameTh,
+.shortNameTd {
+  width: 40%;
+  text-align: left;
+  color: #374151;
+  font-size: 13px;
+}
+
+.nameTd {
+  text-align: left;
+  width: 40%;
+}
+
+.actionsTh,
+.actionsTd {
   width: 60px;
   text-align: right;
+  padding-right: 16px;
 }
+
+/* legacy hyphenated selectors removed; use camelCase selectors above */
 
 .action-dots-btn {
   background: none;
@@ -403,10 +422,11 @@
     gap: 10px;
   }
 
-  .id-td {
+  .idTd {
     width: 36px;
     height: 36px;
     font-size: 12px;
+    text-align: center;
   }
 
   .name-line {
