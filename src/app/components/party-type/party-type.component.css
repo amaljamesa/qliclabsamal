@@ -1,4 +1,4 @@
-.party-type-wrapper {
+﻿.party-type-wrapper {
   padding: 20px 24px;
   background-color: #f5f5f5;
   min-height: calc(100vh - 60px);
@@ -7,7 +7,6 @@
   gap: 12px;
 }
 
-/* Header row: title left, search right */
 .catalogue-header-panel {
   display: flex;
   justify-content: space-between;
@@ -16,7 +15,8 @@
   padding: 0 0 8px 0;
 }
 
-.panel-left {
+.panel-left,
+.panel-right {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -27,6 +27,7 @@
   font-weight: 600;
   color: #1a1a1a;
 }
+
 
 .catalogue-search-input {
   padding: 5px 10px;
@@ -43,7 +44,6 @@
   border-color: #93c5fd;
 }
 
-/* Table container */
 .table-card-container {
   background: #ffffff;
   border: 1px solid #e5e7eb;
@@ -56,8 +56,6 @@
   max-height: calc(100vh - 220px);
   overflow-y: auto;
 }
-
-
 
 .catalogue-table {
   width: 100%;
@@ -118,8 +116,6 @@
   padding-right: 16px;
 }
 
-/* legacy hyphenated selectors removed; use camelCase selectors above */
-
 .action-dots-btn {
   background: none;
   border: none;
@@ -144,7 +140,6 @@
   font-style: italic;
 }
 
-/* Modal */
 .modal-backdrop {
   position: fixed;
   top: 0;
@@ -267,7 +262,6 @@
   background: #2563eb;
 }
 
-/* Floating Plus FAB */
 .fab-plus-btn {
   position: fixed;
   bottom: 24px;
@@ -292,7 +286,9 @@
   transform: scale(1.08);
 }
 
-@media (max-width: 600px) {
+
+
+@media screen and (max-width: 1200px) {
   .party-type-wrapper {
     padding: 12px 14px;
   }
@@ -307,118 +303,132 @@
     width: 100%;
   }
 
-  .catalogue-table thead {
-    display: none;
-  }
-
   .catalogue-table,
   .catalogue-table tbody,
   .catalogue-table tr,
+  .catalogue-table th,
   .catalogue-table td {
-    display: block;
-    width: 100%;
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .catalogue-table thead {
+    display: none !important;
+  }
+
+  .catalogue-table {
+    border: none !important;
+    box-shadow: none !important;
+    min-width: 0 !important;
   }
 
   .catalogue-table tr {
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 16px;
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
-    margin-bottom: 12px;
-    padding: 14px 16px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
+    display: grid !important;
+    grid-template-columns: 46px minmax(0, 1fr) 52px !important;
+    grid-template-rows: auto auto !important;
+    grid-template-areas: "id name actions" "id subtitle actions" !important;
+    gap: 10px 16px !important;
+    align-items: center !important;
+    padding: 16px 18px !important;
+    margin-bottom: 16px !important;
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 20px !important;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08) !important;
+  }
+
+  .catalogue-table tr:hover {
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12) !important;
   }
 
   .catalogue-table td {
-    border: none;
-    padding: 0;
+    display: block !important;
+    width: 100% !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    white-space: normal !important;
+  }
+
+  .catalogue-table td::before {
+    display: none !important;
   }
 
   .idTd {
-    width: 42px;
-    min-width: 42px;
-    height: 42px;
+    grid-area: id !important;
+    width: 46px !important;
+    min-width: 46px !important;
+    height: 46px !important;
     display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    background: #eff6ff;
-    color: #1d4ed8;
-    font-weight: 700;
-    font-size: 13px;
-    flex-shrink: 0;
-    padding-left: 0;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    line-height: 1 !important;
+    padding: 0 !important;
+    text-align: center !important;
   }
 
   .nameTd {
-    flex: 1;
-    font-size: 14px;
-    font-weight: 600;
-    color: #111827;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    width: auto;
+    grid-area: name !important;
+    display: block !important;
+    font-weight: 700 !important;
+    color: #111827 !important;
+    font-size: 15px !important;
+    padding: 0 !important;
+    margin-bottom: 4px !important;
   }
 
   .shortNameTd {
-    font-size: 12px;
-    color: #6b7280;
-    width: auto;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    grid-area: subtitle !important;
+    display: block !important;
+    color: #6b7280 !important;
+    font-size: 13px !important;
+    padding: 0 !important;
   }
 
   .actionsTd {
-    width: auto;
-    padding-right: 0;
-    text-align: right;
+    grid-area: actions !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    padding: 0 !important;
   }
 
-  .action-dots-btn {
-    width: 38px;
-    height: 38px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border-radius: 50%;
-    background: #f8fafc;
-    font-size: 18px;
+  .actionsTd .action-dots-btn {
+    width: 40px !important;
+    height: 40px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    background: #f8fafc !important;
+    font-size: 18px !important;
   }
 }
 
-@media (max-width: 400px) {
+@media (max-width: 600px) {
   .party-type-wrapper {
-    padding: 10px;
+    padding: 10px 12px !important;
   }
 
   .catalogue-table tr {
-    padding: 10px 10px;
-    gap: 10px;
+    padding: 14px 14px !important;
   }
 
   .idTd {
-    width: 36px;
-    height: 36px;
-    font-size: 12px;
-    text-align: center;
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 12px !important;
   }
 
-  .name-line {
-    font-size: 13px;
-  }
-
-  .short-name-line {
-    font-size: 11px;
-  }
-
-  .action-dots-btn {
-    width: 34px;
-    height: 34px;
-    font-size: 16px;
+  .actionsTd .action-dots-btn {
+    width: 34px !important;
+    height: 34px !important;
+    font-size: 16px !important;
   }
 }

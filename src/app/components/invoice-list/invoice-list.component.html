@@ -99,22 +99,22 @@
         </thead>
         <tbody>
           <tr *ngFor="let inv of invoices" class="invoice-row" (click)="editInvoice(inv.id)">
-            <td class="date-td">{{ inv.date | date:'dd-MMM-yyyy' }}</td>
-            <td class="time-td">{{ inv.time }}</td>
-            <td class="branch-td">{{ inv.branch }}</td>
-            <td class="invoice-no-td">{{ inv.invoiceNo }}</td>
-            <td class="party-td">{{ inv.partyName }}</td>
-            <td *ngIf="viewMode === 'detailed'" class="amount-col">{{ inv.subtotal | number:'1.2-2' }}</td>
-            <td *ngIf="viewMode === 'detailed'" class="amount-col">{{ inv.taxAmount | number:'1.2-2' }}</td>
-            <td class="amount-td amount-col">{{ inv.totalAmount | number:'1.2-2' }}</td>
-            <td class="payment-td">PAID</td>
-            <td class="type-td">{{ inv.paymentType }}</td>
-            <td class="action-td" (click)="$event.stopPropagation()">
+            <td class="date-td" data-label="Date">{{ inv.date | date:'dd-MMM-yyyy' }}</td>
+            <td class="time-td" data-label="Bill Time">{{ inv.time }}</td>
+            <td class="branch-td" data-label="Branch">{{ inv.branch }}</td>
+            <td class="invoice-no-td" data-label="Reference">{{ inv.invoiceNo }}</td>
+            <td class="party-td" data-label="Party">{{ inv.partyName }}</td>
+            <td *ngIf="viewMode === 'detailed'" class="amount-col" data-label="Subtotal">{{ inv.subtotal | number:'1.2-2' }}</td>
+            <td *ngIf="viewMode === 'detailed'" class="amount-col" data-label="Tax">{{ inv.taxAmount | number:'1.2-2' }}</td>
+            <td class="amount-td amount-col" data-label="Amount">{{ inv.totalAmount | number:'1.2-2' }}</td>
+            <td class="payment-td" data-label="Payment">PAID</td>
+            <td class="type-td" data-label="Payment Type">{{ inv.paymentType }}</td>
+            <td class="action-td" data-label="Print" (click)="$event.stopPropagation()">
               <button class="row-icon-btn" (click)="editInvoice(inv.id)" title="Print">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
               </button>
             </td>
-            <td class="action-td" (click)="$event.stopPropagation()">
+            <td class="action-td" data-label="More" (click)="$event.stopPropagation()">
               <button class="row-icon-btn more-btn" (click)="deleteInvoice(inv.id, $event)" title="More">...</button>
             </td>
           </tr>
