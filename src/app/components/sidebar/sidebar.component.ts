@@ -46,7 +46,9 @@ export class SidebarComponent {
     { name: 'Transactions', icon: 'repeat', expanded: false, submenu: [
       { name: 'Invoice List', route: '/invoices' }
     ]},
-    { name: 'Receipt & Payment', icon: 'arrow-left-right' },
+    { name: 'Receipt & Payment', icon: 'arrow-left-right', expanded: true, submenu: [
+      { name: 'Label Generator', route: '/label-generator' }
+    ]},
     { name: 'Payment Management', icon: 'sliders', expanded: false, submenu: [
       { name: 'Payment Plans' }
     ]},
