@@ -1,0 +1,213 @@
+<div class="label-generator-page">
+  <div class="label-generator-layout">
+    <!-- LEFT SIDEBAR -->
+    <aside class="left-sidebar">
+      <app-label-sidebar
+        [profiles]="profiles"
+        [templates]="templates"
+        [savedLabels]="savedLabels"
+        [selectedProfileId]="selectedProfileId"
+        [selectedTemplateId]="selectedTemplateId"
+        [selectedSavedLabelId]="selectedSavedLabelId"
+        (selectProfile)="selectProfile($event)"
+        (createProfile)="createProfile()"
+        (renameProfile)="renameProfile($event)"
+        (deleteProfile)="deleteProfile($event)"
+        (setDefaultProfile)="setDefaultProfile($event)"
+        (selectTemplate)="selectTemplate($event)"
+        (createTemplate)="createTemplate()"
+        (duplicateTemplate)="duplicateTemplate($event)"
+        (loadTemplate)="loadTemplate($event)"
+        (saveTemplate)="saveTemplate()"
+        (loadSavedLabel)="loadSavedLayout($event)"
+        (deleteSavedLabel)="deleteSavedLayout($event)"
+      ></app-label-sidebar>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <section class="main-content">
+      <!-- Settings cards row -->
+      <div class="settings-cards">
+        <div class="card">
+          <div class="card-heading"><h2>Label Settings</h2></div>
+          <div class="form-grid cols-4">
+            <label class="field-group">
+              <span class="field-label">Layout Name</span>
+              <input type="text" [(ngModel)]="labelName" name="layoutName" placeholder="New Label" (focus)="onSettingsFocus()" />
+            </label>
+            <label class="field-group">
+              <span class="field-label">Printer Type</span>
+              <select [(ngModel)]="labelSettings.printerType" name="printerType" (focus)="onSettingsFocus()">
+                <option>Roll</option>
+                <option>Sheet</option>
+              </select>
+            </label>
+            <label class="field-group">
+              <span class="field-label">Rows</span>
+              <input type="number" [(ngModel)]="labelSettings.rows" name="rows" min="1" (focus)="onSettingsFocus()" />
+            </label>
+            <label class="field-group">
+              <span class="field-label">Columns</span>
+              <input type="number" [(ngModel)]="labelSettings.columns" name="columns" min="1" (focus)="onSettingsFocus()" />
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-heading"><h2>Barcode Design Fields</h2></div>
+          <div class="checkbox-grid">
+            <div class="checkbox-row">
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('productName')" (ngModelChange)="toggleField('productName', $event)" /> Product Name</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('brand')" (ngModelChange)="toggleField('brand', $event)" /> Brand</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('category')" (ngModelChange)="toggleField('category', $event)" /> Category</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('mrp')" (ngModelChange)="toggleField('mrp', $event)" /> MRP *</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('salePrice')" (ngModelChange)="toggleField('salePrice', $event)" /> Sale Price</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('offerPrice')" (ngModelChange)="toggleField('offerPrice', $event)" /> Offer Price *</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('offerYouSave')" (ngModelChange)="toggleField('offerYouSave', $event)" /> Offer You Save</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('offer')" (ngModelChange)="toggleField('offer', $event)" /> Offer</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('ratePer')" (ngModelChange)="toggleField('ratePer', $event)" /> Rate Per</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('barcode')" (ngModelChange)="toggleField('barcode', $event)" /> Barcode</label>
+            </div>
+            <div class="checkbox-row">
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('pkdOn')" (ngModelChange)="toggleField('pkdOn', $event)" /> Pkd on</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('expiryDate')" (ngModelChange)="toggleField('expiryDate', $event)" /> Expiry Date</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('batch')" (ngModelChange)="toggleField('batch', $event)" /> Batch</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('bestBefore')" (ngModelChange)="toggleField('bestBefore', $event)" /> Best Before</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('companyName')" (ngModelChange)="toggleField('companyName', $event)" /> Company Name</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('fssai')" (ngModelChange)="toggleField('fssai', $event)" /> FSSAI</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('line1')" (ngModelChange)="toggleField('line1', $event)" /> Line 1</label>
+              <label><input type="checkbox" [ngModel]="isFieldEnabled('line2')" (ngModelChange)="toggleField('line2', $event)" /> Line 2</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="dimensions-row">
+          <div class="card">
+            <div class="card-heading"><h3>Label Dimensions (mm)</h3></div>
+            <div class="form-grid cols-2 tight">
+              <label class="field-group">
+                <span class="field-label">Label Width</span>
+                <input type="number" [(ngModel)]="labelSettings.dimensions.width" (ngModelChange)="onDimensionsChange()" name="labelWidth" min="1" (focus)="onSettingsFocus()" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">Label Height</span>
+                <input type="number" [(ngModel)]="labelSettings.dimensions.height" (ngModelChange)="onDimensionsChange()" name="labelHeight" min="1" (focus)="onSettingsFocus()" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">H. Gap</span>
+                <input type="number" [(ngModel)]="labelSettings.dimensions.horizontalGap" (ngModelChange)="onDimensionsChange()" name="horizontalGap" min="0" (focus)="onSettingsFocus()" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">V. Gap</span>
+                <input type="number" [(ngModel)]="labelSettings.dimensions.verticalGap" (ngModelChange)="onDimensionsChange()" name="verticalGap" min="0" (focus)="onSettingsFocus()" />
+              </label>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-heading"><h3>Page Margins (mm)</h3></div>
+            <div class="form-grid cols-2 tight">
+              <label class="field-group">
+                <span class="field-label">Left</span>
+                <input type="number" [(ngModel)]="labelSettings.margins.left" name="marginLeft" min="0" (focus)="onSettingsFocus()" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">Right</span>
+                <input type="number" [(ngModel)]="labelSettings.margins.right" name="marginRight" min="0" (focus)="onSettingsFocus()" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">Top</span>
+                <input type="number" [(ngModel)]="labelSettings.margins.top" name="marginTop" min="0" (focus)="onSettingsFocus()" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">Bottom</span>
+                <input type="number" [(ngModel)]="labelSettings.margins.bottom" name="marginBottom" min="0" (focus)="onSettingsFocus()" />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-heading"><h2>Font Size Settings</h2></div>
+          <div class="form-grid cols-3">
+            <label class="field-group">
+              <span class="field-label">Heading Size</span>
+              <input type="number" [(ngModel)]="labelSettings.fontSettings.headingSize" name="headingSize" min="8" max="48" (focus)="onSettingsFocus()" />
+            </label>
+            <label class="field-group">
+              <span class="field-label">Body Size</span>
+              <input type="number" [(ngModel)]="labelSettings.fontSettings.bodySize" name="bodySize" min="8" max="48" (focus)="onSettingsFocus()" />
+            </label>
+            <label class="field-group">
+              <span class="field-label">Caption Size</span>
+              <input type="number" [(ngModel)]="labelSettings.fontSettings.captionSize" name="captionSize" min="8" max="48" (focus)="onSettingsFocus()" />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <app-label-toolbar
+        [elementTypes]="elementTypes"
+        [canUndo]="canUndo"
+        [canRedo]="canRedo"
+        (addElement)="addElement($event)"
+        (saveLayout)="saveLayout()"
+        (previewPrint)="openPrintPreview()"
+        (extendedPreview)="openExtendedPreview()"
+        (importImage)="openImageImport()"
+        (undo)="undo()"
+        (redo)="redo()">
+      </app-label-toolbar>
+
+      <p *ngIf="saveMessage" class="save-message" role="status">{{ saveMessage }}</p>
+
+      <!-- Designer canvas -->
+      <app-label-canvas
+        [elements]="elements"
+        [dimensions]="labelSettings.dimensions"
+        [margins]="labelSettings.margins"
+        [selectedElementId]="selectedElementId"
+        (positionChange)="updateElementPosition($event)"
+        (resizeChange)="resizeElement($event)"
+        (selectElement)="selectElement($event)"
+        (elementRotation)="updateElementRotation($event)"
+        (imageUpload)="updateElementImage($event)"
+        (interactionStart)="beginInteraction()">
+      </app-label-canvas>
+    </section>
+
+    <!-- RIGHT SIDEBAR: Properties Panel -->
+    <aside class="right-sidebar" *ngIf="selectedElement">
+      <app-label-properties
+        [element]="selectedElement"
+        (propertiesChange)="handlePropertyChange($event)"
+        (deleteElement)="deleteElement($event)"
+        (duplicateElement)="duplicateElement($event)"
+        (bringForward)="bringForward($event)"
+        (sendBackward)="sendBackward($event)"
+        (toggleLock)="toggleLock($event)">
+      </app-label-properties>
+    </aside>
+  </div>
+
+  <app-label-print-preview
+    *ngIf="printPreviewLabel"
+    [label]="printPreviewLabel"
+    (close)="closePrintPreview()">
+  </app-label-print-preview>
+
+  <app-label-extended-preview
+    *ngIf="showExtendedPreview"
+    [elements]="elements"
+    [dimensions]="labelSettings.dimensions"
+    [margins]="labelSettings.margins"
+    (close)="closeExtendedPreview()"
+    (save)="applyExtendedPreview($event)">
+  </app-label-extended-preview>
+
+  <app-label-image-import
+    *ngIf="showImageImport"
+    (close)="closeImageImport()"
+    (apply)="applyImageImport($event)">
+  </app-label-image-import>
+</div>

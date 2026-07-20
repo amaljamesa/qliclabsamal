@@ -1,0 +1,81 @@
+<div class="preview-backdrop" role="dialog" aria-modal="true" aria-labelledby="image-import-title">
+  <section class="preview-dialog">
+    <header class="preview-header">
+      <div>
+        <p class="eyebrow">Generate From Image</p>
+        <h2 id="image-import-title">Auto-build a label from a picture</h2>
+      </div>
+      <button type="button" class="close-button" (click)="onClose()" aria-label="Close">×</button>
+    </header>
+
+    <div class="import-body">
+      <div class="import-column">
+        <label class="field-group">
+          <span class="field-label">Reference Image</span>
+          <input type="file" accept="image/png,image/jpeg,image/jpg" (change)="onFileSelected($event)" />
+        </label>
+
+        <div class="image-preview" *ngIf="previewUrl">
+          <img [src]="previewUrl" alt="Uploaded label reference" />
+        </div>
+
+        <div class="size-inputs">
+          <label class="field-group">
+            <span class="field-label">Label Width (mm)</span>
+            <input type="number" [(ngModel)]="targetWidth" min="10" max="300" />
+          </label>
+          <label class="field-group">
+            <span class="field-label">Label Height (mm)</span>
+            <input type="number" [(ngModel)]="targetHeight" min="10" max="300" />
+          </label>
+        </div>
+
+        <button type="button" class="analyze-button" [disabled]="!previewUrl || status === 'analyzing'" (click)="analyze()">
+          {{ status === 'analyzing' ? 'Reading image…' : (status === 'done' ? 'Re-analyze Image' : 'Analyze Image') }}
+        </button>
+
+        <div class="progress-track" *ngIf="status === 'analyzing'">
+          <div class="progress-fill" [style.width.%]="progress"></div>
+        </div>
+
+        <p class="error-text" *ngIf="status === 'error'">{{ errorMessage }}</p>
+        <p class="hint-text">
+          Text is read with on-device OCR, then matched to fields like FSSAI, MRP, Sale Price and dates
+          based on keywords (e.g. "FSSAI", "Exp"). The picture itself is also scanned for an actual
+          barcode's bar pattern and any logo/graphic — those are tagged "picture match" below and
+          placed using the real shape found in the photo, not just OCR text. Review the detected
+          fields before applying — everything stays editable afterwards.
+        </p>
+      </div>
+
+      <div class="import-column">
+        <h3>Detected Fields <span class="count-badge" *ngIf="fields.length">{{ includedCount }} / {{ fields.length }}</span></h3>
+        <ul class="field-list" *ngIf="fields.length; else noFields">
+          <li *ngFor="let field of fields" class="field-row" [class.excluded]="!field.include">
+            <label class="field-checkbox">
+              <input type="checkbox" [checked]="field.include" (change)="toggleField(field)" />
+            </label>
+            <img *ngIf="field.imageSrc" class="field-thumb" [src]="field.imageSrc" alt="" />
+            <div class="field-info">
+              <span class="field-type">
+                {{ field.label }}
+                <span class="detected-badge" *ngIf="field.fromImageDetection" title="Found by analyzing the picture itself, not the text">picture match</span>
+              </span>
+              <span class="field-value">{{ field.prefix }}{{ field.value || field.rawText }}</span>
+            </div>
+          </li>
+        </ul>
+        <ng-template #noFields>
+          <p class="placeholder-text">Upload an image and click "Analyze Image" to detect fields.</p>
+        </ng-template>
+      </div>
+    </div>
+
+    <footer class="preview-actions">
+      <button type="button" class="secondary-button" (click)="onClose()">Cancel</button>
+      <button type="button" class="apply-button" [disabled]="status !== 'done' || includedCount === 0" (click)="onApply()">
+        Apply to Canvas ({{ includedCount }})
+      </button>
+    </footer>
+  </section>
+</div>
