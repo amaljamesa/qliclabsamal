@@ -1,0 +1,60 @@
+<div class="preview-backdrop" role="dialog" aria-modal="true" aria-labelledby="extended-preview-title">
+  <section class="preview-dialog">
+    <header class="preview-header">
+      <div>
+        <p class="eyebrow">Preview</p>
+        <h2 id="extended-preview-title">Actual Size: {{ actualSizeLabel }}</h2>
+      </div>
+      <button type="button" class="close-button" (click)="cancel()" aria-label="Close preview">×</button>
+    </header>
+
+    <div class="preview-body">
+      <div class="preview-stage">
+        <app-label-canvas
+          [elements]="draftElements"
+          [dimensions]="dimensions"
+          [margins]="margins"
+          [selectedElementId]="selectedElementId"
+          [lockedZoomLevel]="trueSizeZoom"
+          [chromeless]="true"
+          (positionChange)="updatePosition($event)"
+          (resizeChange)="resizeElement($event)"
+          (selectElement)="selectElement($event)"
+          (elementRotation)="rotateElement($event)"
+          (imageUpload)="uploadImage($event)">
+        </app-label-canvas>
+      </div>
+
+      <aside class="preview-sidebar">
+        <p class="sidebar-title">Content &amp; Font Size</p>
+        <div class="field-row" *ngFor="let type of fieldTypes">
+          <label class="field-checkbox">
+            <input
+              type="checkbox"
+              [ngModel]="isFieldEnabled(type)"
+              (ngModelChange)="toggleField(type, $event)"
+            />
+            {{ fieldLabel(type) }}
+          </label>
+          <input
+            *ngIf="isFieldEnabled(type) && fieldSupportsFontSize(type)"
+            type="number"
+            class="font-size-input"
+            [ngModel]="fieldFontSize(type)"
+            (ngModelChange)="setFieldFontSize(type, $event)"
+            min="6"
+            max="72"
+            title="Font size (px)"
+          />
+        </div>
+      </aside>
+    </div>
+
+    <p class="preview-hint">Click and drag to move · Drag corners to resize</p>
+
+    <footer class="preview-actions">
+      <button type="button" class="secondary-button" (click)="cancel()">Cancel</button>
+      <button type="button" class="save-button" (click)="saveChanges()">Save</button>
+    </footer>
+  </section>
+</div>

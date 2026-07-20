@@ -3,6 +3,7 @@ import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { PartyTypeComponent } from './components/party-type/party-type.component';
 import { InvoiceListComponent } from './components/invoice-list/invoice-list.component';
 import { InvoiceFormComponent } from './components/invoice-form/invoice-form.component';
+import { LabelGeneratorComponent } from './components/label-generator/label-generator.component';
 
 export const routes: Routes = [
   { path: 'dashboard', component: DashboardComponent },
@@ -10,6 +11,7 @@ export const routes: Routes = [
   { path: 'invoices', component: InvoiceListComponent },
   { path: 'invoices/new', component: InvoiceFormComponent },
   { path: 'invoices/edit/:id', component: InvoiceFormComponent },
+  { path: 'label-generator', component: LabelGeneratorComponent },
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
   { path: '**', redirectTo: '/dashboard' }
 ];

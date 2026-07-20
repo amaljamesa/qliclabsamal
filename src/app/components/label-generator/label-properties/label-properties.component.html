@@ -1,0 +1,158 @@
+<div class="property-card card">
+  <div class="property-header">
+    <h2>Properties</h2>
+    <p *ngIf="element; else emptyState">Edit the selected element.</p>
+    <ng-template #emptyState>
+      <p>Select a field to view settings.</p>
+    </ng-template>
+  </div>
+
+  <ng-container *ngIf="element; else nothingSelected">
+    <form [formGroup]="form" class="property-body property-form">
+      <section class="property-section" *ngIf="element.type !== 'rectangle' && element.type !== 'line'">
+        <h3>Content</h3>
+        <label class="field-group" *ngIf="element.type === 'barcode' || element.type === 'qr'">
+          <span>{{ element.type === 'barcode' ? 'Barcode Value' : 'Text or URL' }}</span>
+          <input type="text" formControlName="value" />
+        </label>
+        <label class="field-group" *ngIf="element.type !== 'barcode' && element.type !== 'qr' && element.type !== 'logo'">
+          <span>Value</span>
+          <input type="text" formControlName="value" placeholder="Enter the data to display" />
+        </label>
+        <label class="field-group" *ngIf="element.type !== 'barcode' && element.type !== 'qr' && element.type !== 'logo'">
+          <span>Prefix / Template</span>
+          <input type="text" formControlName="prefix" placeholder="e.g. FSSAI No: " />
+        </label>
+        <label class="field-group" *ngIf="element.type !== 'barcode' && element.type !== 'qr' && element.type !== 'logo'">
+          <span>Label Text (placeholder)</span>
+          <input type="text" formControlName="label" />
+        </label>
+        <label class="field-group" *ngIf="element.type === 'barcode'">
+          <span>Format</span>
+          <select formControlName="barcodeFormat">
+            <option value="CODE128">Code 128</option>
+            <option value="EAN13">EAN-13</option>
+            <option value="UPC">UPC</option>
+          </select>
+        </label>
+        <label class="field-group" *ngIf="element.type === 'qr'">
+          <span>Error Correction</span>
+          <select formControlName="qrErrorCorrectionLevel">
+            <option value="L">Low</option>
+            <option value="M">Medium</option>
+            <option value="Q">Quartile</option>
+            <option value="H">High</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="property-section">
+        <h3>Typography</h3>
+        <label class="field-group">
+          <span>Font Family</span>
+          <select formControlName="fontFamily">
+            <option value="Inter, system-ui, sans-serif">Inter</option>
+            <option value="Arial, sans-serif">Arial</option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="Courier New, monospace">Courier New</option>
+          </select>
+        </label>
+        <label class="field-group">
+          <span>Font Size</span>
+          <input type="number" formControlName="fontSize" min="8" max="72" />
+        </label>
+        <div class="toggle-row">
+          <label><input type="checkbox" formControlName="bold" /> Bold</label>
+          <label><input type="checkbox" formControlName="italic" /> Italic</label>
+          <label><input type="checkbox" formControlName="underline" /> Underline</label>
+        </div>
+        <label class="field-group">
+          <span>Text Color</span>
+          <input type="color" formControlName="textColor" />
+        </label>
+        <label class="field-group">
+          <span>Background Color</span>
+          <input type="color" formControlName="backgroundColor" />
+        </label>
+        <label class="field-group">
+          <span>Alignment</span>
+          <select formControlName="alignment">
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="property-section">
+        <h3>Box</h3>
+        <label class="field-group">
+          <span>Border Width</span>
+          <input type="number" formControlName="borderWidth" min="0" max="20" />
+        </label>
+        <label class="field-group">
+          <span>Border Style</span>
+          <select formControlName="borderStyle">
+            <option value="none">None</option>
+            <option value="solid">Solid</option>
+            <option value="dashed">Dashed</option>
+            <option value="dotted">Dotted</option>
+            <option value="double">Double</option>
+          </select>
+        </label>
+        <label class="field-group">
+          <span>Border Color</span>
+          <input type="color" formControlName="borderColor" />
+        </label>
+        <label class="field-group">
+          <span>Border Radius</span>
+          <input type="number" formControlName="borderRadius" min="0" max="50" />
+        </label>
+        <label class="field-group">
+          <span>Opacity</span>
+          <input type="number" formControlName="opacity" step="0.05" min="0" max="1" />
+        </label>
+        <label class="field-group">
+          <span>Rotation</span>
+          <input type="number" formControlName="rotation" min="0" max="360" />
+        </label>
+        <label class="field-group">
+          <span>Padding</span>
+          <input type="text" formControlName="padding" />
+        </label>
+        <label class="field-group">
+          <span>Margin</span>
+          <input type="text" formControlName="margin" />
+        </label>
+      </section>
+
+      <section class="property-section">
+        <h3>Size</h3>
+        <label class="field-group">
+          <span>Width</span>
+          <input type="number" formControlName="width" min="20" />
+        </label>
+        <label class="field-group">
+          <span>Height</span>
+          <input type="number" formControlName="height" min="10" />
+        </label>
+      </section>
+    </form>
+
+    <div class="property-actions">
+      <button class="action-btn" type="button" (click)="onDelete()">Delete</button>
+      <button class="action-btn" type="button" (click)="onDuplicate()">Duplicate</button>
+      <button class="action-btn" type="button" (click)="onBringForward()">Bring Forward</button>
+      <button class="action-btn" type="button" (click)="onSendBackward()">Send Backward</button>
+      <button class="action-btn" type="button" (click)="onToggleLock()">
+        {{ element.locked ? 'Unlock Position' : 'Lock Position' }}
+      </button>
+    </div>
+  </ng-container>
+
+  <ng-template #nothingSelected>
+    <div class="property-body">
+      <p class="placeholder-text">Select a canvas element to edit its properties.</p>
+    </div>
+  </ng-template>
+</div>
