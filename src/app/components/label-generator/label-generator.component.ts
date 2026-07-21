@@ -180,10 +180,20 @@ export class LabelGeneratorComponent implements OnInit {
     );
   }
 
+  /** Snapshot of the selected element's size/fontSize at the moment a resize gesture
+   *  starts, so every frame's fontSize can be computed fresh from this fixed baseline
+   *  instead of compounding off the previous (already-rounded) frame – re-deriving from
+   *  a rounded value every frame made the size get stuck instead of tracking the drag. */
+  private resizeBaseline: { id: string; width: number; height: number; fontSize: number } | null = null;
+
   /** Called once per drag/resize/rotate gesture (or keypress), before the first live
    *  update is applied, so undo captures one checkpoint per gesture instead of one per frame. */
   beginInteraction(): void {
     this.recordHistory();
+    const current = this.elements.find(item => item.id === this.selectedElementId);
+    this.resizeBaseline = current
+      ? { id: current.id, width: current.width, height: current.height, fontSize: current.style?.fontSize ?? 13 }
+      : null;
   }
 
   updateElementPosition(position: { id: string; x: number; y: number }): void {
@@ -199,10 +209,10 @@ export class LabelGeneratorComponent implements OnInit {
       // Barcode text is rendered at a fixed size by the barcode library, so scaling
       // fontSize wouldn't do anything visible there; every other type keeps its text
       // proportional to the box as it's dragged bigger/smaller.
-      if (item.type !== 'barcode' && item.width > 0 && item.height > 0) {
-        const scale = Math.sqrt((event.width / item.width) * (event.height / item.height));
-        const currentFontSize = item.style?.fontSize ?? 13;
-        updated.style = { ...item.style, fontSize: Math.max(6, Math.round(currentFontSize * scale)) };
+      const baseline = this.resizeBaseline?.id === item.id ? this.resizeBaseline : null;
+      if (item.type !== 'barcode' && baseline && baseline.width > 0 && baseline.height > 0) {
+        const scale = Math.sqrt((event.width / baseline.width) * (event.height / baseline.height));
+        updated.style = { ...item.style, fontSize: Math.max(6, Math.round(baseline.fontSize * scale)) };
       }
       return updated;
     });
@@ -382,6 +392,11 @@ export class LabelGeneratorComponent implements OnInit {
   }
 
   openPrintPreview(): void {
+    // The editor canvas stays mounted behind the preview modal, and the selected
+    // element renders at z-index 9999 (to keep its resize handles reachable above
+    // other elements) with no stacking context in between to contain it – so its
+    // selection outline/handles would otherwise show through on top of the preview.
+    this.selectedElementId = '';
     this.printPreviewLabel = this.buildCurrentLabel();
   }
 
@@ -390,6 +405,7 @@ export class LabelGeneratorComponent implements OnInit {
   }
 
   openExtendedPreview(): void {
+    this.selectedElementId = '';
     this.showExtendedPreview = true;
   }
 
@@ -415,6 +431,7 @@ export class LabelGeneratorComponent implements OnInit {
   applyImageImport(result: { elements: LabelElement[]; dimensions: LabelDimensions }): void {
     this.recordHistory();
     this.labelSettings = { ...this.labelSettings, dimensions: result.dimensions };
+    this.lastDimensions = { ...result.dimensions };
     this.elements = result.elements;
     this.selectedElementId = '';
     this.showImageImport = false;
@@ -459,8 +476,49 @@ export class LabelGeneratorComponent implements OnInit {
 
   onSettingsFocus(): void { this.recordHistory(); }
 
+  /** Tracks the label's own last known-good width/height (mm), separate from
+   *  labelSettings.dimensions, so onDimensionsChange always scales relative to the previous
+   *  step rather than a fixed baseline – each keystroke's factor composes correctly into the
+   *  overall before/after ratio no matter how many intermediate values a typed edit passes
+   *  through (including a transiently empty/zero field), instead of compounding drift. */
+  private lastDimensions: LabelDimensions = { ...this.labelSettings.dimensions };
+
+  /** Rescales every element's position/size (and font size) in proportion to how the label's
+   *  width/height just changed, so elements keep their relative layout instead of being
+   *  clipped or stranded off-canvas when the label shrinks. Scaling (vs. clamping to the new
+   *  bounds) is what makes this safe against transient invalid values mid-edit: a bogus
+   *  factor is simply skipped rather than permanently shrinking elements to fit it. */
   onDimensionsChange(): void {
-    this.labelSettings.dimensions = { ...this.labelSettings.dimensions };
+    const dimensions = this.labelSettings.dimensions;
+    this.labelSettings.dimensions = { ...dimensions };
+
+    const scaleX = this.dimensionScale(dimensions.width, this.lastDimensions.width);
+    const scaleY = this.dimensionScale(dimensions.height, this.lastDimensions.height);
+
+    if (scaleX !== 1 || scaleY !== 1) {
+      const fontScale = Math.sqrt(scaleX * scaleY);
+      this.elements = this.elements.map(element => ({
+        ...element,
+        x: element.x * scaleX,
+        y: element.y * scaleY,
+        width: element.width * scaleX,
+        height: element.height * scaleY,
+        style: element.type !== 'barcode' && element.style?.fontSize
+          ? { ...element.style, fontSize: Math.max(6, Math.round(element.style.fontSize * fontScale)) }
+          : element.style
+      }));
+    }
+
+    if (this.isPositiveFinite(dimensions.width)) this.lastDimensions.width = dimensions.width;
+    if (this.isPositiveFinite(dimensions.height)) this.lastDimensions.height = dimensions.height;
+  }
+
+  private dimensionScale(next: number, previous: number): number {
+    return this.isPositiveFinite(next) && this.isPositiveFinite(previous) ? next / previous : 1;
+  }
+
+  private isPositiveFinite(value: number): boolean {
+    return Number.isFinite(value) && value > 0;
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -554,6 +612,7 @@ export class LabelGeneratorComponent implements OnInit {
   private applyLabel(label: Label): void {
     this.labelName = label.name;
     this.labelSettings = { ...label.settings };
+    this.lastDimensions = { ...label.settings.dimensions };
     this.elements = label.elements.map(element => ({ ...element }));
     this.selectedElementId = '';
   }
@@ -561,6 +620,7 @@ export class LabelGeneratorComponent implements OnInit {
   private applyTemplate(template: LabelTemplate): void {
     this.labelName = template.name;
     this.labelSettings = { ...template.defaultSettings };
+    this.lastDimensions = { ...template.defaultSettings.dimensions };
     this.elements = template.elements.map(element => ({ ...element }));
     this.selectedElementId = '';
   }
@@ -634,6 +694,7 @@ export class LabelGeneratorComponent implements OnInit {
   private restoreSnapshot(snapshot: EditorSnapshot): void {
     this.labelName = snapshot.labelName;
     this.labelSettings = this.clone(snapshot.labelSettings);
+    this.lastDimensions = { ...this.labelSettings.dimensions };
     this.elements = this.clone(snapshot.elements);
     this.selectedElementId = '';
   }
