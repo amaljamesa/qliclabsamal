@@ -1,5 +1,5 @@
 import { Component, EventEmitter, OnDestroy, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { DetectedField, LabelImageImportService } from '../../../services/label-image-import.service';
 import { LabelElement } from '../../../models/label-element.model';
@@ -8,7 +8,7 @@ import { LabelDimensions } from '../../../models/label.model';
 @Component({
   selector: 'app-label-image-import',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './label-image-import.component.html',
   styleUrls: ['./label-image-import.component.css']
 })

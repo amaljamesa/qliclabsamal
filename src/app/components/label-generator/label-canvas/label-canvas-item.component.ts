@@ -32,59 +32,67 @@ import { QRCodeComponent } from 'angularx-qrcode';
       (dragGuides)="onDragGuides($event)"
       (selectElement)="onSelectElement()"
       (interactionStart)="interactionStart.emit()">
-
+    
       <!-- Hidden file input for image upload -->
-      <input
-        *ngIf="element.type === 'image' && !element.imageSrc"
-        #fileInput
-        type="file"
-        accept="image/png,image/jpeg,image/jpg,image/svg+xml"
-        (change)="onFileSelected($event)"
-        style="display:none"
-      />
-
+      @if (element.type === 'image' && !element.imageSrc) {
+        <input
+          #fileInput
+          type="file"
+          accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+          (change)="onFileSelected($event)"
+          style="display:none"
+          />
+      }
+    
       <!-- Content wrapper -->
       <div class="canvas-element-inner" [ngStyle]="innerStyles" (click)="onInnerClick($event)">
-        <ngx-barcode6
-          *ngIf="element.type === 'barcode'"
-          class="barcode-renderer"
-          [bc-value]="barcodeValue"
-          [bc-format]="element.barcodeFormat || 'CODE128'"
-          [bc-width]="1"
-          [bc-height]="barcodeHeight"
-          [bc-font-size]="10"
-          [bc-display-value]="true"
-          [bc-line-color]="styleColor">
-        </ngx-barcode6>
-
-        <qrcode
-          *ngIf="element.type === 'qr'"
-          class="qr-renderer"
-          [qrdata]="qrValue"
-          [width]="qrSize"
-          [errorCorrectionLevel]="element.qrErrorCorrectionLevel || 'M'"
-          [colorDark]="styleColor"
-          [colorLight]="styleBackground">
-        </qrcode>
-
-        <img
-          *ngIf="element.type === 'image' && element.imageSrc"
-          [src]="element.imageSrc"
-          class="image-renderer"
-          [style.objectFit]="element.style?.objectFit || 'contain'"
-          alt=""
-        />
-
-        <span *ngIf="element.type === 'image' && !element.imageSrc" class="element-label image-placeholder-text">
-          Click to upload image
-        </span>
-
-        <span *ngIf="element.type !== 'barcode' && element.type !== 'qr' && element.type !== 'image'" class="element-label">
-          {{ displayText }}
-        </span>
+        @if (element.type === 'barcode') {
+          <ngx-barcode6
+            class="barcode-renderer"
+            [bc-value]="barcodeValue"
+            [bc-format]="element.barcodeFormat || 'CODE128'"
+            [bc-width]="1"
+            [bc-height]="barcodeHeight"
+            [bc-font-size]="10"
+            [bc-display-value]="true"
+            [bc-line-color]="styleColor">
+          </ngx-barcode6>
+        }
+    
+        @if (element.type === 'qr') {
+          <qrcode
+            class="qr-renderer"
+            [qrdata]="qrValue"
+            [width]="qrSize"
+            [errorCorrectionLevel]="element.qrErrorCorrectionLevel || 'M'"
+            [colorDark]="styleColor"
+            [colorLight]="styleBackground">
+          </qrcode>
+        }
+    
+        @if (element.type === 'image' && element.imageSrc) {
+          <img
+            [src]="element.imageSrc"
+            class="image-renderer"
+            [style.objectFit]="element.style?.objectFit || 'contain'"
+            alt=""
+            />
+        }
+    
+        @if (element.type === 'image' && !element.imageSrc) {
+          <span class="element-label image-placeholder-text">
+            Click to upload image
+          </span>
+        }
+    
+        @if (element.type !== 'barcode' && element.type !== 'qr' && element.type !== 'image') {
+          <span class="element-label">
+            {{ displayText }}
+          </span>
+        }
       </div>
     </div>
-  `,
+    `,
   styles: [
     `.canvas-element { position: absolute; display: flex; align-items: center; justify-content: center; padding: 0; border-radius: 4px; background: rgba(255,255,255,0.95); border: 1px solid #cbd5e1; box-shadow: 0 2px 6px rgba(15,23,42,0.06); transition: box-shadow 0.15s ease; cursor: move; user-select: none; text-align: center; font-size: 0.92rem; color: #0f172a; will-change: transform; contain: layout style; }`,
     `.canvas-element:hover { box-shadow: 0 4px 12px rgba(15,23,42,0.10); }`,

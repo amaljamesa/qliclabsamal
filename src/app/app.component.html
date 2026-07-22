@@ -1,24 +1,25 @@
 <div class="app-layout-grid" [class.collapsed]="isSidebarCollapsed">
   <!-- Left Sidebar Navigation -->
-  <app-sidebar 
-    [class.open]="isSidebarOpen" 
-    [class.collapsed]="isSidebarCollapsed" 
-    [isCollapsed]="isSidebarCollapsed" 
+  <app-sidebar
+    [class.open]="isSidebarOpen"
+    [class.collapsed]="isSidebarCollapsed"
+    [isCollapsed]="isSidebarCollapsed"
     (toggleCollapse)="toggleSidebarCollapse()">
   </app-sidebar>
 
   <!-- Mobile Sidebar Backdrop Overlay -->
-  <div 
-    class="mobile-sidebar-backdrop" 
-    *ngIf="isSidebarOpen" 
-    (click)="closeSidebar()">
-  </div>
+  @if (isSidebarOpen) {
+    <div
+      class="mobile-sidebar-backdrop"
+      (click)="closeSidebar()">
+    </div>
+  }
 
   <!-- Right Side Main Content Panel -->
   <div class="main-body-container">
     <!-- Top Header -->
     <app-header (toggleSidebar)="toggleSidebar()"></app-header>
-    
+
     <!-- Active Page Content -->
     <main class="page-content-outlet">
       <router-outlet></router-outlet>

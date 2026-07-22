@@ -66,7 +66,7 @@
               (input)="applyFilters()"
               placeholder="Search"
               class="invoice-search-input"
-            />
+              />
           </div>
           <button class="kebab-btn" title="More options">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
@@ -88,8 +88,12 @@
             <th>Branch</th>
             <th>Reference</th>
             <th>Party</th>
-            <th *ngIf="viewMode === 'detailed'">Subtotal</th>
-            <th *ngIf="viewMode === 'detailed'">Tax</th>
+            @if (viewMode === 'detailed') {
+              <th>Subtotal</th>
+            }
+            @if (viewMode === 'detailed') {
+              <th>Tax</th>
+            }
             <th class="amount-th">Amount</th>
             <th>Payment</th>
             <th>Payment Type</th>
@@ -98,42 +102,52 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let inv of invoices" class="invoice-row" (click)="editInvoice(inv.id)">
-            <td class="date-td" data-label="Date">{{ inv.date | date:'dd-MMM-yyyy' }}</td>
-            <td class="time-td" data-label="Bill Time">{{ inv.time }}</td>
-            <td class="branch-td" data-label="Branch">{{ inv.branch }}</td>
-            <td class="invoice-no-td" data-label="Reference">{{ inv.invoiceNo }}</td>
-            <td class="party-td" data-label="Party">{{ inv.partyName }}</td>
-            <td *ngIf="viewMode === 'detailed'" class="amount-col" data-label="Subtotal">{{ inv.subtotal | number:'1.2-2' }}</td>
-            <td *ngIf="viewMode === 'detailed'" class="amount-col" data-label="Tax">{{ inv.taxAmount | number:'1.2-2' }}</td>
-            <td class="amount-td amount-col" data-label="Amount">{{ inv.totalAmount | number:'1.2-2' }}</td>
-            <td class="payment-td" data-label="Payment">PAID</td>
-            <td class="type-td" data-label="Payment Type">{{ inv.paymentType }}</td>
-            <td class="action-td" data-label="Print" (click)="$event.stopPropagation()">
-              <button class="row-icon-btn" (click)="editInvoice(inv.id)" title="Print">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
-              </button>
-            </td>
-            <td class="action-td" data-label="More" (click)="$event.stopPropagation()">
-              <button class="row-icon-btn more-btn" (click)="deleteInvoice(inv.id, $event)" title="More">...</button>
-            </td>
-          </tr>
+          @for (inv of invoices; track inv) {
+            <tr class="invoice-row" (click)="editInvoice(inv.id)">
+              <td class="date-td" data-label="Date">{{ inv.date | date:'dd-MMM-yyyy' }}</td>
+              <td class="time-td" data-label="Bill Time">{{ inv.time }}</td>
+              <td class="branch-td" data-label="Branch">{{ inv.branch }}</td>
+              <td class="invoice-no-td" data-label="Reference">{{ inv.invoiceNo }}</td>
+              <td class="party-td" data-label="Party">{{ inv.partyName }}</td>
+              @if (viewMode === 'detailed') {
+                <td class="amount-col" data-label="Subtotal">{{ inv.subtotal | number:'1.2-2' }}</td>
+              }
+              @if (viewMode === 'detailed') {
+                <td class="amount-col" data-label="Tax">{{ inv.taxAmount | number:'1.2-2' }}</td>
+              }
+              <td class="amount-td amount-col" data-label="Amount">{{ inv.totalAmount | number:'1.2-2' }}</td>
+              <td class="payment-td" data-label="Payment">PAID</td>
+              <td class="type-td" data-label="Payment Type">{{ inv.paymentType }}</td>
+              <td class="action-td" data-label="Print" (click)="$event.stopPropagation()">
+                <button class="row-icon-btn" (click)="editInvoice(inv.id)" title="Print">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+                </button>
+              </td>
+              <td class="action-td" data-label="More" (click)="$event.stopPropagation()">
+                <button class="row-icon-btn more-btn" (click)="deleteInvoice(inv.id, $event)" title="More">...</button>
+              </td>
+            </tr>
+          }
 
-          <tr *ngIf="invoices.length === 0">
-            <td [attr.colspan]="viewMode === 'detailed' ? 12 : 10" class="no-data-row">
-              No invoices found.
-            </td>
-          </tr>
+          @if (invoices.length === 0) {
+            <tr>
+              <td [attr.colspan]="viewMode === 'detailed' ? 12 : 10" class="no-data-row">
+                No invoices found.
+              </td>
+            </tr>
+          }
         </tbody>
 
         <!-- Summary Footer -->
-        <tfoot *ngIf="invoices.length > 0">
-          <tr class="summary-footer-row">
-            <td [attr.colspan]="viewMode === 'detailed' ? 7 : 5" class="total-label-td">Total Sales</td>
-            <td class="total-val-td amount-col">{{ getTotalSales() | number:'1.2-2' }}</td>
-            <td colspan="4" class="footer-filler-td"></td>
-          </tr>
-        </tfoot>
+        @if (invoices.length > 0) {
+          <tfoot>
+            <tr class="summary-footer-row">
+              <td [attr.colspan]="viewMode === 'detailed' ? 7 : 5" class="total-label-td">Total Sales</td>
+              <td class="total-val-td amount-col">{{ getTotalSales() | number:'1.2-2' }}</td>
+              <td colspan="4" class="footer-filler-td"></td>
+            </tr>
+          </tfoot>
+        }
       </table>
     </div>
 
@@ -157,7 +171,7 @@
           <button class="page-arrow-flat" disabled>&gt;|</button>
         </div>
       </div>
-      
+
       <!-- FAB inside pagination relative positioning -->
       <button class="fab-invoice-btn" (click)="addNewInvoice()" title="Add Invoice">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3">

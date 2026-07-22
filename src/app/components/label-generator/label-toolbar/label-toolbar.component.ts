@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { LabelElementType } from '../../../models/label-element.model';
 
 export interface LabelElementTypeOption {
@@ -10,7 +10,7 @@ export interface LabelElementTypeOption {
 @Component({
   selector: 'app-label-toolbar',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './label-toolbar.component.html',
   styleUrls: ['./label-toolbar.component.css']
 })

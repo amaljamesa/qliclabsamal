@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, OnDestroy, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { LABEL_ELEMENT_PREFIXES, LabelElement, LabelElementStyle } from '../../../models/label-element.model';
@@ -7,7 +7,7 @@ import { LABEL_ELEMENT_PREFIXES, LabelElement, LabelElementStyle } from '../../.
 @Component({
   selector: 'app-label-properties',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [ReactiveFormsModule],
   templateUrl: './label-properties.component.html',
   styleUrls: ['./label-properties.component.css']
 })

@@ -27,26 +27,29 @@
 
       <aside class="preview-sidebar">
         <p class="sidebar-title">Content &amp; Font Size</p>
-        <div class="field-row" *ngFor="let type of fieldTypes">
-          <label class="field-checkbox">
-            <input
-              type="checkbox"
-              [ngModel]="isFieldEnabled(type)"
-              (ngModelChange)="toggleField(type, $event)"
-            />
-            {{ fieldLabel(type) }}
-          </label>
-          <input
-            *ngIf="isFieldEnabled(type) && fieldSupportsFontSize(type)"
-            type="number"
-            class="font-size-input"
-            [ngModel]="fieldFontSize(type)"
-            (ngModelChange)="setFieldFontSize(type, $event)"
-            min="6"
-            max="72"
-            title="Font size (px)"
-          />
-        </div>
+        @for (type of fieldTypes; track type) {
+          <div class="field-row">
+            <label class="field-checkbox">
+              <input
+                type="checkbox"
+                [ngModel]="isFieldEnabled(type)"
+                (ngModelChange)="toggleField(type, $event)"
+                />
+              {{ fieldLabel(type) }}
+            </label>
+            @if (isFieldEnabled(type) && fieldSupportsFontSize(type)) {
+              <input
+                type="number"
+                class="font-size-input"
+                [ngModel]="fieldFontSize(type)"
+                (ngModelChange)="setFieldFontSize(type, $event)"
+                min="6"
+                max="72"
+                title="Font size (px)"
+                />
+            }
+          </div>
+        }
       </aside>
     </div>
 

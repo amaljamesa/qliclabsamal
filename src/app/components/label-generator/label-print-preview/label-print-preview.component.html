@@ -7,16 +7,28 @@
     <p class="preview-note">{{ label.settings.rows }} × {{ label.settings.columns }} labels · {{ label.settings.dimensions.width }} × {{ label.settings.dimensions.height }} mm</p>
     <div class="preview-stage">
       <div #printArea class="print-sheet" [ngStyle]="sheetStyle">
-        <div *ngFor="let copy of copies" class="print-label" [ngStyle]="labelStyle">
-          <ng-container *ngFor="let element of label.elements">
-            <div *ngIf="element.visible" class="print-element" [ngStyle]="elementStyle(element)">
-              <ngx-barcode6 *ngIf="element.type === 'barcode'" [bc-value]="barcodeValue(element)" [bc-format]="element.barcodeFormat || 'CODE128'" [bc-width]="1" [bc-height]="barcodeHeight(element)" [bc-font-size]="10" [bc-display-value]="true" [bc-line-color]="color(element)"></ngx-barcode6>
-              <qrcode *ngIf="element.type === 'qr'" [qrdata]="qrValue(element)" [width]="qrSize(element)" [elementType]="'svg'" [errorCorrectionLevel]="element.qrErrorCorrectionLevel || 'M'" [colorDark]="color(element)" [colorLight]="background(element)"></qrcode>
-              <img *ngIf="element.type === 'image' && element.imageSrc" [src]="element.imageSrc" class="print-image" [style.objectFit]="element.style?.objectFit || 'contain'" [alt]="element.label || 'image'" />
-              <span *ngIf="element.type !== 'barcode' && element.type !== 'qr' && element.type !== 'image'">{{ displayText(element) }}</span>
-            </div>
-          </ng-container>
-        </div>
+        @for (copy of copies; track copy) {
+          <div class="print-label" [ngStyle]="labelStyle">
+            @for (element of label.elements; track element) {
+              @if (element.visible) {
+                <div class="print-element" [ngStyle]="elementStyle(element)">
+                  @if (element.type === 'barcode') {
+                    <ngx-barcode6 [bc-value]="barcodeValue(element)" [bc-format]="element.barcodeFormat || 'CODE128'" [bc-width]="1" [bc-height]="barcodeHeight(element)" [bc-font-size]="10" [bc-display-value]="true" [bc-line-color]="color(element)"></ngx-barcode6>
+                  }
+                  @if (element.type === 'qr') {
+                    <qrcode [qrdata]="qrValue(element)" [width]="qrSize(element)" [elementType]="'svg'" [errorCorrectionLevel]="element.qrErrorCorrectionLevel || 'M'" [colorDark]="color(element)" [colorLight]="background(element)"></qrcode>
+                  }
+                  @if (element.type === 'image' && element.imageSrc) {
+                    <img [src]="element.imageSrc" class="print-image" [style.objectFit]="element.style?.objectFit || 'contain'" [alt]="element.label || 'image'" />
+                  }
+                  @if (element.type !== 'barcode' && element.type !== 'qr' && element.type !== 'image') {
+                    <span>{{ displayText(element) }}</span>
+                  }
+                </div>
+              }
+            }
+          </div>
+        }
       </div>
     </div>
     <footer class="preview-actions"><button type="button" class="secondary-button" (click)="close.emit()">Back to Editor</button><button type="button" class="print-button" (click)="print()">Print Labels</button></footer>
