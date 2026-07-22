@@ -1,18 +1,24 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, HostListener, OnInit } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { DataService, PartyType } from '../../services/data.service';
+import { ExcelTableFilter, SortDirection } from '../../shared/column-filter/excel-table-filter';
+import { ColumnFilterMenuComponent } from '../../shared/column-filter/column-filter-menu.component';
 
 @Component({
   selector: 'app-party-type',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule, ColumnFilterMenuComponent],
   templateUrl: './party-type.component.html',
   styleUrls: ['./party-type.component.css']
 })
 export class PartyTypeComponent implements OnInit {
   partyTypes: PartyType[] = [];
+  displayedPartyTypes: PartyType[] = [];
   searchQuery = '';
+
+  tableFilter = new ExcelTableFilter<PartyType>();
+  openFilterColumn: string | null = null;
 
   // Modal State
   showModal = false;
@@ -21,7 +27,11 @@ export class PartyTypeComponent implements OnInit {
   partyPrintName = '';
   editingPartyId: number | null = null;
 
-  constructor(private dataService: DataService) {}
+  constructor(private dataService: DataService) {
+    this.tableFilter.registerColumn('id', (p) => String(p.id));
+    this.tableFilter.registerColumn('name', (p) => p.name);
+    this.tableFilter.registerColumn('printName', (p) => p.printName);
+  }
 
   ngOnInit(): void {
     this.loadPartyTypes();
@@ -29,6 +39,48 @@ export class PartyTypeComponent implements OnInit {
 
   loadPartyTypes(): void {
     this.partyTypes = this.dataService.getPartyTypes(this.searchQuery);
+    this.tableFilter.refreshValues(this.partyTypes);
+    this.refreshDisplayed();
+  }
+
+  refreshDisplayed(): void {
+    this.displayedPartyTypes = this.tableFilter.apply(this.partyTypes);
+  }
+
+  columnValues(key: string): string[] {
+    return this.tableFilter.getValues(key);
+  }
+
+  isColumnFiltered(key: string): boolean {
+    return this.tableFilter.isFiltered(key);
+  }
+
+  columnSort(key: string): SortDirection {
+    return this.tableFilter.getState(key).sort;
+  }
+
+  columnSelected(key: string): Set<string> | null {
+    return this.tableFilter.getState(key).selected;
+  }
+
+  toggleFilterMenu(key: string, event: Event): void {
+    event.stopPropagation();
+    this.openFilterColumn = this.openFilterColumn === key ? null : key;
+  }
+
+  onSortChange(key: string, direction: SortDirection): void {
+    this.tableFilter.setSort(key, direction);
+    this.refreshDisplayed();
+  }
+
+  onFilterApply(key: string, selected: Set<string> | null): void {
+    this.tableFilter.setFilter(key, selected);
+    this.refreshDisplayed();
+  }
+
+  @HostListener('document:click')
+  closeFilterMenu(): void {
+    this.openFilterColumn = null;
   }
 
   onSearch(): void {

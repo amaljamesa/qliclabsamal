@@ -5,26 +5,33 @@
   </div>
 
   <div class="profile-list">
-    <div
-      *ngFor="let profile of profiles"
-      class="profile-item"
-      [class.active]="profile.id === selectedProfileId"
-      [class.is-default]="profile.default">
-      <button class="profile-select" type="button" (click)="onSelectProfile(profile.id)">
-        <span class="profile-star" *ngIf="profile.default" aria-hidden="true">★</span>
-        <span class="profile-name">{{ profile.name }}</span>
-      </button>
-      <div class="profile-actions">
-        <button type="button" class="tiny-btn" *ngIf="!profile.default" (click)="onSetDefaultProfile(profile.id)">Set Default</button>
-        <span class="default-badge" *ngIf="profile.default">Default</span>
-        <button type="button" class="settings-btn" (click)="onRenameProfile(profile.id)" title="Edit profile" aria-label="Edit profile">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 20h9"/>
-            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-          </svg>
+    @for (profile of profiles; track profile) {
+      <div
+        class="profile-item"
+        [class.active]="profile.id === selectedProfileId"
+        [class.is-default]="profile.default">
+        <button class="profile-select" type="button" (click)="onSelectProfile(profile.id)">
+          @if (profile.default) {
+            <span class="profile-star" aria-hidden="true">★</span>
+          }
+          <span class="profile-name">{{ profile.name }}</span>
         </button>
+        <div class="profile-actions">
+          @if (!profile.default) {
+            <button type="button" class="tiny-btn" (click)="onSetDefaultProfile(profile.id)">Set Default</button>
+          }
+          @if (profile.default) {
+            <span class="default-badge">Default</span>
+          }
+          <button type="button" class="settings-btn" (click)="onRenameProfile(profile.id)" title="Edit profile" aria-label="Edit profile">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+          </button>
+        </div>
       </div>
-    </div>
+    }
   </div>
 </div>
 
@@ -35,23 +42,26 @@
   </div>
 
   <div class="profile-list">
-    <div
-      *ngFor="let template of templates"
-      class="profile-item"
-      [class.active]="template.id === selectedTemplateId">
-      <button class="profile-select" type="button" (click)="onLoadTemplate(template.id)">
-        <span class="profile-name">{{ template.name }}</span>
-      </button>
-      <div class="profile-actions">
-        <button type="button" class="tiny-btn" (click)="onDuplicateTemplate(template.id)">Duplicate</button>
-        <button type="button" class="settings-btn" (click)="onSelectTemplate(template.id)" title="Select template" aria-label="Select template">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 18 15 12 9 6"/>
-          </svg>
+    @for (template of templates; track template) {
+      <div
+        class="profile-item"
+        [class.active]="template.id === selectedTemplateId">
+        <button class="profile-select" type="button" (click)="onLoadTemplate(template.id)">
+          <span class="profile-name">{{ template.name }}</span>
         </button>
+        <div class="profile-actions">
+          <button type="button" class="tiny-btn" (click)="onDuplicateTemplate(template.id)">Duplicate</button>
+          <button type="button" class="settings-btn" (click)="onSelectTemplate(template.id)" title="Select template" aria-label="Select template">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+        </div>
       </div>
-    </div>
-    <button *ngIf="selectedTemplateId" type="button" class="tiny-btn save-template-btn" (click)="onSaveTemplate()">Save Current to Template</button>
+    }
+    @if (selectedTemplateId) {
+      <button type="button" class="tiny-btn save-template-btn" (click)="onSaveTemplate()">Save Current to Template</button>
+    }
   </div>
 </div>
 
@@ -61,22 +71,25 @@
   </div>
 
   <div class="profile-list">
-    <div
-      *ngFor="let label of savedLabels"
-      class="profile-item"
-      [class.active]="label.id === selectedSavedLabelId">
-      <button class="profile-select" type="button" (click)="onLoadSavedLabel(label.id)">
-        <span class="profile-name">{{ label.name }}</span>
-      </button>
-      <div class="profile-actions">
-        <button type="button" class="delete-btn" (click)="onDeleteSavedLabel(label.id)" title="Delete saved label" aria-label="Delete saved label">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="3 6 5 6 21 6"/>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-          </svg>
+    @for (label of savedLabels; track label) {
+      <div
+        class="profile-item"
+        [class.active]="label.id === selectedSavedLabelId">
+        <button class="profile-select" type="button" (click)="onLoadSavedLabel(label.id)">
+          <span class="profile-name">{{ label.name }}</span>
         </button>
+        <div class="profile-actions">
+          <button type="button" class="delete-btn" (click)="onDeleteSavedLabel(label.id)" title="Delete saved label" aria-label="Delete saved label">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+          </button>
+        </div>
       </div>
-    </div>
-    <p *ngIf="savedLabels.length === 0" class="empty-hint">No saved labels yet.</p>
+    }
+    @if (savedLabels.length === 0) {
+      <p class="empty-hint">No saved labels yet.</p>
+    }
   </div>
 </div>
