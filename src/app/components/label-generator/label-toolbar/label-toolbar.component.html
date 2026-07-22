@@ -4,7 +4,9 @@
       <span>Add Element:</span>
       <select #elementSelect class="toolbar-select" (change)="onAddElement($event); elementSelect.value = ''">
         <option value="" disabled selected>Select element type...</option>
-        <option *ngFor="let type of elementTypes" [value]="type.type">{{ type.label }}</option>
+        @for (type of elementTypes; track type) {
+          <option [value]="type.type">{{ type.label }}</option>
+        }
       </select>
     </label>
   </div>

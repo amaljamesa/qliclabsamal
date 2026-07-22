@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { LabelProfile } from '../../../models/label-profile.model';
 import { LabelTemplate } from '../../../models/label-template.model';
 import { Label } from '../../../models/label.model';
@@ -7,7 +7,7 @@ import { Label } from '../../../models/label.model';
 @Component({
   selector: 'app-label-sidebar',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './label-sidebar.component.html',
   styleUrls: ['./label-sidebar.component.css']
 })

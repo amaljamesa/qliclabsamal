@@ -1,0 +1,62 @@
+<div class="column-filter-menu" (click)="stopClose($event)">
+  <div class="menu-section sort-section">
+    <button
+      type="button"
+      class="menu-item"
+      [class.active]="sort === 'asc'"
+      (click)="sortAsc()">
+      <span class="sort-icon">&#8593;</span> Sort A to Z
+    </button>
+    <button
+      type="button"
+      class="menu-item"
+      [class.active]="sort === 'desc'"
+      (click)="sortDesc()">
+      <span class="sort-icon">&#8595;</span> Sort Z to A
+    </button>
+  </div>
+
+  <div class="menu-divider"></div>
+
+  <div class="menu-section search-section">
+    <input
+      type="text"
+      class="filter-search-input"
+      placeholder="Search values"
+      [(ngModel)]="searchText" />
+  </div>
+
+  <div class="menu-section values-section">
+    <label class="value-row select-all-row">
+      <input
+        type="checkbox"
+        [checked]="allChecked"
+        (change)="toggleAll($any($event.target).checked)" />
+      <span>(Select All)</span>
+    </label>
+
+    @for (value of filteredValues; track value) {
+      <label class="value-row">
+        <input
+          type="checkbox"
+          [checked]="draftSelected.has(value)"
+          (change)="toggleValue(value, $any($event.target).checked)" />
+        <span [title]="value">{{ value === '' ? '(Blanks)' : value }}</span>
+      </label>
+    }
+
+    @if (filteredValues.length === 0) {
+      <div class="no-values">No matching values</div>
+    }
+  </div>
+
+  <div class="menu-divider"></div>
+
+  <div class="menu-footer">
+    <button type="button" class="filter-btn clear-btn" (click)="clearFilter()">Clear</button>
+    <div class="footer-actions">
+      <button type="button" class="filter-btn cancel-btn" (click)="cancel()">Cancel</button>
+      <button type="button" class="filter-btn ok-btn" (click)="applyFilter()">OK</button>
+    </div>
+  </div>
+</div>

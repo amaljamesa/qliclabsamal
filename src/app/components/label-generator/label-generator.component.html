@@ -159,7 +159,9 @@
         (redo)="redo()">
       </app-label-toolbar>
 
-      <p *ngIf="saveMessage" class="save-message" role="status">{{ saveMessage }}</p>
+      @if (saveMessage) {
+        <p class="save-message" role="status">{{ saveMessage }}</p>
+      }
 
       <!-- Designer canvas -->
       <app-label-canvas
@@ -177,37 +179,42 @@
     </section>
 
     <!-- RIGHT SIDEBAR: Properties Panel -->
-    <aside class="right-sidebar" *ngIf="selectedElement">
-      <app-label-properties
-        [element]="selectedElement"
-        (propertiesChange)="handlePropertyChange($event)"
-        (deleteElement)="deleteElement($event)"
-        (duplicateElement)="duplicateElement($event)"
-        (bringForward)="bringForward($event)"
-        (sendBackward)="sendBackward($event)"
-        (toggleLock)="toggleLock($event)">
-      </app-label-properties>
-    </aside>
+    @if (selectedElement) {
+      <aside class="right-sidebar">
+        <app-label-properties
+          [element]="selectedElement"
+          (propertiesChange)="handlePropertyChange($event)"
+          (deleteElement)="deleteElement($event)"
+          (duplicateElement)="duplicateElement($event)"
+          (bringForward)="bringForward($event)"
+          (sendBackward)="sendBackward($event)"
+          (toggleLock)="toggleLock($event)">
+        </app-label-properties>
+      </aside>
+    }
   </div>
 
-  <app-label-print-preview
-    *ngIf="printPreviewLabel"
-    [label]="printPreviewLabel"
-    (close)="closePrintPreview()">
-  </app-label-print-preview>
+  @if (printPreviewLabel) {
+    <app-label-print-preview
+      [label]="printPreviewLabel"
+      (close)="closePrintPreview()">
+    </app-label-print-preview>
+  }
 
-  <app-label-extended-preview
-    *ngIf="showExtendedPreview"
-    [elements]="elements"
-    [dimensions]="labelSettings.dimensions"
-    [margins]="labelSettings.margins"
-    (close)="closeExtendedPreview()"
-    (save)="applyExtendedPreview($event)">
-  </app-label-extended-preview>
+  @if (showExtendedPreview) {
+    <app-label-extended-preview
+      [elements]="elements"
+      [dimensions]="labelSettings.dimensions"
+      [margins]="labelSettings.margins"
+      (close)="closeExtendedPreview()"
+      (save)="applyExtendedPreview($event)">
+    </app-label-extended-preview>
+  }
 
-  <app-label-image-import
-    *ngIf="showImageImport"
-    (close)="closeImageImport()"
-    (apply)="applyImageImport($event)">
-  </app-label-image-import>
+  @if (showImageImport) {
+    <app-label-image-import
+      (close)="closeImageImport()"
+      (apply)="applyImageImport($event)">
+    </app-label-image-import>
+  }
 </div>

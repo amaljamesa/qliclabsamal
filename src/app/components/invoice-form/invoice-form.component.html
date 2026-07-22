@@ -36,7 +36,9 @@
         <label class="field-label">Select Party*</label>
         <div class="party-row">
           <select [(ngModel)]="selectedParty" class="field-input">
-            <option *ngFor="let p of parties" [value]="p.name">{{ p.name }}</option>
+            @for (p of parties; track p) {
+              <option [value]="p.name">{{ p.name }}</option>
+            }
           </select>
           <button class="tick-btn" (click)="addNewPartyInline()">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
@@ -120,69 +122,77 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let item of items; let i = index" class="item-row">
-          <td class="td-si">{{ i + 1 }}</td>
-          <td class="td-product">
-            <div class="autocomplete-container">
-              <input
-                type="text"
-                [(ngModel)]="item.productName"
-                (input)="onProductSearch(i, $event)"
-                placeholder=""
-                class="cell-input"
-                autocomplete="off"
-              />
-              <!-- Autocomplete Dropdown -->
-              <div class="autocomplete-dropdown" *ngIf="showAutocomplete && activeRowIndex === i">
-                <div class="ac-header-row">
-                  <span class="ac-search-val">{{ item.productName }}</span>
-                  <button class="ac-close-btn" (click)="showAutocomplete=false">×</button>
-                </div>
-                <table class="ac-table">
-                  <tbody>
-                    <tr *ngFor="let prod of filteredProducts; let pi = index"
-                        (click)="selectProduct(i, prod)"
-                        class="ac-row"
-                        [class.ac-row-highlight]="pi === 0">
-                      <td class="ac-name">{{ prod.name }}</td>
-                      <td>MRP: {{ prod.mrp | number:'1.2-2' }}</td>
-                      <td>nan</td>
-                      <td>rehab</td>
-                      <td [class.danger-stock]="prod.stock.startsWith('0') || prod.stock.startsWith('-')">{{ prod.stock }}</td>
-                    </tr>
-                  </tbody>
-                </table>
+        @for (item of items; track item; let i = $index) {
+          <tr class="item-row">
+            <td class="td-si">{{ i + 1 }}</td>
+            <td class="td-product">
+              <div class="autocomplete-container">
+                <input
+                  type="text"
+                  [(ngModel)]="item.productName"
+                  (input)="onProductSearch(i, $event)"
+                  placeholder=""
+                  class="cell-input"
+                  autocomplete="off"
+                  />
+                <!-- Autocomplete Dropdown -->
+                @if (showAutocomplete && activeRowIndex === i) {
+                  <div class="autocomplete-dropdown">
+                    <div class="ac-header-row">
+                      <span class="ac-search-val">{{ item.productName }}</span>
+                      <button class="ac-close-btn" (click)="showAutocomplete=false">×</button>
+                    </div>
+                    <table class="ac-table">
+                      <tbody>
+                        @for (prod of filteredProducts; track prod; let pi = $index) {
+                          <tr
+                            (click)="selectProduct(i, prod)"
+                            class="ac-row"
+                            [class.ac-row-highlight]="pi === 0">
+                            <td class="ac-name">{{ prod.name }}</td>
+                            <td>MRP: {{ prod.mrp | number:'1.2-2' }}</td>
+                            <td>nan</td>
+                            <td>rehab</td>
+                            <td [class.danger-stock]="prod.stock.startsWith('0') || prod.stock.startsWith('-')">{{ prod.stock }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
               </div>
-            </div>
-          </td>
-          <td><input type="number" [(ngModel)]="item.qty" (input)="calculateRowAmount(item)" min="1" class="cell-input num-input" /></td>
-          <td><input type="number" [(ngModel)]="item.rate" (input)="calculateRowAmount(item)" min="0" step="0.01" class="cell-input num-input" /></td>
-          <td>
-            <select [(ngModel)]="item.taxRate" (change)="calculateTotals()" class="cell-input tax-select">
-              <option value="GST @ 18%">GST &#64; 18%</option>
-              <option value="GST @ 12%">GST &#64; 12%</option>
-              <option value="GST @ 5%">GST &#64; 5%</option>
-              <option value="GST @ 2%">GST &#64; 2%</option>
-              <option value="GST @ 0%">GST &#64; 0%</option>
-              <option value="Exempted">Exempted</option>
-            </select>
-          </td>
-          <td class="td-amount">{{ item.amount | number:'1.2-2' }}</td>
-          <td class="td-del">
-            <button class="del-btn" (click)="deleteItem(i)">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-            </button>
-          </td>
-        </tr>
+            </td>
+            <td><input type="number" [(ngModel)]="item.qty" (input)="calculateRowAmount(item)" min="1" class="cell-input num-input" /></td>
+            <td><input type="number" [(ngModel)]="item.rate" (input)="calculateRowAmount(item)" min="0" step="0.01" class="cell-input num-input" /></td>
+            <td>
+              <select [(ngModel)]="item.taxRate" (change)="calculateTotals()" class="cell-input tax-select">
+                <option value="GST @ 18%">GST &#64; 18%</option>
+                <option value="GST @ 12%">GST &#64; 12%</option>
+                <option value="GST @ 5%">GST &#64; 5%</option>
+                <option value="GST @ 2%">GST &#64; 2%</option>
+                <option value="GST @ 0%">GST &#64; 0%</option>
+                <option value="Exempted">Exempted</option>
+              </select>
+            </td>
+            <td class="td-amount">{{ item.amount | number:'1.2-2' }}</td>
+            <td class="td-del">
+              <button class="del-btn" (click)="deleteItem(i)">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+              </button>
+            </td>
+          </tr>
+        }
         <!-- New row button row -->
         <tr class="new-row-tr">
           <td colspan="7">
             <button class="new-row-btn" (click)="addItem()">New Row</button>
           </td>
         </tr>
-        <tr *ngIf="items.length === 0">
-          <td colspan="7" class="no-items">No items added.</td>
-        </tr>
+        @if (items.length === 0) {
+          <tr>
+            <td colspan="7" class="no-items">No items added.</td>
+          </tr>
+        }
       </tbody>
     </table>
   </div>
@@ -198,7 +208,7 @@
     <div class="bottom-right-panel">
       <!-- Top Row: Cards -->
       <div class="bottom-cards-row">
-        
+
         <!-- TCS Calculation Card -->
         <div class="summary-card tcs-card">
           <div class="radio-group">

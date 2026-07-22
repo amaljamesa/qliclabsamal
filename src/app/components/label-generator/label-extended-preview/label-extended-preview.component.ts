@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { LabelCanvasComponent } from '../label-canvas/label-canvas.component';
 import { LabelElement, LabelElementType } from '../../../models/label-element.model';
@@ -23,7 +23,7 @@ const CSS_PX_PER_MM = 96 / 25.4;
 @Component({
   selector: 'app-label-extended-preview',
   standalone: true,
-  imports: [CommonModule, FormsModule, LabelCanvasComponent],
+  imports: [FormsModule, LabelCanvasComponent],
   templateUrl: './label-extended-preview.component.html',
   styleUrls: ['./label-extended-preview.component.css']
 })

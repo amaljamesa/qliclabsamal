@@ -1,5 +1,5 @@
 import { Component, HostListener, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { LabelSidebarComponent } from './label-sidebar/label-sidebar.component';
 import { LabelToolbarComponent, LabelElementTypeOption } from './label-toolbar/label-toolbar.component';
@@ -26,7 +26,7 @@ interface EditorSnapshot {
 @Component({
   selector: 'app-label-generator',
   standalone: true,
-  imports: [CommonModule, FormsModule, LabelSidebarComponent, LabelToolbarComponent, LabelCanvasComponent, LabelPropertiesComponent, LabelPrintPreviewComponent, LabelImageImportComponent, LabelExtendedPreviewComponent],
+  imports: [FormsModule, LabelSidebarComponent, LabelToolbarComponent, LabelCanvasComponent, LabelPropertiesComponent, LabelPrintPreviewComponent, LabelImageImportComponent, LabelExtendedPreviewComponent],
   templateUrl: './label-generator.component.html',
   styleUrls: ['./label-generator.component.css']
 })
