@@ -77,6 +77,29 @@
   color: #0f172a;
 }
 
+.section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+
+.section-toggle .chevron {
+  font-size: 0.75rem;
+  color: #64748b;
+  transition: transform 0.15s ease;
+  transform: rotate(-90deg);
+}
+
+.section-toggle .chevron.expanded {
+  transform: rotate(0deg);
+}
+
+.section-body {
+  display: grid;
+}
+
 .field-group {
   display: grid;
   gap: 6px;

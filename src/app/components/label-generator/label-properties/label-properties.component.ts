@@ -31,6 +31,17 @@ export class LabelPropertiesComponent implements OnDestroy {
   private _element?: LabelElement;
   private valueChangesSub?: Subscription;
 
+  expandedSections: Record<string, boolean> = {
+    content: true,
+    typography: true,
+    box: true,
+    size: true
+  };
+
+  toggleSection(section: string): void {
+    this.expandedSections[section] = !this.expandedSections[section];
+  }
+
   constructor(private fb: FormBuilder) {
     this.form = this.fb.group({
       fontFamily: ['Inter, system-ui, sans-serif'],
