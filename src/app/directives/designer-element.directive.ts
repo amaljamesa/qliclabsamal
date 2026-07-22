@@ -454,6 +454,27 @@ export class DesignerElementDirective implements OnInit, OnChanges, OnDestroy {
     });
   }
 
+  // ────────── DOUBLE-CLICK: RESET ROTATION ──────────
+
+  @HostListener('dblclick', ['$event'])
+  onDoubleClick(event: MouseEvent): void {
+    if (this.locked) return;
+    const target = event.target as HTMLElement;
+    if (target.matches('input, textarea, select, button, option, [contenteditable]')) {
+      return;
+    }
+    if (this.currentRotation() === 0) return;
+
+    event.stopPropagation();
+    const host = this.elementRef.nativeElement;
+    host.style.transform = 'rotate(0deg)';
+    this.ngZone.run(() => {
+      // A double-click is already a discrete, atomic action – one undo step for the reset.
+      this.interactionStart.emit();
+      this.rotationChange.emit(0);
+    });
+  }
+
   // ────────── KEYBOARD ──────────
 
   @HostListener('document:keydown', ['$event'])

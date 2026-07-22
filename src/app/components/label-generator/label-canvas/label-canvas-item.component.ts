@@ -98,7 +98,7 @@ import { QRCodeComponent } from 'angularx-qrcode';
     `.barcode-renderer ::ng-deep svg { max-width: 100%; max-height: 100%; }`,
     `.qr-renderer ::ng-deep canvas, .qr-renderer ::ng-deep img { max-width: 100%; max-height: 100%; }`,
     `.image-renderer { width: 100%; height: 100%; pointer-events: none; display: block; }`,
-    `.element-label { pointer-events: none; overflow: hidden; white-space: normal; word-break: break-word; max-width: 100%; padding: 8px; }`,
+    `.element-label { display: block; width: 100%; pointer-events: none; overflow: hidden; white-space: normal; word-break: break-word; max-width: 100%; padding: 8px; }`,
     `.image-placeholder-text { color: #94a3b8; font-size: 0.8rem; cursor: pointer; pointer-events: none; }`,
     `:host { display: contents; }`,
   ]
@@ -175,8 +175,22 @@ export class LabelCanvasItemComponent {
       transform: sx === 1 && sy === 1 ? 'none' : `scale(${sx}, ${sy})`,
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'center'
+      justifyContent: this.innerJustifyContent
     };
+  }
+
+  /** Mirrors the text-align setting as the flex justify-content so alignment is
+   *  visibly reflected in the designer canvas, not just where the text span happens
+   *  to already fill its box. Barcode/QR/image content always stays centered. */
+  get innerJustifyContent(): string {
+    if (this.element.type === 'barcode' || this.element.type === 'qr' || this.element.type === 'image') {
+      return 'center';
+    }
+    switch (this.element.style?.textAlign) {
+      case 'left': return 'flex-start';
+      case 'right': return 'flex-end';
+      default: return 'center';
+    }
   }
 
   get liveFontSize(): number {
