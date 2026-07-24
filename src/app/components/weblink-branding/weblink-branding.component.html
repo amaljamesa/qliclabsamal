@@ -1,0 +1,239 @@
+@if (brand && promotion) {
+  <div class="branding-wrapper">
+
+    <div class="branding-title-bar">
+      <div>
+        <h1 class="branding-title">Weblink Header &amp; Footer</h1>
+        <p class="branding-subtitle">Customize what customers see at the top and bottom of your invoice weblink.</p>
+      </div>
+      <div class="branding-title-actions">
+        @if (savedMessage) {
+          <span class="saved-pill" [class.saved-pill-error]="savedIsError">{{ savedMessage }}</span>
+        }
+        <button type="button" class="btn-branding btn-branding-ghost" (click)="reset()">Reset</button>
+        <button type="button" class="btn-branding btn-branding-primary" (click)="save()">Save Changes</button>
+      </div>
+    </div>
+
+    <div class="branding-body">
+
+      <!-- Form column -->
+      <div class="branding-form-panel">
+
+        <div class="branding-tabs">
+          <button type="button" class="branding-tab" [class.active]="activeTab === 'header'" (click)="setTab('header')">Header</button>
+          <button type="button" class="branding-tab" [class.active]="activeTab === 'footer'" (click)="setTab('footer')">Footer</button>
+        </div>
+
+        @if (activeTab === 'header') {
+          <div class="branding-section">
+
+            <div class="field-block">
+              <label class="branding-label">Logo</label>
+              <div class="upload-row">
+                @if (brand.logoUrl) {
+                  <img class="upload-thumb" [src]="brand.logoUrl" alt="Logo preview" />
+                } @else {
+                  <div class="upload-thumb upload-thumb-empty">No logo</div>
+                }
+                <div class="upload-actions">
+                  <label class="btn-branding btn-branding-ghost upload-btn">
+                    Upload picture
+                    <input type="file" accept="image/*" class="hidden-file-input" (change)="onLogoSelected($event)" />
+                  </label>
+                  @if (brand.logoUrl) {
+                    <button type="button" class="btn-branding btn-branding-text" (click)="removeLogo()">Remove</button>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <div class="field-block">
+              <label class="branding-label" for="business-name">Business name</label>
+              <input id="business-name" class="branding-input" type="text" [(ngModel)]="brand.businessName" (ngModelChange)="syncPreviewInvoice()" placeholder="Your Business Name" />
+            </div>
+
+            <div class="field-block">
+              <label class="branding-label" for="description">Tagline / description</label>
+              <textarea id="description" class="branding-input branding-textarea" [(ngModel)]="brand.description" placeholder="Shown alongside your brand on the weblink"></textarea>
+            </div>
+
+            <div class="field-block">
+              <label class="branding-label">Header carousel images</label>
+              <p class="field-hint">Upload as many pictures as you like - customers see them as a swipeable carousel at the very top of the weblink.</p>
+
+              <div class="carousel-thumb-grid">
+                @for (banner of headerBanners; track banner.id) {
+                  <div class="carousel-thumb-item">
+                    <img class="carousel-thumb-image" [src]="banner.imageUrl" alt="" />
+                    <button type="button" class="carousel-thumb-remove" (click)="removeHeaderImage(banner.id)" aria-label="Remove image">&times;</button>
+                  </div>
+                }
+                <label class="carousel-thumb-add">
+                  <span>+ Add pictures</span>
+                  <input type="file" accept="image/*" multiple class="hidden-file-input" (change)="onHeaderImagesSelected($event)" />
+                </label>
+              </div>
+            </div>
+
+            <div class="field-block">
+              <label class="branding-label" for="carousel-height">Carousel height</label>
+              <div class="height-slider-row">
+                <input id="carousel-height" type="range" class="height-slider" [min]="minCarouselHeight" [max]="maxCarouselHeight" step="10" [(ngModel)]="promotion.bannerHeightPx" />
+                <span class="height-slider-value">{{ promotion.bannerHeightPx }}px</span>
+              </div>
+            </div>
+
+          </div>
+        }
+
+        @if (activeTab === 'footer') {
+          <div class="branding-section">
+
+            <div class="field-block">
+              <label class="branding-label">Footer image / logo</label>
+              <div class="upload-row">
+                @if (brand.footerImageUrl) {
+                  <img class="upload-thumb" [src]="brand.footerImageUrl" alt="Footer image preview" />
+                } @else {
+                  <div class="upload-thumb upload-thumb-empty">Using logo</div>
+                }
+                <div class="upload-actions">
+                  <label class="btn-branding btn-branding-ghost upload-btn">
+                    Upload picture
+                    <input type="file" accept="image/*" class="hidden-file-input" (change)="onFooterImageSelected($event)" />
+                  </label>
+                  @if (brand.footerImageUrl) {
+                    <button type="button" class="btn-branding btn-branding-text" (click)="removeFooterImage()">Remove</button>
+                  }
+                </div>
+              </div>
+              <p class="field-hint">Falls back to your header logo when not set.</p>
+            </div>
+
+            <div class="field-block">
+              <label class="branding-label" for="footer-note">Footer note</label>
+              <input id="footer-note" class="branding-input" type="text" [(ngModel)]="brand.footerNote" placeholder="Thank you for shopping with us!" />
+            </div>
+
+            <div class="field-block-row">
+              <div class="field-block">
+                <label class="branding-label" for="contact-phone">Contact phone</label>
+                <input id="contact-phone" class="branding-input" type="text" [(ngModel)]="brand.contactPhone" placeholder="+91 90000 00000" />
+              </div>
+              <div class="field-block">
+                <label class="branding-label" for="contact-email">Contact email</label>
+                <input id="contact-email" class="branding-input" type="email" [(ngModel)]="brand.contactEmail" placeholder="support@yourbrand.com" />
+              </div>
+            </div>
+
+            <div class="field-block">
+              <label class="branding-label">Payment QR code</label>
+              <div class="upload-row">
+                @if (brand.paymentQrImageUrl) {
+                  <img class="upload-thumb" [src]="brand.paymentQrImageUrl" alt="Payment QR preview" />
+                } @else {
+                  <div class="upload-thumb upload-thumb-empty">No QR code</div>
+                }
+                <div class="upload-actions">
+                  <label class="btn-branding btn-branding-ghost upload-btn">
+                    Upload picture
+                    <input type="file" accept="image/*" class="hidden-file-input" (change)="onPaymentQrSelected($event)" />
+                  </label>
+                  @if (brand.paymentQrImageUrl) {
+                    <button type="button" class="btn-branding btn-branding-text" (click)="removePaymentQr()">Remove</button>
+                  }
+                </div>
+              </div>
+              <p class="field-hint">Shown as a scan-to-pay code on unpaid bills. Upload a photo/screenshot of your real UPI or payment QR.</p>
+            </div>
+
+            <div class="field-block">
+              <label class="branding-label">Social links</label>
+              <div class="social-links-list">
+                @for (link of brand.socialLinks; track $index) {
+                  <div class="social-link-row">
+                    <select class="branding-input social-platform-select" [(ngModel)]="link.platform">
+                      @for (platform of socialPlatforms; track platform) {
+                        <option [value]="platform">{{ platform }}</option>
+                      }
+                    </select>
+                    <input class="branding-input" type="text" [(ngModel)]="link.url" placeholder="https://instagram.com/yourbrand" />
+                    <button type="button" class="btn-branding btn-branding-text" (click)="removeSocialLink($index)">Remove</button>
+                  </div>
+                }
+              </div>
+              <button type="button" class="btn-branding btn-branding-ghost btn-branding-standalone" (click)="addSocialLink()">+ Add social link</button>
+            </div>
+
+            <div class="field-block">
+              <label class="branding-label">Promo videos</label>
+              <p class="field-hint">Shown as a popup video ad on the weblink page.</p>
+
+              <div class="video-toggle-row">
+                <label class="toggle-switch">
+                  <input type="checkbox" [(ngModel)]="promotion.videoAdsEnabled" />
+                  <span class="toggle-slider"></span>
+                </label>
+                <span>Show promo video popup to customers</span>
+              </div>
+
+              <div class="video-list">
+                @for (ad of promotion.videoAds; track ad.id) {
+                  <div class="video-row">
+                    <video class="video-thumb" [src]="ad.url" muted></video>
+                    <div class="video-meta">
+                      <label class="field-hint">Duration (seconds)</label>
+                      <input class="branding-input video-duration-input" type="number" min="1" [(ngModel)]="ad.durationSeconds" />
+                    </div>
+                    <button type="button" class="btn-branding btn-branding-text" (click)="removeVideo(ad.id)">Remove</button>
+                  </div>
+                }
+              </div>
+
+              <label class="btn-branding btn-branding-ghost upload-btn btn-branding-standalone">
+                Upload video
+                <input type="file" accept="video/*" class="hidden-file-input" (change)="onVideoSelected($event)" />
+              </label>
+            </div>
+
+          </div>
+        }
+
+      </div>
+
+      <!-- Live preview column -->
+      <div class="branding-preview-panel">
+        <div class="preview-sticky">
+          <p class="preview-heading">Live preview</p>
+
+          <div class="preview-phone">
+            @if (headerBanners.length) {
+              <app-promo-banner [banners]="headerBanners" [heightPx]="promotion.bannerHeightPx"></app-promo-banner>
+            }
+
+            <app-brand-window [config]="brand" [invoice]="previewInvoice"></app-brand-window>
+
+            <div class="preview-body-filler">
+              <div class="preview-line"></div>
+              <div class="preview-line short"></div>
+            </div>
+
+            <div class="preview-footer-bar">
+              @if (brand.footerImageUrl || brand.logoUrl) {
+                <img class="preview-footer-logo" [src]="brand.footerImageUrl || brand.logoUrl" alt="" />
+              } @else {
+                <span class="preview-footer-name">{{ brand.businessName || 'Your Business' }}</span>
+              }
+              @if (brand.footerNote) {
+                <span class="preview-footer-note">{{ brand.footerNote }}</span>
+              }
+              <button type="button" class="preview-footer-download" disabled>Download Bill</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+}
