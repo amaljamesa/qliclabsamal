@@ -1,0 +1,122 @@
+.weblink-status-screen {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: var(--muted);
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 3px solid var(--surface-strong);
+  border-top-color: var(--primary);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.weblink-page {
+  min-height: 100dvh;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: clamp(56px, 10dvh, 88px);
+}
+
+.weblink-content {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+}
+
+.weblink-feedback-band {
+  background: #eef1f3;
+  padding: 1.5rem 1.25rem;
+}
+
+.weblink-footer-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: clamp(56px, 10dvh, 88px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  box-shadow: 0 -2px 10px rgba(15, 23, 42, 0.06);
+  padding: 0 1.25rem;
+  max-width: 480px;
+  margin: 0 auto;
+  z-index: 20;
+}
+
+.footer-logo {
+  height: 24px;
+  width: auto;
+  max-width: 120px;
+  object-fit: contain;
+}
+
+.footer-brand-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #111827;
+}
+
+.footer-note {
+  font-size: 0.75rem;
+  color: #64748b;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.footer-download-btn {
+  border: none;
+  border-radius: 8px;
+  background: #16a34a;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0.65rem 1.4rem;
+  cursor: pointer;
+}
+
+.footer-download-btn:hover {
+  background: #15803d;
+}
+
+.paylink-page {
+  min-height: 100dvh;
+  background: #f4f6f8;
+  display: flex;
+  justify-content: center;
+}
+
+.paylink-standalone {
+  width: 100%;
+  max-width: 480px;
+}
+
+@media (min-width: 768px) {
+  .weblink-content,
+  .weblink-footer-bar,
+  .paylink-standalone {
+    max-width: 640px;
+  }
+}

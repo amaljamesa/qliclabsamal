@@ -1,0 +1,75 @@
+<section class="pay-card">
+  <header class="pay-header">
+    <div class="pay-avatar">{{ avatarInitial }}</div>
+    <span class="pay-header-name">{{ supplierName }}</span>
+  </header>
+
+  <div class="pay-body">
+    <h1 class="pay-title">Payment Request from {{ supplierName }}</h1>
+
+    @if (paymentFor) {
+      <div class="pay-field">
+        <span class="pay-field-label">PAYMENT FOR</span>
+        <span class="pay-field-value">{{ paymentFor }}</span>
+      </div>
+    }
+
+    <div class="pay-field">
+      <span class="pay-field-label">AMOUNT PAYABLE</span>
+      <div class="pay-amount-row">
+        <span class="pay-amount">{{ currencySymbol }} {{ amount | number: '1.2-2' }}</span>
+        @if (isPaid) {
+          <span class="paid-stamp">PAID</span>
+        }
+      </div>
+      @if (isPaid) {
+        <span class="pay-amount-underline"></span>
+      }
+    </div>
+
+    @if (isPaid && displayPaymentId) {
+      <div class="pay-field">
+        <span class="pay-field-label">PAYMENT ID</span>
+        <span class="pay-field-value">{{ displayPaymentId }}</span>
+      </div>
+    }
+
+    <div class="pay-divider"></div>
+
+    @if (supportContact) {
+      <p class="pay-contact">For any queries, please contact <strong>{{ supplierName }}</strong></p>
+    }
+    @if (businessPoliciesUrl) {
+      <a class="pay-policies-link" [href]="businessPoliciesUrl" target="_blank" rel="noopener">
+        Merchant's business policies ↗
+      </a>
+    }
+
+    @if (paymentEnabled) {
+      @if (!isPaid && !showQr) {
+        <button type="button" class="pay-primary-btn" (click)="payNow()">
+          Pay Now · {{ currencySymbol }} {{ amount | number: '1.2-2' }}
+        </button>
+      } @else if (!isPaid && showQr) {
+        <div class="pay-qr-block">
+          @if (link) {
+            <qrcode [qrdata]="link.qrValue" [width]="160" [elementType]="'svg'" [errorCorrectionLevel]="'M'"></qrcode>
+          }
+          <p class="pay-qr-hint">Scan to pay, or confirm below once completed.</p>
+          <button type="button" class="pay-confirm-btn" [disabled]="isProcessing" (click)="confirmMockPayment()">
+            {{ isProcessing ? 'Confirming…' : "I've completed the payment" }}
+          </button>
+        </div>
+      } @else if (isPaid) {
+        <button type="button" class="pay-share-btn" (click)="sharePaymentLink()">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.6" x2="15.4" y2="6.4"/><line x1="8.6" y1="13.4" x2="15.4" y2="17.6"/></svg>
+          {{ linkCopied ? 'Link copied!' : 'Share Payment Link' }}
+        </button>
+      }
+    }
+  </div>
+</section>
+
+<div class="pay-footer-card">
+  <p class="pay-footer-line">Secured &amp; powered by <strong>Qliclabs</strong></p>
+</div>

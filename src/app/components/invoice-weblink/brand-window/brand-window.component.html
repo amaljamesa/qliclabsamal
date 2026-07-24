@@ -1,0 +1,28 @@
+@if (invoice) {
+  <section class="store-row">
+    @if (!expanded) {
+      <div class="store-row-line" [class.no-logo]="!config?.logoUrl">
+        @if (config?.logoUrl) {
+          <img class="store-logo" [src]="config!.logoUrl" alt="{{ invoice.supplierName }} logo" />
+        }
+
+        <div class="store-heading">
+          <span class="store-name">{{ invoice.supplierName }}</span>
+          @if (invoice.store?.placeOfSupply) {
+            <button type="button" class="store-details-toggle" (click)="toggle()">
+              Store Details
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          }
+        </div>
+      </div>
+    } @else {
+      <div class="store-details-expanded">
+        <button type="button" class="store-details-back" (click)="toggle()" aria-label="Collapse store details">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <p class="store-details-address">{{ invoice.supplierName }}@if (invoice.store?.placeOfSupply) {, {{ invoice.store!.placeOfSupply }}}</p>
+      </div>
+    }
+  </section>
+}

@@ -61,7 +61,9 @@ export class SidebarComponent {
     { name: 'Activity & Tracking', icon: 'navigation', expanded: false, submenu: [
       { name: 'Activity Log' }
     ]},
-    { name: 'Settings', icon: 'settings' },
+    { name: 'Settings', icon: 'settings', expanded: false, submenu: [
+      { name: 'Weblink Header & Footer', route: '/settings/weblink-branding' }
+    ]},
     { name: 'Approvals', icon: 'check-circle' },
     { name: 'Stock Audit', icon: 'clipboard' }
   ];

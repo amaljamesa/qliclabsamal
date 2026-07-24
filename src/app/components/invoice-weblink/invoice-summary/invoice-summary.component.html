@@ -1,0 +1,246 @@
+@if (invoice) {
+  <section class="tax-invoice">
+    @if (invoice.store) {
+      <div class="legal-block">
+        <p class="legal-name">{{ invoice.store.legalName }}</p>
+        @if (invoice.store.contactNumber) {
+          <p class="legal-line">Store Contact Number : {{ invoice.store.contactNumber }}</p>
+        }
+        @if (invoice.store.placeOfSupply) {
+          <p class="legal-line">Place Of Supply : {{ invoice.store.placeOfSupply }}</p>
+        }
+        @if (invoice.store.gstin) {
+          <p class="legal-line">GSTIN NO : {{ invoice.store.gstin }}</p>
+        }
+      </div>
+    }
+
+    <div class="dashed-rule"></div>
+    <p class="doc-type-heading">{{ invoice.docType === 'Estimate' ? 'ESTIMATE' : 'TAX INVOICE' }}</p>
+    <div class="dashed-rule"></div>
+
+    <div class="meta-grid">
+      <div class="meta-row">
+        <span class="meta-cell"><strong>INVOICE NO.</strong> :{{ invoice.invoiceNo }}</span>
+        <span class="meta-cell meta-cell-right">{{ invoice.issueDate }}</span>
+      </div>
+      @if (invoice.customer.name) {
+        <div class="meta-row">
+          <span class="meta-cell"><strong>CUSTOMER</strong> :{{ invoice.customer.name }}</span>
+        </div>
+      }
+      @if (invoice.counter || invoice.cashier) {
+        <div class="meta-row">
+          @if (invoice.counter) {
+            <span class="meta-cell"><strong>COUNTER</strong> :{{ invoice.counter }}</span>
+          }
+          @if (invoice.cashier) {
+            <span class="meta-cell meta-cell-right"><strong>CASHIER</strong> :{{ invoice.cashier }}</span>
+          }
+        </div>
+      }
+      @if (invoice.customerId) {
+        <div class="meta-row">
+          <span class="meta-cell"><strong>CUSTOMER ID</strong> :{{ invoice.customerId }}</span>
+        </div>
+      }
+      @if (invoice.customer.registeredMobile) {
+        <div class="meta-row">
+          <span class="meta-cell"><strong>MOBILE NO</strong> :{{ invoice.customer.registeredMobile }}</span>
+        </div>
+      }
+    </div>
+
+    @if (invoice.taxSlabs?.length) {
+      <div class="dashed-rule"></div>
+
+      <div class="items-table">
+        <div class="items-header-row">
+          <span class="col-item">Item</span>
+          <span class="col-price">Price</span>
+          <span class="col-qty">QTY/Unit</span>
+          <span class="col-disc">Disc.Amt</span>
+          <span class="col-net">Net.Amt</span>
+        </div>
+        <div class="items-header-row items-subheader-row">
+          <span class="col-item">Description</span>
+          <span class="col-price"></span>
+          <span class="col-qty"></span>
+          <span class="col-disc">HSN-SAC</span>
+          <span class="col-net">Taxable Amount</span>
+        </div>
+
+        @for (slab of invoice.taxSlabs; track slab.label) {
+          <div class="dashed-rule"></div>
+          <p class="slab-heading">{{ slab.label }} {{ slab.gstLabel }}</p>
+          <div class="dashed-rule"></div>
+
+          @for (item of slab.items; track item.code) {
+            <div class="item-row">
+              <span class="col-item">{{ item.code }}</span>
+              <span class="col-price">{{ invoice.totals.currencySymbol }}{{ item.price | number: '1.2-2' }}</span>
+              <span class="col-qty">{{ item.qty }} {{ item.unit }}</span>
+              <span class="col-disc">{{ invoice.totals.currencySymbol }}{{ item.discAmount | number: '1.2-2' }}</span>
+              <span class="col-net">{{ invoice.totals.currencySymbol }}{{ item.netAmount | number: '1.2-2' }}</span>
+            </div>
+            <div class="item-row item-subrow">
+              <span class="col-item">{{ item.description }}</span>
+              <span class="col-price"></span>
+              <span class="col-qty"></span>
+              <span class="col-disc">{{ item.hsnSac }}</span>
+              <span class="col-net">{{ invoice.totals.currencySymbol }}{{ item.taxableAmount | number: '1.2-2' }}</span>
+            </div>
+          }
+        }
+      </div>
+
+      <div class="dashed-rule"></div>
+      <div class="totals-row">
+        <span>Gross Total:</span>
+        <strong>{{ invoice.totals.currencySymbol }}{{ (invoice.grossTotal || invoice.totals.total) | number: '1.2-2' }}</strong>
+      </div>
+      <div class="totals-row">
+        <span>Total Invoice Amount:</span>
+        <strong>{{ invoice.totals.currencySymbol }}{{ invoice.totals.total | number: '1.2-2' }}</strong>
+      </div>
+      <div class="dashed-rule"></div>
+
+      <p class="section-heading">Tax Details</p>
+      <div class="tax-table">
+        <div class="tax-table-row tax-table-header">
+          <span>GST IND</span>
+          <span>Taxable Value</span>
+          <span>CGST</span>
+          <span>SGST</span>
+          <span>CESS</span>
+          <span>Total Amount</span>
+        </div>
+        @for (slab of invoice.taxSlabs; track slab.label) {
+          <div class="tax-table-row">
+            <span>{{ slab.label }}</span>
+            <span>{{ invoice.totals.currencySymbol }}{{ slab.taxableValue | number: '1.2-2' }}</span>
+            <span>{{ invoice.totals.currencySymbol }}{{ slab.cgst | number: '1.2-2' }}</span>
+            <span>{{ invoice.totals.currencySymbol }}{{ slab.sgst | number: '1.2-2' }}</span>
+            <span>{{ invoice.totals.currencySymbol }}{{ slab.cess | number: '1.2-2' }}</span>
+            <strong>{{ invoice.totals.currencySymbol }}{{ slab.totalAmount | number: '1.2-2' }}</strong>
+          </div>
+        }
+        <div class="dashed-rule"></div>
+        <div class="tax-table-row tax-table-total">
+          <span>Total</span>
+          <span>{{ invoice.totals.currencySymbol }}{{ taxableValueTotal() | number: '1.2-2' }}</span>
+          <span>{{ invoice.totals.currencySymbol }}{{ cgstTotal() | number: '1.2-2' }}</span>
+          <span>{{ invoice.totals.currencySymbol }}{{ sgstTotal() | number: '1.2-2' }}</span>
+          <span>{{ invoice.totals.currencySymbol }}0.00</span>
+          <strong>{{ invoice.totals.currencySymbol }}{{ invoice.totals.total | number: '1.2-2' }}</strong>
+        </div>
+      </div>
+    }
+
+    @if (invoice.tender?.length) {
+      <div class="dashed-rule"></div>
+      <p class="section-heading">Tender Detail</p>
+      @for (line of invoice.tender; track line.method) {
+        <div class="totals-row">
+          <span>{{ line.method }}{{ line.reference ? ' ' + line.reference : '' }}</span>
+          <span>{{ invoice.totals.currencySymbol }}{{ line.amount | number: '1.2-2' }}</span>
+        </div>
+      }
+      <div class="totals-row">
+        <strong>TOTAL RECEIVED AMOUNT</strong>
+        <strong>{{ invoice.totals.currencySymbol }}{{ invoice.totals.total | number: '1.2-2' }}</strong>
+      </div>
+      <div class="dashed-rule"></div>
+    }
+
+    @if (invoice.totalItemCount) {
+      <p class="counts-line"><strong>NO OF ITEMS</strong> :{{ invoice.totalItemCount }}</p>
+      <p class="counts-line"><strong>TOTAL QTY</strong> :{{ invoice.totalQty | number: '1.2-2' }}</p>
+    }
+
+    @if (invoice.termsAndConditions?.length) {
+      <div class="terms-block">
+        @for (line of invoice.termsAndConditions; track line) {
+          <p class="terms-line">* {{ line }}</p>
+        }
+      </div>
+    }
+
+    @if (invoice.barcodeValue) {
+      <div class="barcode-block">
+        <ngx-barcode6
+          [bc-value]="invoice.barcodeValue"
+          [bc-format]="'CODE128'"
+          [bc-width]="1.6"
+          [bc-height]="60"
+          [bc-display-value]="true"
+          [bc-font-size]="13"
+          [bc-line-color]="'#111827'">
+        </ngx-barcode6>
+      </div>
+    }
+
+    @if (!invoice.isPaid && (brand?.paymentQrImageUrl || brand?.paymentQrUrl)) {
+      <div class="payment-qr-block">
+        @if (brand!.paymentQrImageUrl) {
+          <img class="payment-qr-image" [src]="brand!.paymentQrImageUrl" alt="Scan to pay" width="130" height="130" />
+        } @else {
+          <qrcode [qrdata]="brand!.paymentQrUrl!" [width]="130" [elementType]="'svg'" [errorCorrectionLevel]="'M'"></qrcode>
+        }
+        <p class="payment-qr-hint">Scan to pay</p>
+      </div>
+    }
+
+    @if (brand?.contactPhone || brand?.contactEmail) {
+      <a class="help-link" [href]="brand?.contactPhone ? 'tel:' + brand?.contactPhone : 'mailto:' + brand?.contactEmail">
+        Need help? Click here
+      </a>
+    }
+
+    @if (brand?.socialLinks?.length) {
+      <div class="follow-block">
+        <p class="follow-line">Love what's in? Follow to know more</p>
+        <div class="follow-icons">
+          @for (link of brand?.socialLinks; track link.url) {
+            <a class="follow-icon" [href]="link.url" target="_blank" rel="noopener" [attr.aria-label]="link.platform">
+              @switch (link.platform) {
+                @case ('instagram') {
+                  <svg viewBox="0 0 24 24" width="26" height="26"><defs><linearGradient id="ig-grad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#fdf497"/><stop offset="0.3" stop-color="#fd5949"/><stop offset="0.6" stop-color="#d6249f"/><stop offset="1" stop-color="#285AEB"/></linearGradient></defs><rect x="1" y="1" width="22" height="22" rx="6" fill="url(#ig-grad)"/><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="17" cy="7" r="1" fill="#fff"/></svg>
+                }
+                @case ('facebook') {
+                  <svg viewBox="0 0 24 24" width="26" height="26"><circle cx="12" cy="12" r="11" fill="#1877f2"/><path d="M15.5 12.5h-2v7h-3v-7h-1.5v-2.5H10.5V8.5c0-1.5.9-2.7 2.7-2.7h2.1v2.6h-1.4c-.4 0-.7.2-.7.7v1.4h2.3l-.3 2.5z" fill="#fff"/></svg>
+                }
+                @case ('twitter') {
+                  <svg viewBox="0 0 24 24" width="26" height="26"><circle cx="12" cy="12" r="11" fill="#111827"/><path d="M17.5 8.3c-.4.2-.9.3-1.4.4.5-.3.9-.8 1-1.4-.5.3-1 .5-1.6.6a2.5 2.5 0 0 0-4.3 2.3 7.1 7.1 0 0 1-5.1-2.6 2.5 2.5 0 0 0 .8 3.3c-.4 0-.8-.1-1.1-.3 0 1.2.8 2.2 2 2.4-.4.1-.7.1-1.1 0 .3 1 1.2 1.7 2.3 1.7a5 5 0 0 1-3.1 1.1H5c1.1.7 2.4 1.1 3.8 1.1 4.6 0 7.1-3.8 7.1-7.1v-.3c.5-.4.9-.8 1.2-1.3z" fill="#fff"/></svg>
+                }
+                @case ('linkedin') {
+                  <svg viewBox="0 0 24 24" width="26" height="26"><circle cx="12" cy="12" r="11" fill="#0a66c2"/><path d="M8.3 9.6H6V17h2.3V9.6zM7.1 6.3a1.3 1.3 0 1 0 0 2.7 1.3 1.3 0 0 0 0-2.7zM18 12.6c0-2-1.1-3-2.6-3-1.2 0-1.7.7-2 1.1V9.6H11V17h2.3v-4.1c0-.4 0-.8.3-1.1.2-.3.5-.5 1-.5.7 0 1.1.5 1.1 1.5V17H18v-4.4z" fill="#fff"/></svg>
+                }
+                @case ('youtube') {
+                  <svg viewBox="0 0 24 24" width="26" height="26"><circle cx="12" cy="12" r="11" fill="#ff0000"/><polygon points="10 8.5 16 12 10 15.5" fill="#fff"/></svg>
+                }
+              }
+            </a>
+          }
+        </div>
+      </div>
+    }
+
+    @if (brand?.loyaltyProgram) {
+      <div class="loyalty-block">
+        <div class="loyalty-card">
+          <div class="loyalty-strip"></div>
+          <p class="loyalty-brand">{{ brand!.loyaltyProgram!.brandName }}</p>
+          <qrcode [qrdata]="brand!.loyaltyProgram!.qrValue" [width]="180" [elementType]="'svg'" [errorCorrectionLevel]="'M'"></qrcode>
+          <p class="loyalty-footer-name">{{ invoice.supplierName }}</p>
+          <div class="loyalty-strip"></div>
+        </div>
+        <button type="button" class="loyalty-download-link">Download your {{ brand!.loyaltyProgram!.brandName }} QR</button>
+      </div>
+    }
+
+    <div class="powered-by-band">
+      <p>Digital billing powered by <strong>Qliclabs</strong></p>
+    </div>
+  </section>
+}

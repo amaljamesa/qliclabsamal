@@ -1,0 +1,51 @@
+<div class="access-gate">
+  <div class="access-card">
+    <div class="lock-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="4" y="11" width="16" height="9" rx="2"/>
+        <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+      </svg>
+    </div>
+
+    <h1 class="access-title">Verify to view your invoice</h1>
+    <p class="access-subtitle">
+      For your security, we need to confirm it's you before showing the invoice details.
+    </p>
+
+    @if (step === 'mobile') {
+      <div class="access-form">
+        <label class="access-label" for="mobile-input">Registered mobile number</label>
+        <input
+          id="mobile-input"
+          type="tel"
+          class="access-input"
+          placeholder="Enter registered mobile number"
+          [(ngModel)]="mobile" />
+        @if (errorMessage) {
+          <span class="access-error">{{ errorMessage }}</span>
+        }
+        <button type="button" class="access-btn" [disabled]="isSubmitting" (click)="requestOtp()">
+          {{ isSubmitting ? 'Sending OTP…' : 'Send OTP' }}
+        </button>
+      </div>
+    } @else {
+      <div class="access-form">
+        <label class="access-label" for="otp-input">Enter OTP</label>
+        <input
+          id="otp-input"
+          type="text"
+          inputmode="numeric"
+          class="access-input"
+          placeholder="6-digit OTP"
+          [(ngModel)]="otp" />
+        @if (errorMessage) {
+          <span class="access-error">{{ errorMessage }}</span>
+        }
+        <button type="button" class="access-btn" [disabled]="isSubmitting" (click)="verifyOtp()">
+          {{ isSubmitting ? 'Verifying…' : 'Verify & View Invoice' }}
+        </button>
+        <button type="button" class="access-link-btn" (click)="changeNumber()">Change mobile number</button>
+      </div>
+    }
+  </div>
+</div>

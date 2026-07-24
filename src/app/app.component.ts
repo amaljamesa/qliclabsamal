@@ -15,14 +15,22 @@ import { filter } from 'rxjs/operators';
 export class AppComponent {
   isSidebarOpen = false;
   isSidebarCollapsed = false;
+  isStandalonePage = false;
 
   constructor(private router: Router) {
     // Close sidebar on mobile when navigating
+    this.isStandalonePage = this.isStandaloneUrl(this.router.url);
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
-    ).subscribe(() => {
+    ).subscribe((event: any) => {
       this.isSidebarOpen = false;
+      this.isStandalonePage = this.isStandaloneUrl(event.urlAfterRedirects);
     });
+  }
+
+  // Customer-facing weblink pages (e.g. /w/:token) render full-page, without the ERP shell
+  private isStandaloneUrl(url: string): boolean {
+    return url.startsWith('/w/');
   }
 
   toggleSidebar(): void {
