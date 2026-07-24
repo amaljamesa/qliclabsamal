@@ -1,0 +1,291 @@
+.tax-invoice {
+  padding: 0 1.25rem 2rem;
+  color: #111827;
+  font-size: 0.85rem;
+}
+
+.dashed-rule {
+  border-top: 1px dashed #c7ccd1;
+  margin: 0.9rem 0;
+}
+
+/* Legal block */
+.legal-block {
+  text-align: center;
+  padding-top: 0.5rem;
+}
+
+.legal-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 0.6rem;
+}
+
+.legal-line {
+  margin: 0 0 0.4rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.doc-type-heading {
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+/* Meta grid */
+.meta-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.meta-cell {
+  flex: 1;
+}
+
+.meta-cell-right {
+  text-align: right;
+}
+
+/* Items table */
+.items-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.items-header-row,
+.item-row {
+  display: grid;
+  grid-template-columns: 1.6fr 0.85fr 0.85fr 0.85fr 0.95fr;
+  gap: 0.4rem;
+}
+
+.items-header-row {
+  font-weight: 700;
+}
+
+.items-subheader-row {
+  margin-top: 0.35rem;
+}
+
+.col-price,
+.col-qty,
+.col-disc,
+.col-net {
+  text-align: right;
+}
+
+.item-row {
+  padding: 0.15rem 0;
+}
+
+.item-subrow {
+  color: #374151;
+}
+
+.slab-heading {
+  font-weight: 700;
+  margin: 0;
+}
+
+/* Totals */
+.totals-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.2rem 0;
+}
+
+.section-heading {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin: 0 0 0.6rem;
+}
+
+/* Tax details table */
+.tax-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tax-table-row {
+  display: grid;
+  grid-template-columns: 0.7fr 1.1fr 0.9fr 0.9fr 0.7fr 1.1fr;
+  gap: 0.3rem;
+  text-align: right;
+}
+
+.tax-table-row span:first-child {
+  text-align: left;
+}
+
+.tax-table-header {
+  font-weight: 700;
+}
+
+.tax-table-total {
+  font-weight: 700;
+}
+
+/* Item / qty counts */
+.counts-line {
+  margin: 0.2rem 0;
+}
+
+/* Terms */
+.terms-block {
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.terms-line {
+  margin: 0.2rem 0;
+  font-size: 0.78rem;
+  color: #374151;
+}
+
+/* Barcode */
+.barcode-block {
+  display: flex;
+  justify-content: center;
+  margin: 1.25rem 0;
+}
+
+.barcode-block ::ng-deep svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Payment QR */
+.payment-qr-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 1.25rem;
+}
+
+.payment-qr-image {
+  width: 130px;
+  height: 130px;
+  object-fit: contain;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px;
+  background: #fff;
+}
+
+.payment-qr-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #374151;
+}
+
+/* Help link */
+.help-link {
+  display: block;
+  text-align: center;
+  color: #374151;
+  text-decoration: underline;
+  font-size: 0.85rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Follow block */
+.follow-block {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.follow-line {
+  margin: 0 0 0.75rem;
+}
+
+.follow-icons {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.follow-icon {
+  display: flex;
+}
+
+/* Loyalty QR card */
+.loyalty-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.loyalty-card {
+  width: 100%;
+  max-width: 300px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.loyalty-strip {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #111827 0%, #9ca3af 50%, #111827 100%);
+}
+
+.loyalty-brand {
+  font-weight: 800;
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.loyalty-footer-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.loyalty-download-link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #374151;
+  text-decoration: underline;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+/* Powered-by footer */
+.powered-by-band {
+  background: #eef1f3;
+  margin: 0 -1.25rem -2rem;
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.powered-by-band p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+.powered-by-band strong {
+  color: #111827;
+}

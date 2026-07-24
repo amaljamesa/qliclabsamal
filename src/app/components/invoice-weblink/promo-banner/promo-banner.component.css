@@ -1,0 +1,94 @@
+.carousel {
+  position: relative;
+  width: 100%;
+}
+
+.carousel-progress {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+}
+
+.progress-seg {
+  flex: 1;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.progress-seg.active,
+.progress-seg.done {
+  background: #ffffff;
+}
+
+.carousel-viewport {
+  position: relative;
+  width: 100%;
+  height: 10dvh;
+  min-height: 72px;
+  overflow: hidden;
+  background: #111827;
+}
+
+.carousel-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.carousel-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  text-align: center;
+  padding: 1rem;
+  background: linear-gradient(135deg, #0ea5e9 0%, #14746f 100%);
+  color: #fff;
+}
+
+.carousel-fallback-title {
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.carousel-fallback-subtitle {
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(15, 23, 42, 0.35);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.carousel-arrow-prev {
+  left: 10px;
+}
+
+.carousel-arrow-next {
+  right: 10px;
+}
+
+.carousel-arrow:hover {
+  background: rgba(15, 23, 42, 0.55);
+}

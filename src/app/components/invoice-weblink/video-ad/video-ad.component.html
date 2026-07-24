@@ -1,0 +1,11 @@
+@if (enabled && visible && currentAd) {
+  <div class="video-ad-pop">
+    <div class="video-ad-frame">
+      <button type="button" class="video-ad-close" aria-label="Close ad" (click)="close()">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <span class="video-ad-badge">Ad · {{ currentAd.durationSeconds }}s</span>
+      <video class="video-ad-video" [src]="currentAd.url" autoplay muted playsinline (ended)="close()"></video>
+    </div>
+  </div>
+}

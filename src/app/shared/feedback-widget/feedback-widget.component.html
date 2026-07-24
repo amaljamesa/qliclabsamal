@@ -1,0 +1,32 @@
+<div class="feedback-widget">
+  <span class="feedback-label">{{ submitted ? submittedLabel : label }}</span>
+  <div class="feedback-options">
+    @for (option of options; track option.rating) {
+      <button
+        type="button"
+        class="feedback-btn"
+        [class]="option.rating"
+        [class.active]="selected === option.rating"
+        [disabled]="submitted"
+        [attr.aria-pressed]="selected === option.rating"
+        [attr.aria-label]="option.title"
+        (click)="onSelect(option.rating)">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="9" cy="10" r="1.1" fill="currentColor" stroke="none"/>
+          <circle cx="15" cy="10" r="1.1" fill="currentColor" stroke="none"/>
+          @switch (option.rating) {
+            @case ('happy') {
+              <path d="M8 14.5c1 1.3 2.4 2 4 2s3-0.7 4-2" stroke-linecap="round"/>
+            }
+            @case ('neutral') {
+              <path d="M8 15h8" stroke-linecap="round"/>
+            }
+            @case ('unhappy') {
+              <path d="M8 16.5c1-1.3 2.4-2 4-2s3 0.7 4 2" stroke-linecap="round"/>
+            }
+          }
+        </svg>
+      </button>
+    }
+  </div>
+</div>

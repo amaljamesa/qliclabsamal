@@ -1,0 +1,86 @@
+@switch (state) {
+  @case ('loading') {
+    <div class="weblink-status-screen">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Loading your invoice…</p>
+    </div>
+  }
+  @case ('error') {
+    <div class="weblink-status-screen">
+      <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <p>{{ errorMessage }}</p>
+    </div>
+  }
+  @case ('gate') {
+    <app-access-gate (verified)="onVerified()"></app-access-gate>
+  }
+  @case ('invoice') {
+    @if (invoice?.docType === 'Payment Request') {
+      <div class="paylink-page">
+        <app-payment-panel
+          class="paylink-standalone"
+          [invoiceToken]="invoice!.token"
+          [amount]="invoice!.totals.total"
+          [currencySymbol]="invoice!.totals.currencySymbol"
+          [paymentEnabled]="invoice!.paymentEnabled"
+          [isPaid]="invoice!.isPaid"
+          [supplierName]="invoice!.supplierName"
+          [paymentFor]="invoice!.paymentFor || ''"
+          [supportContact]="invoice!.supportContact || ''"
+          [businessPoliciesUrl]="invoice!.businessPoliciesUrl || ''"
+          [paymentId]="invoice!.paymentId || ''"
+          (paymentCompleted)="onPaymentCompleted($event)">
+        </app-payment-panel>
+      </div>
+    } @else {
+      <div class="weblink-page">
+        <div class="weblink-content">
+          @if (topBanners.length) {
+            <app-promo-banner [banners]="topBanners" [heightPx]="promotion?.bannerHeightPx"></app-promo-banner>
+          }
+
+          <app-brand-window [config]="brandConfig" [invoice]="invoice"></app-brand-window>
+
+          <div class="weblink-feedback-band">
+            <app-feedback-widget
+              [selected]="feedbackSelected"
+              [submitted]="feedbackSubmitted"
+              (rate)="onFeedbackRate($event)">
+            </app-feedback-widget>
+          </div>
+
+          <app-invoice-summary [invoice]="invoice" [brand]="brandConfig" (download)="onDownload()"></app-invoice-summary>
+
+          @if (bottomBanners.length) {
+            <app-promo-banner [banners]="bottomBanners"></app-promo-banner>
+          }
+        </div>
+
+        <div class="weblink-footer-bar">
+          @if (brandConfig && (brandConfig.footerImageUrl || brandConfig.logoUrl)) {
+            <img class="footer-logo" [src]="brandConfig.footerImageUrl || brandConfig.logoUrl" alt="" />
+          } @else {
+            <span class="footer-brand-name">{{ invoice?.supplierName }}</span>
+          }
+          @if (brandConfig && brandConfig.footerNote) {
+            <span class="footer-note">{{ brandConfig.footerNote }}</span>
+          }
+          <button type="button" class="footer-download-btn" (click)="onDownload()">Download Bill</button>
+        </div>
+      </div>
+
+      <app-flash-sale-popup
+        [promo]="promotion?.flashSale"
+        [visible]="showFlashSale"
+        (dismissed)="dismissFlashSale()">
+      </app-flash-sale-popup>
+
+      <app-video-ad
+        [ads]="promotion?.videoAds || []"
+        [enabled]="!!promotion?.videoAdsEnabled"
+        [visible]="showVideoAd"
+        (dismissed)="dismissVideoAd()">
+      </app-video-ad>
+    }
+  }
+}
