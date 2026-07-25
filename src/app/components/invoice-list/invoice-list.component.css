@@ -295,6 +295,40 @@ select.filter-input {
 .action-th { width: 34px; }
 .action-td { width: 34px; text-align: center; padding: 4px; }
 
+.share-td {
+  width: 60px;
+  white-space: nowrap;
+}
+
+.share-btn-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.copied-toast {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: -6px;
+  background: #2d3748;
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.copied-toast::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 10px;
+  border: 4px solid transparent;
+  border-top-color: #2d3748;
+}
+
 .row-icon-btn {
   background: none;
   border: none;
@@ -464,13 +498,6 @@ select.filter-input {
     width: 100% !important;
     justify-content: flex-end;
     padding-top: 10px;
-  }
-
-  .invoice-row td.action-td:first-of-type {
-    order: 99;
-  }
-
-  .invoice-row td.action-td:last-of-type {
     order: 100;
   }
 

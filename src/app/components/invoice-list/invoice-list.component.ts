@@ -74,4 +74,29 @@ export class InvoiceListComponent implements OnInit {
   addNewInvoice(): void {
     this.router.navigate(['/invoices/new']);
   }
+
+  copiedInvoiceId: string | null = null;
+
+  getWeblinkUrl(id: string): string {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${origin}/w/${id}`;
+  }
+
+  viewInvoiceLink(id: string, event: Event): void {
+    event.stopPropagation();
+    window.open(this.getWeblinkUrl(id), '_blank');
+  }
+
+  shareInvoiceLink(id: string, event: Event): void {
+    event.stopPropagation();
+    const url = this.getWeblinkUrl(id);
+    navigator.clipboard?.writeText(url).then(() => {
+      this.copiedInvoiceId = id;
+      setTimeout(() => {
+        if (this.copiedInvoiceId === id) {
+          this.copiedInvoiceId = null;
+        }
+      }, 2000);
+    });
+  }
 }
