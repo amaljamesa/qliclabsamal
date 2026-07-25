@@ -6,6 +6,7 @@ import { InvoiceWeblinkService } from '../../services/invoice-weblink.service';
 import { InvoiceAccessService } from '../../services/invoice-access.service';
 import { BrandWindowService } from '../../services/brand-window.service';
 import { PromotionService } from '../../services/promotion.service';
+import { WeblinkLayoutService } from '../../services/weblink-layout.service';
 import { FeedbackService } from '../../services/feedback.service';
 import { WeblinkAnalyticsService } from '../../services/weblink-analytics.service';
 import { PrintService } from '../../services/print.service';
@@ -13,6 +14,7 @@ import { PrintService } from '../../services/print.service';
 import { InvoiceWeblink } from '../../models/invoice-weblink.model';
 import { BrandWindowConfig } from '../../models/brand-window.model';
 import { PromotionConfig } from '../../models/promotion.model';
+import { WeblinkLayoutConfig, LayoutBlock } from '../../models/weblink-layout.model';
 import { FeedbackRating } from '../../models/feedback.model';
 import { PaymentLink } from '../../models/payment.model';
 
@@ -23,6 +25,7 @@ import { FlashSalePopupComponent } from './flash-sale-popup/flash-sale-popup.com
 import { VideoAdComponent } from './video-ad/video-ad.component';
 import { InvoiceSummaryComponent } from './invoice-summary/invoice-summary.component';
 import { PaymentPanelComponent } from './payment-panel/payment-panel.component';
+import { LayoutBlockComponent } from './layout-block/layout-block.component';
 import { FeedbackWidgetComponent } from '../../shared/feedback-widget/feedback-widget.component';
 
 type PageState = 'loading' | 'error' | 'gate' | 'invoice';
@@ -39,6 +42,7 @@ type PageState = 'loading' | 'error' | 'gate' | 'invoice';
     VideoAdComponent,
     InvoiceSummaryComponent,
     PaymentPanelComponent,
+    LayoutBlockComponent,
     FeedbackWidgetComponent
   ],
   templateUrl: './invoice-weblink.component.html',
@@ -51,6 +55,7 @@ export class InvoiceWeblinkComponent implements OnInit {
   invoice: InvoiceWeblink | undefined;
   brandConfig: BrandWindowConfig | undefined;
   promotion: PromotionConfig | undefined;
+  layoutConfig: WeblinkLayoutConfig | undefined;
 
   showFlashSale = false;
   showVideoAd = false;
@@ -66,6 +71,7 @@ export class InvoiceWeblinkComponent implements OnInit {
     private accessService: InvoiceAccessService,
     private brandService: BrandWindowService,
     private promotionService: PromotionService,
+    private weblinkLayoutService: WeblinkLayoutService,
     private feedbackService: FeedbackService,
     private analytics: WeblinkAnalyticsService,
     private printService: PrintService
@@ -111,6 +117,9 @@ export class InvoiceWeblinkComponent implements OnInit {
       this.promotion = promo;
       this.maybeShowFlashSale();
       this.maybeShowVideoAd();
+    });
+    this.weblinkLayoutService.getConfig(this.invoice.supplierId).subscribe(layout => {
+      this.layoutConfig = layout;
     });
 
     const existingFeedback = this.feedbackService.getFeedbackFor(this.token);
@@ -187,6 +196,14 @@ export class InvoiceWeblinkComponent implements OnInit {
 
   get bottomBanners() {
     return this.promotion?.banners.filter(b => b.position === 'bottom') || [];
+  }
+
+  get aboveBlocks(): LayoutBlock[] {
+    return this.layoutConfig?.blocks.filter(b => b.zone === 'above') || [];
+  }
+
+  get belowBlocks(): LayoutBlock[] {
+    return this.layoutConfig?.blocks.filter(b => b.zone === 'below') || [];
   }
 
   private maybeShowFlashSale(): void {

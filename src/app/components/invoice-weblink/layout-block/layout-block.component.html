@@ -1,0 +1,87 @@
+@if (block) {
+  <div class="layout-block" [style.width.%]="block.width || 100" style="margin-left:auto;margin-right:auto">
+    @switch (block.type) {
+
+      @case ('logo') {
+        <div class="lb-logo">
+          @if (block.mediaUrl) {
+            <img class="lb-logo-img" [src]="block.mediaUrl" alt="" />
+          }
+          @if (block.caption) {
+            <span class="lb-logo-name">{{ block.caption }}</span>
+          }
+        </div>
+      }
+
+      @case ('image') {
+        <div class="lb-image">
+          @if (block.linkUrl) {
+            <a [href]="block.linkUrl" target="_blank" rel="noopener">
+              <img class="lb-image-img" [src]="block.mediaUrl" alt="" [style.height.px]="block.mediaHeightPx" />
+            </a>
+          } @else {
+            <img class="lb-image-img" [src]="block.mediaUrl" alt="" [style.height.px]="block.mediaHeightPx" />
+          }
+          @if (block.caption) {
+            <p class="lb-caption">{{ block.caption }}</p>
+          }
+        </div>
+      }
+
+      @case ('video') {
+        <div class="lb-video">
+          <video class="lb-video-el" [src]="block.mediaUrl" [style.height.px]="block.mediaHeightPx" controls muted playsinline></video>
+          @if (block.caption) {
+            <p class="lb-caption">{{ block.caption }}</p>
+          }
+        </div>
+      }
+
+      @case ('qr') {
+        <div class="lb-qr">
+          @if (block.mediaUrl) {
+            <img class="lb-qr-img" [src]="block.mediaUrl" alt="QR code" [style.height.px]="block.mediaHeightPx" [style.width.px]="block.mediaHeightPx" />
+          }
+          @if (block.caption) {
+            <p class="lb-caption">{{ block.caption }}</p>
+          }
+        </div>
+      }
+
+      @case ('carousel') {
+        <div class="lb-carousel" [style.height.px]="block.mediaHeightPx">
+          <app-promo-banner [banners]="carouselSlides(block)" [heightPx]="block.mediaHeightPx"></app-promo-banner>
+          @if (block.caption) {
+            <p class="lb-caption">{{ block.caption }}</p>
+          }
+        </div>
+      }
+
+      @case ('text') {
+        <div class="lb-text" [style.textAlign]="block.align || 'left'">
+          @if (block.heading) {
+            <h3 class="lb-text-heading">{{ block.heading }}</h3>
+          }
+          @if (block.body) {
+            <p class="lb-text-body">{{ block.body }}</p>
+          }
+        </div>
+      }
+
+      @case ('social') {
+        <div class="lb-social">
+          @for (link of block.socialLinks; track $index) {
+            @if (link.url) {
+              <a class="lb-social-pill" [href]="link.url" target="_blank" rel="noopener">{{ platformLabel(link.platform) }}</a>
+            }
+          }
+        </div>
+      }
+
+      @case ('spacer') {
+        <div class="lb-spacer" [style.height.px]="block.heightPx || 24"></div>
+      }
+
+    }
+  </div>
+}

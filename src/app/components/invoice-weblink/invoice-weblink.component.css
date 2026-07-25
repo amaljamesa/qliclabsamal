@@ -86,6 +86,10 @@
   white-space: nowrap;
 }
 
+.footer-bar-solo {
+  justify-content: center;
+}
+
 .footer-download-btn {
   border: none;
   border-radius: 8px;

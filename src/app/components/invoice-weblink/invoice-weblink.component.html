@@ -32,6 +32,45 @@
           (paymentCompleted)="onPaymentCompleted($event)">
         </app-payment-panel>
       </div>
+    } @else if (layoutConfig?.enabled) {
+      <div class="weblink-page">
+        <div class="weblink-content">
+          @for (block of aboveBlocks; track block.id) {
+            <app-layout-block [block]="block"></app-layout-block>
+          }
+
+          <div class="weblink-feedback-band">
+            <app-feedback-widget
+              [selected]="feedbackSelected"
+              [submitted]="feedbackSubmitted"
+              (rate)="onFeedbackRate($event)">
+            </app-feedback-widget>
+          </div>
+
+          <app-invoice-summary [invoice]="invoice" [brand]="brandConfig" (download)="onDownload()"></app-invoice-summary>
+
+          @for (block of belowBlocks; track block.id) {
+            <app-layout-block [block]="block"></app-layout-block>
+          }
+        </div>
+
+        <div class="weblink-footer-bar footer-bar-solo">
+          <button type="button" class="footer-download-btn" (click)="onDownload()">Download Bill</button>
+        </div>
+      </div>
+
+      <app-flash-sale-popup
+        [promo]="promotion?.flashSale"
+        [visible]="showFlashSale"
+        (dismissed)="dismissFlashSale()">
+      </app-flash-sale-popup>
+
+      <app-video-ad
+        [ads]="promotion?.videoAds || []"
+        [enabled]="!!promotion?.videoAdsEnabled"
+        [visible]="showVideoAd"
+        (dismissed)="dismissVideoAd()">
+      </app-video-ad>
     } @else {
       <div class="weblink-page">
         <div class="weblink-content">
