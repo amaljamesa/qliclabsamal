@@ -21,7 +21,52 @@
   box-sizing: border-box;
 }
 
-.header-left { flex-shrink: 0; }
+.header-left {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.share-invoice-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-share-btn {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 4px;
+  outline: none;
+}
+
+.header-share-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.header-copied-toast {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: #2d3748;
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 20;
+}
 
 .back-btn {
   background: none;

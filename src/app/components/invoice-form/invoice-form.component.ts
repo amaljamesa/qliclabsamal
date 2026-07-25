@@ -305,4 +305,22 @@ export class InvoiceFormComponent implements OnInit {
   goBack(): void {
     this.router.navigate(['/invoices']);
   }
+
+  linkCopied = false;
+
+  getWeblinkUrl(): string {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${origin}/w/${this.invoiceId}`;
+  }
+
+  viewInvoiceLink(): void {
+    window.open(this.getWeblinkUrl(), '_blank');
+  }
+
+  shareInvoiceLink(): void {
+    navigator.clipboard?.writeText(this.getWeblinkUrl()).then(() => {
+      this.linkCopied = true;
+      setTimeout(() => (this.linkCopied = false), 2000);
+    });
+  }
 }

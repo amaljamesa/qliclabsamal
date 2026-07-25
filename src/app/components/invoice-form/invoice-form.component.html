@@ -7,6 +7,21 @@
         <span class="back-arrow">←</span>
         Tax Invoice - test
       </button>
+      @if (isEditMode) {
+        <div class="share-invoice-wrap">
+          <button class="header-share-btn" (click)="viewInvoiceLink()" title="View invoice link">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            View Link
+          </button>
+          <button class="header-share-btn" (click)="shareInvoiceLink()" title="Copy shareable link">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.6" x2="15.4" y2="6.4"/><line x1="8.6" y1="13.4" x2="15.4" y2="17.6"/></svg>
+            Share
+          </button>
+          @if (linkCopied) {
+            <span class="header-copied-toast">Link copied!</span>
+          }
+        </div>
+      }
     </div>
     <div class="header-right-info">
       <div class="header-party">AF, {{ selectedParty }}
