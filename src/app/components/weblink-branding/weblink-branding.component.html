@@ -1,4 +1,4 @@
-@if (brand && promotion) {
+@if (brand && promotion && layout) {
   <div class="branding-wrapper">
 
     <div class="branding-title-bar">
@@ -23,6 +23,7 @@
         <div class="branding-tabs">
           <button type="button" class="branding-tab" [class.active]="activeTab === 'header'" (click)="setTab('header')">Header</button>
           <button type="button" class="branding-tab" [class.active]="activeTab === 'footer'" (click)="setTab('footer')">Footer</button>
+          <button type="button" class="branding-tab" [class.active]="activeTab === 'layout'" (click)="setTab('layout')">Advanced Layout</button>
         </div>
 
         @if (activeTab === 'header') {
@@ -271,6 +272,243 @@
           </div>
         }
 
+        @if (activeTab === 'layout') {
+          <div class="branding-section">
+
+            <ng-template #blockCardTpl let-block>
+              <div class="block-card" cdkDrag [cdkDragData]="block">
+                <div class="block-card-header" cdkDragHandle>
+                  <span class="block-drag-handle" aria-hidden="true">&#8942;&#8942;</span>
+                  <span class="block-type-label">{{ blockLabel(block.type) }}</span>
+                  <button type="button" class="btn-branding btn-branding-text block-remove-btn" (click)="removeBlock(block)">Remove</button>
+                </div>
+
+                <div class="block-card-body">
+                  @switch (block.type) {
+
+                    @case ('logo') {
+                      <div class="upload-row">
+                        @if (block.mediaUrl) {
+                          <img class="upload-thumb" [src]="block.mediaUrl" alt="" />
+                        } @else {
+                          <div class="upload-thumb upload-thumb-empty">No image</div>
+                        }
+                        <div class="upload-actions">
+                          <label class="btn-branding btn-branding-ghost upload-btn">
+                            Upload picture
+                            <input type="file" accept="image/*" class="hidden-file-input" (change)="onBlockImageSelected(block, $event)" />
+                          </label>
+                          @if (block.mediaUrl) {
+                            <button type="button" class="btn-branding btn-branding-text" (click)="removeBlockMedia(block)">Remove</button>
+                          }
+                        </div>
+                      </div>
+                      <input class="branding-input block-input-spaced" type="text" [(ngModel)]="block.caption" placeholder="Business name" />
+                    }
+
+                    @case ('image') {
+                      <div class="upload-row">
+                        @if (block.mediaUrl) {
+                          <img class="upload-thumb" [src]="block.mediaUrl" alt="" />
+                        } @else {
+                          <div class="upload-thumb upload-thumb-empty">No image</div>
+                        }
+                        <div class="upload-actions">
+                          <label class="btn-branding btn-branding-ghost upload-btn">
+                            Upload picture
+                            <input type="file" accept="image/*" class="hidden-file-input" (change)="onBlockImageSelected(block, $event)" />
+                          </label>
+                          @if (block.mediaUrl) {
+                            <button type="button" class="btn-branding btn-branding-text" (click)="removeBlockMedia(block)">Remove</button>
+                          }
+                        </div>
+                      </div>
+                      <input class="branding-input block-input-spaced" type="text" [(ngModel)]="block.linkUrl" placeholder="Optional link (https://...)" />
+                      <input class="branding-input block-input-spaced" type="text" [(ngModel)]="block.caption" placeholder="Optional caption" />
+                    }
+
+                    @case ('qr') {
+                      <div class="upload-row">
+                        @if (block.mediaUrl) {
+                          <img class="upload-thumb" [src]="block.mediaUrl" alt="" />
+                        } @else {
+                          <div class="upload-thumb upload-thumb-empty">No QR</div>
+                        }
+                        <div class="upload-actions">
+                          <label class="btn-branding btn-branding-ghost upload-btn">
+                            Upload QR image
+                            <input type="file" accept="image/*" class="hidden-file-input" (change)="onBlockImageSelected(block, $event)" />
+                          </label>
+                          @if (block.mediaUrl) {
+                            <button type="button" class="btn-branding btn-branding-text" (click)="removeBlockMedia(block)">Remove</button>
+                          }
+                        </div>
+                      </div>
+                      <input class="branding-input block-input-spaced" type="text" [(ngModel)]="block.caption" placeholder="Scan to pay / follow us" />
+                    }
+
+                    @case ('video') {
+                      @if (block.mediaUrl) {
+                        <video class="block-video-thumb" [src]="block.mediaUrl" muted></video>
+                      }
+                      <label class="btn-branding btn-branding-ghost upload-btn block-input-spaced">
+                        Upload video
+                        <input type="file" accept="video/*" class="hidden-file-input" (change)="onBlockVideoSelected(block, $event)" />
+                      </label>
+                      <input class="branding-input block-input-spaced" type="text" [(ngModel)]="block.caption" placeholder="Optional caption" />
+                    }
+
+                    @case ('carousel') {
+                      <p class="field-hint">Upload as many pictures as you like - shown as a swipeable, auto-advancing slideshow.</p>
+                      <div class="carousel-thumb-grid block-input-spaced">
+                        @for (url of block.mediaUrls; track $index) {
+                          <div class="carousel-thumb-item">
+                            <img class="carousel-thumb-image" [src]="url" alt="" />
+                            <button type="button" class="carousel-thumb-remove" (click)="removeBlockCarouselImage(block, $index)" aria-label="Remove image">&times;</button>
+                          </div>
+                        }
+                        <label class="carousel-thumb-add">
+                          <span>+ Add pictures</span>
+                          <input type="file" accept="image/*" multiple class="hidden-file-input" (change)="onBlockCarouselImagesSelected(block, $event)" />
+                        </label>
+                      </div>
+                      <input class="branding-input block-input-spaced" type="text" [(ngModel)]="block.caption" placeholder="Optional caption" />
+                    }
+
+                    @case ('text') {
+                      <input class="branding-input" type="text" [(ngModel)]="block.heading" placeholder="Heading" />
+                      <textarea class="branding-input branding-textarea block-input-spaced" [(ngModel)]="block.body" placeholder="Body text"></textarea>
+                      <select class="branding-input block-input-spaced" [(ngModel)]="block.align">
+                        <option value="left">Align left</option>
+                        <option value="center">Align center</option>
+                        <option value="right">Align right</option>
+                      </select>
+                    }
+
+                    @case ('social') {
+                      <div class="social-links-list">
+                        @for (link of block.socialLinks; track $index) {
+                          <div class="social-link-row">
+                            <select class="branding-input social-platform-select" [(ngModel)]="link.platform">
+                              @for (platform of socialPlatforms; track platform) {
+                                <option [value]="platform">{{ platform }}</option>
+                              }
+                            </select>
+                            <input class="branding-input" type="text" [(ngModel)]="link.url" placeholder="https://instagram.com/yourbrand" />
+                            <button type="button" class="btn-branding btn-branding-text" (click)="removeBlockSocialLink(block, $index)">Remove</button>
+                          </div>
+                        }
+                      </div>
+                      <button type="button" class="btn-branding btn-branding-ghost btn-branding-standalone" (click)="addBlockSocialLink(block)">+ Add social link</button>
+                    }
+
+                    @case ('spacer') {
+                      <div class="height-slider-row">
+                        <input type="range" class="height-slider" min="8" max="120" step="4" [(ngModel)]="block.heightPx" />
+                        <span class="height-slider-value">{{ block.heightPx }}px</span>
+                      </div>
+                    }
+
+                  }
+                </div>
+              </div>
+            </ng-template>
+
+            <div class="field-block">
+              <div class="video-toggle-row">
+                <label class="toggle-switch">
+                  <input type="checkbox" [(ngModel)]="layout.enabled" />
+                  <span class="toggle-slider"></span>
+                </label>
+                <span>Use the block layout builder on the weblink page</span>
+              </div>
+              <p class="field-hint">When on, these blocks replace the Header/Footer tabs' fixed layout on the customer-facing invoice. The invoice content itself always stays fixed in the middle - drag blocks above or below it.</p>
+            </div>
+
+            <div class="field-block">
+              <label class="branding-label">Elements</label>
+              <p class="field-hint">Click to add a block above the invoice, then drag it wherever you like.</p>
+              <div class="elements-grid">
+                @for (entry of blockPalette; track entry.type) {
+                  <button type="button" class="element-tile" (click)="addBlock(entry.type)">
+                    <span class="element-tile-icon">
+                      @switch (entry.type) {
+                        @case ('logo') {
+                          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>
+                        }
+                        @case ('image') {
+                          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                        }
+                        @case ('video') {
+                          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="15" height="14" rx="2"/><path d="M17 10l5-3v10l-5-3"/></svg>
+                        }
+                        @case ('carousel') {
+                          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="6" height="12" rx="1"/><rect x="9" y="4" width="6" height="16" rx="1"/><rect x="16" y="6" width="6" height="12" rx="1"/></svg>
+                        }
+                        @case ('qr') {
+                          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><line x1="14" y1="14" x2="14" y2="21"/><line x1="21" y1="14" x2="21" y2="21"/><line x1="17" y1="17" x2="21" y2="17"/></svg>
+                        }
+                        @case ('text') {
+                          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="14" y2="18"/></svg>
+                        }
+                        @case ('social') {
+                          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.6" x2="15.4" y2="6.4"/><line x1="8.6" y1="13.4" x2="15.4" y2="17.6"/></svg>
+                        }
+                        @case ('spacer') {
+                          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"/><path d="M8 7l4-4 4 4"/><path d="M8 17l4 4 4-4"/></svg>
+                        }
+                      }
+                    </span>
+                    <span class="element-tile-label">{{ entry.label }}</span>
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="block-zone">
+              <p class="block-zone-label">Above the invoice</p>
+              <div
+                cdkDropList
+                id="above-block-list"
+                [cdkDropListData]="aboveBlocks"
+                [cdkDropListConnectedTo]="['below-block-list']"
+                (cdkDropListDropped)="onBlockDrop($event)"
+                class="block-drop-list">
+                @for (block of aboveBlocks; track block.id) {
+                  <ng-container *ngTemplateOutlet="blockCardTpl; context: { $implicit: block }"></ng-container>
+                }
+                @if (!aboveBlocks.length) {
+                  <div class="block-drop-empty">Drag blocks here, or add one above.</div>
+                }
+              </div>
+            </div>
+
+            <div class="block-fixed-anchor">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Invoice content (fixed)
+            </div>
+
+            <div class="block-zone">
+              <p class="block-zone-label">Below the invoice</p>
+              <div
+                cdkDropList
+                id="below-block-list"
+                [cdkDropListData]="belowBlocks"
+                [cdkDropListConnectedTo]="['above-block-list']"
+                (cdkDropListDropped)="onBlockDrop($event)"
+                class="block-drop-list">
+                @for (block of belowBlocks; track block.id) {
+                  <ng-container *ngTemplateOutlet="blockCardTpl; context: { $implicit: block }"></ng-container>
+                }
+                @if (!belowBlocks.length) {
+                  <div class="block-drop-empty">Drag blocks here, or add one above.</div>
+                }
+              </div>
+            </div>
+
+          </div>
+        }
+
       </div>
 
       <!-- Live preview column -->
@@ -278,30 +516,65 @@
         <div class="preview-sticky">
           <p class="preview-heading">Live preview</p>
 
-          <div class="preview-phone">
-            @if (headerBanners.length) {
-              <app-promo-banner [banners]="headerBanners" [heightPx]="promotion.bannerHeightPx"></app-promo-banner>
-            }
-
-            <app-brand-window [config]="brand" [invoice]="previewInvoice"></app-brand-window>
-
-            <div class="preview-body-filler">
-              <div class="preview-line"></div>
-              <div class="preview-line short"></div>
-            </div>
-
-            <div class="preview-footer-bar">
-              @if (brand.footerImageUrl || brand.logoUrl) {
-                <img class="preview-footer-logo" [src]="brand.footerImageUrl || brand.logoUrl" alt="" />
-              } @else {
-                <span class="preview-footer-name">{{ brand.businessName || 'Your Business' }}</span>
+          @if (activeTab === 'layout') {
+            <p class="field-hint lb-resize-hint">Click a block to select it, then drag its handles to resize.</p>
+            <div class="preview-phone">
+              @for (block of aboveBlocks; track block.id) {
+                <div class="resizable-block" [class.selected]="selectedBlockId === block.id" (click)="selectBlock(block.id)">
+                  <app-layout-block [block]="block"></app-layout-block>
+                  @if (selectedBlockId === block.id) {
+                    <span class="resize-handle resize-handle-right" (mousedown)="startResize($event, block, 'width')" (click)="$event.stopPropagation()"></span>
+                    @if (blockHasMediaHeight(block.type)) {
+                      <span class="resize-handle resize-handle-bottom" (mousedown)="startResize($event, block, 'height')" (click)="$event.stopPropagation()"></span>
+                    }
+                  }
+                </div>
               }
-              @if (brand.footerNote) {
-                <span class="preview-footer-note">{{ brand.footerNote }}</span>
+
+              <div class="block-fixed-anchor-preview">Invoice items &amp; totals</div>
+
+              @for (block of belowBlocks; track block.id) {
+                <div class="resizable-block" [class.selected]="selectedBlockId === block.id" (click)="selectBlock(block.id)">
+                  <app-layout-block [block]="block"></app-layout-block>
+                  @if (selectedBlockId === block.id) {
+                    <span class="resize-handle resize-handle-right" (mousedown)="startResize($event, block, 'width')" (click)="$event.stopPropagation()"></span>
+                    @if (blockHasMediaHeight(block.type)) {
+                      <span class="resize-handle resize-handle-bottom" (mousedown)="startResize($event, block, 'height')" (click)="$event.stopPropagation()"></span>
+                    }
+                  }
+                </div>
               }
-              <button type="button" class="preview-footer-download" disabled>Download Bill</button>
+
+              @if (!aboveBlocks.length && !belowBlocks.length) {
+                <p class="preview-empty-hint">Add blocks on the left to see them here.</p>
+              }
             </div>
-          </div>
+          } @else {
+            <div class="preview-phone">
+              @if (headerBanners.length) {
+                <app-promo-banner [banners]="headerBanners" [heightPx]="promotion.bannerHeightPx"></app-promo-banner>
+              }
+
+              <app-brand-window [config]="brand" [invoice]="previewInvoice"></app-brand-window>
+
+              <div class="preview-body-filler">
+                <div class="preview-line"></div>
+                <div class="preview-line short"></div>
+              </div>
+
+              <div class="preview-footer-bar">
+                @if (brand.footerImageUrl || brand.logoUrl) {
+                  <img class="preview-footer-logo" [src]="brand.footerImageUrl || brand.logoUrl" alt="" />
+                } @else {
+                  <span class="preview-footer-name">{{ brand.businessName || 'Your Business' }}</span>
+                }
+                @if (brand.footerNote) {
+                  <span class="preview-footer-note">{{ brand.footerNote }}</span>
+                }
+                <button type="button" class="preview-footer-download" disabled>Download Bill</button>
+              </div>
+            </div>
+          }
         </div>
       </div>
 
