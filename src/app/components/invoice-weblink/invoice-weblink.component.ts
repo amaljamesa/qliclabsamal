@@ -191,7 +191,7 @@ export class InvoiceWeblinkComponent implements OnInit {
 
   private maybeShowFlashSale(): void {
     const promo = this.promotion?.flashSale;
-    if (!promo) {
+    if (!promo || promo.enabled === false) {
       return;
     }
     const alreadyShown = sessionStorage.getItem(this.flashSaleStorageKey(promo.id));

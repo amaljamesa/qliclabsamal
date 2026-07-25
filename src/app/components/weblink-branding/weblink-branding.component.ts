@@ -5,10 +5,11 @@ import { FormsModule } from '@angular/forms';
 import { BrandWindowService } from '../../services/brand-window.service';
 import { PromotionService } from '../../services/promotion.service';
 import { BrandWindowConfig, SocialLink, SocialPlatform } from '../../models/brand-window.model';
-import { PromotionConfig, PromoBanner, VideoAd } from '../../models/promotion.model';
+import { PromotionConfig, PromoBanner, VideoAd, FlashSalePromo } from '../../models/promotion.model';
 import { InvoiceWeblink } from '../../models/invoice-weblink.model';
 import { BrandWindowComponent } from '../invoice-weblink/brand-window/brand-window.component';
 import { PromoBannerComponent } from '../invoice-weblink/promo-banner/promo-banner.component';
+import { FlashSalePopupComponent } from '../invoice-weblink/flash-sale-popup/flash-sale-popup.component';
 import { resizeImageFile } from '../../services/image-resize.util';
 
 type BrandingTab = 'header' | 'footer';
@@ -25,11 +26,13 @@ const CAROUSEL_MAX_DIMENSION = 1280;
 // regular photo upload would, even though it's only displayed at ~130px wide.
 const QR_MAX_DIMENSION = 500;
 const QR_QUALITY = 0.92;
+// Flash-sale creative is shown at a small card size, so this stays modest like the logo/footer caps.
+const FLASH_SALE_MAX_DIMENSION = 800;
 
 @Component({
   selector: 'app-weblink-branding',
   standalone: true,
-  imports: [CommonModule, FormsModule, BrandWindowComponent, PromoBannerComponent],
+  imports: [CommonModule, FormsModule, BrandWindowComponent, PromoBannerComponent, FlashSalePopupComponent],
   templateUrl: './weblink-branding.component.html',
   styleUrls: ['./weblink-branding.component.css']
 })
@@ -45,6 +48,8 @@ export class WeblinkBrandingComponent implements OnInit {
   savedMessage = '';
   savedIsError = false;
   private savedMessageTimer: ReturnType<typeof setTimeout> | undefined;
+
+  previewFlashSale = false;
 
   // Minimal stand-in so the real BrandWindowComponent can render a live preview
   // without a real routed invoice/token.
@@ -80,7 +85,21 @@ export class WeblinkBrandingComponent implements OnInit {
     });
     this.promotionService.getConfig().subscribe(config => {
       this.promotion = { ...config, videoAds: [...config.videoAds] };
+      if (!this.promotion.flashSale) {
+        this.promotion.flashSale = this.blankFlashSale();
+      }
     });
+  }
+
+  private blankFlashSale(): FlashSalePromo {
+    return {
+      id: `flash-${Date.now()}`,
+      enabled: false,
+      title: '',
+      discountLabel: '',
+      windowLabel: '',
+      ctaLabel: 'Shop Now'
+    };
   }
 
   syncPreviewInvoice(): void {
@@ -195,6 +214,35 @@ export class WeblinkBrandingComponent implements OnInit {
 
   removeVideo(id: string): void {
     this.promotion.videoAds = this.promotion.videoAds.filter(ad => ad.id !== id);
+  }
+
+  // ── Flash sale popup ──
+
+  onFlashSaleImageSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !this.promotion.flashSale) {
+      return;
+    }
+    const flashSale = this.promotion.flashSale;
+    resizeImageFile(file, FLASH_SALE_MAX_DIMENSION, 0.8).then(dataUrl => {
+      flashSale.imageUrl = dataUrl;
+    });
+    input.value = '';
+  }
+
+  removeFlashSaleImage(): void {
+    if (this.promotion.flashSale) {
+      this.promotion.flashSale.imageUrl = undefined;
+    }
+  }
+
+  togglePreviewFlashSale(): void {
+    this.previewFlashSale = true;
+  }
+
+  closePreviewFlashSale(): void {
+    this.previewFlashSale = false;
   }
 
   // ── Social links ──

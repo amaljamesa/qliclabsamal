@@ -8,6 +8,7 @@ export interface PromoBanner {
 
 export interface FlashSalePromo {
   id: string;
+  enabled?: boolean; // defaults to true when unset, for backward compatibility with existing configs
   title: string;
   discountLabel: string;
   windowLabel: string;

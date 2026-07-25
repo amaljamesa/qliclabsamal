@@ -167,6 +167,77 @@
             </div>
 
             <div class="field-block">
+              <label class="branding-label">Flash sale popup</label>
+              <p class="field-hint">Shown once per visit as a popup on top of the invoice.</p>
+
+              @if (promotion.flashSale) {
+                <div class="video-toggle-row">
+                  <label class="toggle-switch">
+                    <input type="checkbox" [(ngModel)]="promotion.flashSale.enabled" />
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span>Show flash sale popup to customers</span>
+                </div>
+
+                <div class="field-block-row">
+                  <div class="field-block">
+                    <label class="branding-label" for="flash-title">Title</label>
+                    <input id="flash-title" class="branding-input" type="text" [(ngModel)]="promotion.flashSale.title" placeholder="MEGA SAVINGS on your favourite picks" />
+                  </div>
+                  <div class="field-block">
+                    <label class="branding-label" for="flash-discount">Discount label</label>
+                    <input id="flash-discount" class="branding-input" type="text" [(ngModel)]="promotion.flashSale.discountLabel" placeholder="UP TO 50% OFF" />
+                  </div>
+                </div>
+
+                <div class="field-block-row">
+                  <div class="field-block">
+                    <label class="branding-label" for="flash-window">Time window</label>
+                    <input id="flash-window" class="branding-input" type="text" [(ngModel)]="promotion.flashSale.windowLabel" placeholder="TODAY ONLY &middot; 6 PM - 11 PM" />
+                  </div>
+                  <div class="field-block">
+                    <label class="branding-label" for="flash-sponsor">Sponsor name</label>
+                    <input id="flash-sponsor" class="branding-input" type="text" [(ngModel)]="promotion.flashSale.sponsorName" placeholder="Your Brand" />
+                  </div>
+                </div>
+
+                <div class="field-block-row">
+                  <div class="field-block">
+                    <label class="branding-label" for="flash-cta">Button text</label>
+                    <input id="flash-cta" class="branding-input" type="text" [(ngModel)]="promotion.flashSale.ctaLabel" placeholder="Shop Now" />
+                  </div>
+                  <div class="field-block">
+                    <label class="branding-label" for="flash-cta-url">Button link</label>
+                    <input id="flash-cta-url" class="branding-input" type="text" [(ngModel)]="promotion.flashSale.ctaUrl" placeholder="https://yourbrand.com/sale" />
+                  </div>
+                </div>
+
+                <div class="field-block">
+                  <label class="branding-label">Popup image</label>
+                  <div class="upload-row">
+                    @if (promotion.flashSale.imageUrl) {
+                      <img class="upload-thumb" [src]="promotion.flashSale.imageUrl" alt="Flash sale popup preview" />
+                    } @else {
+                      <div class="upload-thumb upload-thumb-empty">Using text layout</div>
+                    }
+                    <div class="upload-actions">
+                      <label class="btn-branding btn-branding-ghost upload-btn">
+                        Upload picture
+                        <input type="file" accept="image/*" class="hidden-file-input" (change)="onFlashSaleImageSelected($event)" />
+                      </label>
+                      @if (promotion.flashSale.imageUrl) {
+                        <button type="button" class="btn-branding btn-branding-text" (click)="removeFlashSaleImage()">Remove</button>
+                      }
+                    </div>
+                  </div>
+                  <p class="field-hint">Optional - replaces the title/discount text layout with your own creative.</p>
+                </div>
+
+                <button type="button" class="btn-branding btn-branding-ghost btn-branding-standalone" (click)="togglePreviewFlashSale()">Preview popup</button>
+              }
+            </div>
+
+            <div class="field-block">
               <label class="branding-label">Promo videos</label>
               <p class="field-hint">Shown as a popup video ad on the weblink page.</p>
 
@@ -235,5 +306,12 @@
       </div>
 
     </div>
+
+    <app-flash-sale-popup
+      [promo]="promotion.flashSale"
+      [visible]="previewFlashSale"
+      (dismissed)="closePreviewFlashSale()"
+      (ctaClicked)="closePreviewFlashSale()">
+    </app-flash-sale-popup>
   </div>
 }
