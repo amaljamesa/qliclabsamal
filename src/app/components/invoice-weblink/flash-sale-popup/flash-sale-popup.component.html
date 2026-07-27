@@ -5,6 +5,10 @@
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
 
+      @if (secondsLeft > 0) {
+        <span class="flash-sale-badge">Ad · closes in {{ secondsLeft }}s</span>
+      }
+
       @if (promo.imageUrl) {
         <img class="flash-sale-image" [src]="promo.imageUrl" [alt]="promo.title" />
       } @else {

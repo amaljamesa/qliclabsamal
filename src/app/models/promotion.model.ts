@@ -16,6 +16,7 @@ export interface FlashSalePromo {
   ctaUrl?: string;
   sponsorName?: string;
   imageUrl?: string;
+  durationSeconds?: number; // auto-close timer for the image popup; defaults to 30s when unset
 }
 
 export interface VideoAd {
