@@ -63,6 +63,8 @@ export class InvoiceWeblinkComponent implements OnInit {
   feedbackSelected: FeedbackRating | null = null;
   feedbackSubmitted = false;
 
+  downloadingPdf = false;
+
   private token = '';
 
   constructor(
@@ -147,11 +149,17 @@ export class InvoiceWeblinkComponent implements OnInit {
     }
   }
 
-  onDownload(): void {
-    if (!this.invoice) {
+  async onDownload(): Promise<void> {
+    if (!this.invoice || this.downloadingPdf) {
       return;
     }
-    this.printService.printMarkup(this.buildInvoiceMarkup(this.invoice), `Invoice ${this.invoice.invoiceNo}`);
+    this.downloadingPdf = true;
+    const filename = `Invoice-${this.invoice.invoiceNo}`.replace(/[^a-z0-9-]+/gi, '-') + '.pdf';
+    try {
+      await this.printService.downloadMarkupAsPdf(this.buildInvoiceMarkup(this.invoice), filename);
+    } finally {
+      this.downloadingPdf = false;
+    }
     this.invoiceService.markDownloaded(this.token).subscribe();
     this.analytics.track('invoice_downloaded', this.token);
     if (!this.invoice.statuses.includes('Downloaded')) {

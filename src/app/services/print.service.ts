@@ -41,6 +41,40 @@ export class PrintService {
     localStorage.removeItem(this.previewStorageKey);
   }
 
+  async downloadMarkupAsPdf(markup: string, filename: string): Promise<void> {
+    const { jsPDF } = await import('jspdf');
+
+    const container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.top = '0';
+    container.style.left = '0';
+    container.style.zIndex = '-1';
+    container.style.width = '794px';
+    container.style.background = '#fff';
+    container.innerHTML = markup;
+    document.body.appendChild(container);
+
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth() - 40;
+
+    try {
+      await new Promise<void>(resolve => {
+        doc.html(container, {
+          x: 20,
+          y: 20,
+          width: pageWidth,
+          windowWidth: container.offsetWidth,
+          autoPaging: 'slice',
+          html2canvas: { backgroundColor: '#ffffff' },
+          callback: () => resolve()
+        });
+      });
+      doc.save(filename);
+    } finally {
+      document.body.removeChild(container);
+    }
+  }
+
   printMarkup(markup: string, title: string): void {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {

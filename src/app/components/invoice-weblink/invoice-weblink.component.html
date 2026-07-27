@@ -55,7 +55,7 @@
         </div>
 
         <div class="weblink-footer-bar footer-bar-solo">
-          <button type="button" class="footer-download-btn" (click)="onDownload()">Download Bill</button>
+          <button type="button" class="footer-download-btn" [disabled]="downloadingPdf" (click)="onDownload()">{{ downloadingPdf ? 'Preparing PDF...' : 'Download Bill' }}</button>
         </div>
       </div>
 
@@ -104,7 +104,7 @@
           @if (brandConfig && brandConfig.footerNote) {
             <span class="footer-note">{{ brandConfig.footerNote }}</span>
           }
-          <button type="button" class="footer-download-btn" (click)="onDownload()">Download Bill</button>
+          <button type="button" class="footer-download-btn" [disabled]="downloadingPdf" (click)="onDownload()">{{ downloadingPdf ? 'Preparing PDF...' : 'Download Bill' }}</button>
         </div>
       </div>
 
