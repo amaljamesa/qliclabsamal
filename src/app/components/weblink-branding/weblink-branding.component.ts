@@ -12,7 +12,7 @@ import { WeblinkLayoutConfig, LayoutBlock, LayoutBlockType, LayoutZone } from '.
 import { InvoiceWeblink } from '../../models/invoice-weblink.model';
 import { BrandWindowComponent } from '../invoice-weblink/brand-window/brand-window.component';
 import { PromoBannerComponent } from '../invoice-weblink/promo-banner/promo-banner.component';
-import { FlashSalePopupComponent } from '../invoice-weblink/flash-sale-popup/flash-sale-popup.component';
+import { FlashSalePopupComponent, DEFAULT_FLASH_SALE_DURATION_SECONDS } from '../invoice-weblink/flash-sale-popup/flash-sale-popup.component';
 import { LayoutBlockComponent } from '../invoice-weblink/layout-block/layout-block.component';
 import { resizeImageFile } from '../../services/image-resize.util';
 
@@ -149,7 +149,8 @@ export class WeblinkBrandingComponent implements OnInit {
       title: '',
       discountLabel: '',
       windowLabel: '',
-      ctaLabel: 'Shop Now'
+      ctaLabel: 'Shop Now',
+      durationSeconds: DEFAULT_FLASH_SALE_DURATION_SECONDS
     };
   }
 

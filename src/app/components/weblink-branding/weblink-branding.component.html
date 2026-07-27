@@ -213,6 +213,14 @@
                   </div>
                 </div>
 
+                <div class="field-block-row">
+                  <div class="field-block">
+                    <label class="branding-label" for="flash-duration">Popup duration (seconds)</label>
+                    <input id="flash-duration" class="branding-input" type="number" min="1" [(ngModel)]="promotion.flashSale.durationSeconds" placeholder="30" />
+                    <p class="field-hint">How long the image popup stays open before it closes automatically. Defaults to 30s.</p>
+                  </div>
+                </div>
+
                 <div class="field-block">
                   <label class="branding-label">Popup image</label>
                   <div class="upload-row">

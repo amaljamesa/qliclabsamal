@@ -16,7 +16,8 @@ export class VideoAdComponent implements OnChanges, OnDestroy {
   @Output() dismissed = new EventEmitter<void>();
 
   currentAd: VideoAd | undefined;
-  private autoCloseTimer: ReturnType<typeof setTimeout> | undefined;
+  secondsLeft = 0;
+  private countdownTimer: ReturnType<typeof setInterval> | undefined;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['visible'] && this.visible) {
@@ -50,13 +51,19 @@ export class VideoAdComponent implements OnChanges, OnDestroy {
     if (!this.currentAd) {
       return;
     }
-    this.autoCloseTimer = setTimeout(() => this.close(), this.currentAd.durationSeconds * 1000);
+    this.secondsLeft = this.currentAd.durationSeconds;
+    this.countdownTimer = setInterval(() => {
+      this.secondsLeft -= 1;
+      if (this.secondsLeft <= 0) {
+        this.close();
+      }
+    }, 1000);
   }
 
   private clearTimer(): void {
-    if (this.autoCloseTimer) {
-      clearTimeout(this.autoCloseTimer);
-      this.autoCloseTimer = undefined;
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer);
+      this.countdownTimer = undefined;
     }
   }
 }

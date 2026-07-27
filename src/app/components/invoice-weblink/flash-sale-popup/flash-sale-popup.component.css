@@ -41,6 +41,19 @@
   z-index: 1;
 }
 
+.flash-sale-badge {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: rgba(15, 23, 42, 0.85);
+  color: #fff;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  z-index: 1;
+}
+
 .flash-sale-image {
   width: 100%;
   border-radius: 14px;
