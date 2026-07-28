@@ -3,10 +3,13 @@
   publish = "dist/qliclabs-app/browser"
 
 # Proxies API calls through the Netlify domain so the browser sees a same-origin
-# request (no CORS) and never has to know the Render backend's real URL.
+# request (no CORS) and never has to know the backend's real URL.
+# Backend is AWS Elastic Beanstalk + RDS Postgres (us-east-1). Note: EB is running
+# single-instance with no load balancer, so it's HTTP-only for now - the fetch below
+# happens server-side on Netlify's edge, not in the browser, so no mixed-content issue.
 [[redirects]]
   from = "/api/*"
-  to = "https://qliclabsamal.onrender.com/api/:splat"
+  to = "http://qliclabs-backend-env.eba-8p3qgfn3.us-east-1.elasticbeanstalk.com/api/:splat"
   status = 200
   force = true
 
