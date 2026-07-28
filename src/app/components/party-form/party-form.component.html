@@ -1,0 +1,259 @@
+<div class="party-page">
+  <header class="party-header-bar">
+    <button type="button" class="back-btn" (click)="goBack()">
+      <span class="back-arrow">←</span>
+      {{ branchTitle }}
+    </button>
+  </header>
+
+  <form class="party-content" (ngSubmit)="save()">
+    <div class="party-col party-col-left">
+      <section class="party-card">
+        <h2>Party Details</h2>
+
+        <div class="party-row cols-2">
+          <div class="field-outline">
+            <label>Name<span class="req">*</span></label>
+            <input type="text" [(ngModel)]="party.name" name="name" />
+          </div>
+          <div class="field-outline">
+            <label>Tally Export Name</label>
+            <input type="text" [(ngModel)]="party.tallyExportName" name="tallyExportName" />
+          </div>
+        </div>
+
+        <div class="party-row cols-2">
+          <div class="field-outline">
+            <label>Short Name</label>
+            <input type="text" [(ngModel)]="party.shortName" name="shortName" />
+          </div>
+          <div class="field-outline">
+            <label>Alias</label>
+            <input type="text" [(ngModel)]="party.alias" name="alias" />
+          </div>
+        </div>
+
+        <div class="party-row">
+          <div class="field-outline">
+            <label>Address</label>
+            <textarea rows="3" [(ngModel)]="party.address" name="address"></textarea>
+          </div>
+        </div>
+
+        <div class="party-row cols-3">
+          <div class="field-outline">
+            <label>State</label>
+            <select [(ngModel)]="party.state" name="state">
+              <option>Karnataka</option>
+              <option>Maharashtra</option>
+              <option>Tamil Nadu</option>
+              <option>Kerala</option>
+              <option>Andhra Pradesh</option>
+            </select>
+          </div>
+          <div class="field-outline">
+            <label>Pincode</label>
+            <input type="text" [(ngModel)]="party.pincode" name="pincode" />
+          </div>
+          <div class="field-outline">
+            <label>Party Type</label>
+            <select [(ngModel)]="party.partyType" name="partyType">
+              <option>N/A</option>
+              <option>Retailer</option>
+              <option>Wholesaler</option>
+              <option>Distributor</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="party-row cols-3">
+          <div class="field-outline">
+            <label>Email</label>
+            <input type="email" [(ngModel)]="party.email" name="email" />
+          </div>
+          <div class="field-outline">
+            <label>Cellphone</label>
+            <input type="tel" [(ngModel)]="party.cellphone" name="cellphone" />
+          </div>
+          <div class="field-outline">
+            <label>Land Line</label>
+            <input type="tel" [(ngModel)]="party.landLine" name="landLine" />
+          </div>
+        </div>
+
+        <div class="party-row cols-3">
+          <div class="field-outline">
+            <label>Appear Under</label>
+            <select [(ngModel)]="party.appearUnder" name="appearUnder">
+              <option>Personal</option>
+              <option>Sundry Debtors</option>
+              <option>Sundry Creditors</option>
+            </select>
+          </div>
+          <div class="field-outline">
+            <label>Inward Tax</label>
+            <select [(ngModel)]="party.inwardTax" name="inwardTax">
+              <option>Exclusive- E</option>
+              <option>Inclusive- I</option>
+            </select>
+          </div>
+          <div class="field-outline">
+            <label>Branch</label>
+            <select [(ngModel)]="party.branch" name="branch">
+              <option>Eprise Activity - Bejai</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="party-row">
+          <label class="check-row">
+            <input type="checkbox" [(ngModel)]="party.enablePortal" name="enablePortal" />
+            <span>Enable Client/Vendor Portal</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="party-card">
+        <h2>Party Date</h2>
+        <div class="party-row cols-date">
+          <div class="field-outline">
+            <label>From Date</label>
+            <input type="text" [(ngModel)]="party.fromDate" name="fromDate" />
+            <svg class="field-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <div class="field-outline">
+            <label>To Date</label>
+            <input type="text" [(ngModel)]="party.toDate" name="toDate" [disabled]="toDateDisabled" />
+            <svg class="field-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <label class="check-row check-row-inline">
+            <input type="checkbox" [(ngModel)]="party.active" name="active" />
+            <span>Active</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="party-card">
+        <h2>Other Details</h2>
+        <div class="party-row cols-3">
+          <div class="field-outline">
+            <label>Transactions</label>
+            <select [(ngModel)]="party.transactions" name="transactions">
+              <option>Inward &amp; Outward</option>
+              <option>Inward Only</option>
+              <option>Outward Only</option>
+            </select>
+          </div>
+          <div class="field-outline">
+            <label>Serviced By</label>
+            <select [(ngModel)]="party.servicedBy" name="servicedBy">
+              <option>EPrise</option>
+            </select>
+          </div>
+          <div class="field-outline">
+            <label>Smart Tags</label>
+            <input type="text" [(ngModel)]="party.smartTags" name="smartTags" />
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="party-col party-col-right">
+      <section class="party-card">
+        <h2>GST Details</h2>
+        <div class="party-row cols-2">
+          <div class="field-outline">
+            <label>PAN</label>
+            <input type="text" [(ngModel)]="party.pan" name="pan" />
+          </div>
+          <div class="field-outline">
+            <label>GST Supply Type<span class="req">*</span></label>
+            <select [(ngModel)]="party.gstSupplyType" name="gstSupplyType">
+              <option>Regular</option>
+              <option>Composition</option>
+              <option>Unregistered</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="party-row cols-gstin">
+          <div class="field-outline">
+            <label>GSTIN</label>
+            <input type="text" [(ngModel)]="party.gstin" name="gstin" />
+          </div>
+          <button type="button" class="btn-pill btn-pill-ghost" [disabled]="fetchDisabled" (click)="fetchGstin()">Fetch</button>
+          <button type="button" class="btn-pill btn-pill-outline" (click)="fillGstin()">Fill</button>
+        </div>
+      </section>
+
+      <section class="party-card">
+        <h2>Credit Details</h2>
+        <div class="party-row">
+          <label class="check-row">
+            <input type="checkbox" [(ngModel)]="party.createLedger" name="createLedger" />
+            <span>Create Ledger</span>
+          </label>
+        </div>
+
+        <div class="party-row cols-3">
+          <div class="field-outline">
+            <label>Opening Balance</label>
+            <input type="number" [(ngModel)]="party.openingBalance" name="openingBalance" />
+          </div>
+          <div class="field-outline">
+            <label>Balance Type</label>
+            <select [(ngModel)]="party.balanceType" name="balanceType" [disabled]="balanceTypeDisabled">
+              <option>Nil Balance</option>
+              <option>To Receive</option>
+              <option>To Pay</option>
+            </select>
+          </div>
+          <div class="field-outline">
+            <label>Due in Days Type<span class="req">*</span></label>
+            <select [(ngModel)]="party.dueInDaysType" name="dueInDaysType">
+              <option>Default from Settings</option>
+              <option>Custom</option>
+            </select>
+          </div>
+        </div>
+
+        <p class="as-on-line">As On: 24-25</p>
+      </section>
+
+      <section class="party-card">
+        <h2>Region Details</h2>
+        <div class="party-row cols-3">
+          <div class="field-outline">
+            <label>Region Name</label>
+            <select [(ngModel)]="party.regionName" name="regionName">
+              <option value=""></option>
+            </select>
+          </div>
+          <div class="field-outline">
+            <label>Area Name</label>
+            <select [(ngModel)]="party.areaName" name="areaName">
+              <option value=""></option>
+            </select>
+          </div>
+          <div class="field-outline">
+            <label>Route</label>
+            <select [(ngModel)]="party.route" name="route">
+              <option value=""></option>
+            </select>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="party-actions">
+      @if (errorMessage) {
+        <span class="save-status save-status-error">{{ errorMessage }}</span>
+      }
+      @if (savedName && !errorMessage) {
+        <span class="save-status save-status-success">"{{ savedName }}" saved.</span>
+      }
+      <button type="submit" class="btn-party btn-party-save" [disabled]="saving">{{ saving ? 'Saving...' : 'Save' }}</button>
+      <button type="button" class="btn-party btn-party-cancel" (click)="cancel()">Cancel</button>
+    </div>
+  </form>
+</div>

@@ -6,6 +6,7 @@ import { InvoiceFormComponent } from './components/invoice-form/invoice-form.com
 import { LabelGeneratorComponent } from './components/label-generator/label-generator.component';
 import { InvoiceWeblinkComponent } from './components/invoice-weblink/invoice-weblink.component';
 import { WeblinkBrandingComponent } from './components/weblink-branding/weblink-branding.component';
+import { PartyFormComponent } from './components/party-form/party-form.component';
 
 export const routes: Routes = [
   { path: 'dashboard', component: DashboardComponent },
@@ -17,6 +18,8 @@ export const routes: Routes = [
   { path: 'settings/weblink-branding', component: WeblinkBrandingComponent },
   // Customer-facing secure invoice weblink (no ERP sidebar/header shell, see app.component.ts)
   { path: 'w/:token', component: InvoiceWeblinkComponent },
+  // Party master create/edit screen has its own header bar (no ERP sidebar/header shell, see app.component.ts)
+  { path: 'parties/new', component: PartyFormComponent },
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
   { path: '**', redirectTo: '/dashboard' }
 ];
