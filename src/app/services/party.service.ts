@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, firstValueFrom } from 'rxjs';
+import { environment } from '../../environments/environment';
 import { Party, PartyDraft } from '../models/party.model';
 
-const API_URL = 'http://localhost:8000/api/parties/';
+const API_URL = `${environment.apiUrl}/parties/`;
 
 @Injectable({
   providedIn: 'root'
