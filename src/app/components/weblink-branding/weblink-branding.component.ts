@@ -455,6 +455,21 @@ export class WeblinkBrandingComponent implements OnInit {
     this.brand.socialLinks = this.brand.socialLinks.filter((_, i) => i !== index);
   }
 
+  addFlashSaleSocialLink(): void {
+    if (!this.promotion.flashSale) {
+      return;
+    }
+    const link: SocialLink = { platform: 'instagram', url: '' };
+    this.promotion.flashSale.socialLinks = [...(this.promotion.flashSale.socialLinks ?? []), link];
+  }
+
+  removeFlashSaleSocialLink(index: number): void {
+    if (!this.promotion.flashSale?.socialLinks) {
+      return;
+    }
+    this.promotion.flashSale.socialLinks = this.promotion.flashSale.socialLinks.filter((_, i) => i !== index);
+  }
+
   // ── Save / reset ──
 
   async save(): Promise<void> {

@@ -212,6 +212,26 @@
                     <input id="flash-cta-url" class="branding-input" type="text" [(ngModel)]="promotion.flashSale.ctaUrl" placeholder="https://yourbrand.com/sale" />
                   </div>
                 </div>
+                <p class="field-hint">Button text/link is only used as a fallback when no social links below are set.</p>
+
+                <div class="field-block">
+                  <label class="branding-label">Social icons</label>
+                  <p class="field-hint">Shown as clickable logos instead of the button above, once at least one has a link.</p>
+                  <div class="social-links-list">
+                    @for (link of promotion.flashSale.socialLinks; track $index) {
+                      <div class="social-link-row">
+                        <select class="branding-input social-platform-select" [(ngModel)]="link.platform">
+                          @for (platform of socialPlatforms; track platform) {
+                            <option [value]="platform">{{ platform }}</option>
+                          }
+                        </select>
+                        <input class="branding-input" type="text" [(ngModel)]="link.url" placeholder="https://instagram.com/yourbrand" />
+                        <button type="button" class="btn-branding btn-branding-text" (click)="removeFlashSaleSocialLink($index)">Remove</button>
+                      </div>
+                    }
+                  </div>
+                  <button type="button" class="btn-branding btn-branding-ghost btn-branding-standalone" (click)="addFlashSaleSocialLink()">+ Add social link</button>
+                </div>
 
                 <div class="field-block-row">
                   <div class="field-block">

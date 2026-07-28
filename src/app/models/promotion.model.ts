@@ -1,3 +1,5 @@
+import { SocialLink } from './brand-window.model';
+
 export interface PromoBanner {
   id: string;
   imageUrl?: string;
@@ -17,6 +19,8 @@ export interface FlashSalePromo {
   sponsorName?: string;
   imageUrl?: string;
   durationSeconds?: number; // auto-close timer for the image popup; defaults to 30s when unset
+  // Social platform icons shown instead of the CTA button when at least one has a url set.
+  socialLinks?: SocialLink[];
 }
 
 export interface VideoAd {
