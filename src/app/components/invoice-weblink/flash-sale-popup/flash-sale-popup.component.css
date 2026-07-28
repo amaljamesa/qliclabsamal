@@ -25,33 +25,29 @@
 
 .flash-sale-close {
   position: absolute;
-  top: -10px;
-  right: -10px;
-  width: 30px;
-  height: 30px;
+  top: 0.6rem;
+  right: 0.6rem;
+  width: 26px;
+  height: 26px;
   border-radius: 999px;
-  border: 2px solid #fff;
-  background: #dc2626;
-  color: #fff;
+  border: none;
+  background: rgba(107, 114, 128, 0.15);
+  color: #6b7280;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.25);
   z-index: 1;
 }
 
 .flash-sale-badge {
-  position: absolute;
-  top: -10px;
-  left: -10px;
+  align-self: flex-start;
   font-size: 0.65rem;
-  font-weight: 700;
-  background: rgba(15, 23, 42, 0.85);
-  color: #fff;
+  font-weight: 600;
+  background: rgba(107, 114, 128, 0.12);
+  color: #6b7280;
   padding: 0.25rem 0.6rem;
   border-radius: 999px;
-  z-index: 1;
 }
 
 .flash-sale-image {

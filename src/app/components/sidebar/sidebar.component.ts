@@ -33,7 +33,7 @@ export class SidebarComponent {
     ]},
     { name: 'Credentials', icon: 'key' },
     { name: 'Catalogues', icon: 'folder', expanded: false, submenu: [
-      { name: 'Party' },
+      { name: 'Party', route: '/parties/new' },
       { name: 'Party Type', route: '/catalogue' },
       { name: 'Price Catalogue' }
     ]},
