@@ -4,10 +4,9 @@
 
 # Proxies API calls through the Netlify domain so the browser sees a same-origin
 # request (no CORS) and never has to know the Render backend's real URL.
-# Replace the backend host below once the Django app is deployed on Render.
 [[redirects]]
   from = "/api/*"
-  to = "https://qliclabs-backend.onrender.com/api/:splat"
+  to = "https://qliclabsamal.onrender.com/api/:splat"
   status = 200
   force = true
 
