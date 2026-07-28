@@ -101,6 +101,25 @@
   cursor: pointer;
 }
 
+.flash-sale-socials {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.flash-sale-social-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: #111827;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-decoration: none;
+}
+
 .flash-sale-sponsor {
   font-size: 0.72rem;
   color: var(--muted);

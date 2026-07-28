@@ -48,7 +48,11 @@ export class PromotionService {
       windowLabel: 'TODAY ONLY · 6 PM - 11 PM',
       ctaLabel: 'Follow Us',
       sponsorName: 'Qliclabs',
-      imageUrl: placeholderArtDataUri('SKIP THE FOMO', 'Follow @yourbrand', ['#fde047', '#facc15'], '#111827')
+      imageUrl: placeholderArtDataUri('SKIP THE FOMO', 'Follow @yourbrand', ['#fde047', '#facc15'], '#111827'),
+      socialLinks: [
+        { platform: 'instagram', url: 'https://instagram.com/yourbrand' },
+        { platform: 'facebook', url: 'https://facebook.com/yourbrand' }
+      ]
     },
     bannerHeightPx: 160,
     videoAds: [],

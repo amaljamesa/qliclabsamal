@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FlashSalePromo } from '../../../models/promotion.model';
+import { SocialLink } from '../../../models/brand-window.model';
 
 export const DEFAULT_FLASH_SALE_DURATION_SECONDS = 30;
 
@@ -19,6 +20,10 @@ export class FlashSalePopupComponent implements OnChanges, OnDestroy {
 
   secondsLeft = 0;
   private countdownTimer: ReturnType<typeof setInterval> | undefined;
+
+  get activeSocialLinks(): SocialLink[] {
+    return (this.promo?.socialLinks ?? []).filter((link) => link.url?.trim());
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['visible'] || changes['promo']) {
