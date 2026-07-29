@@ -7,6 +7,7 @@ import { LabelGeneratorComponent } from './components/label-generator/label-gene
 import { InvoiceWeblinkComponent } from './components/invoice-weblink/invoice-weblink.component';
 import { WeblinkBrandingComponent } from './components/weblink-branding/weblink-branding.component';
 import { PartyFormComponent } from './components/party-form/party-form.component';
+import { LedgerReportComponent } from './components/ledger-report/ledger-report.component';
 
 export const routes: Routes = [
   { path: 'dashboard', component: DashboardComponent },
@@ -20,6 +21,8 @@ export const routes: Routes = [
   { path: 'w/:token', component: InvoiceWeblinkComponent },
   // Party master create/edit screen has its own header bar (no ERP sidebar/header shell, see app.component.ts)
   { path: 'parties/new', component: PartyFormComponent },
+  // Print-only report pages render full-page, no ERP shell (see app.component.ts)
+  { path: 'print/ledger', component: LedgerReportComponent },
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
   { path: '**', redirectTo: '/dashboard' }
 ];

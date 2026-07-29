@@ -28,9 +28,10 @@ export class AppComponent {
     });
   }
 
-  // Customer-facing weblink pages (e.g. /w/:token) render full-page, without the ERP shell
+  // Customer-facing weblink pages (e.g. /w/:token) and print-only report pages render
+  // full-page, without the ERP shell
   private isStandaloneUrl(url: string): boolean {
-    return url.startsWith('/w/');
+    return url.startsWith('/w/') || url.startsWith('/print/');
   }
 
   toggleSidebar(): void {
