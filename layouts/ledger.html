@@ -219,6 +219,18 @@
 
 		// Main function to generate the invoice content.
 		async function generateSingleCopy() {
+			// Defensive reset: some preview/PDF flows reuse the same window or iframe for a
+			// second render instead of doing a full page reload (e.g. navigating back to the
+			// outer screen, changing its zoom, then reopening the preview without a refresh).
+			// If generateSingleCopy() runs again in a document that already has pages from a
+			// previous run, clear them first - otherwise the old pages stay in the DOM and the
+			// new run's pages get appended after them, showing duplicated content (and both
+			// runs label their first page "Page No: 1", since currentPageCount below never
+			// resets on its own).
+			document.querySelectorAll('.page').forEach((page) => page.remove());
+			currentPageCount = 1;
+			isFirstPage = true;
+
 			let searchParams = new URLSearchParams(window.location.search);
 			let message = searchParams.get('message');
 
