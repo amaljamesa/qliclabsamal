@@ -1,0 +1,631 @@
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<title>EPrise</title>
+
+	<!-- <script type="text/javascript" src="https://layouts.qliclabstest.com/assets/js/config.js"></script> -->
+	 <script type="text/javascript" src="../../assets/js/formatters.js"></script>
+
+	<script type="text/javascript">
+		// Function to get query parameters from the URL
+		function getQueryParam(param) {
+			let searchParams = new URLSearchParams(window.location.search);
+			return searchParams.get(param);
+		}
+
+		// Get the device_type from the URL
+		var deviceType = getQueryParam('device_type');
+
+		// Device type IDs
+		var supportedDeviceTypes = ['1', '2', '8']; // Supported device types
+
+		// Conditionally load scripts based on the device_type
+	//	if (supportedDeviceTypes.includes(deviceType)) {
+			// Load scripts for supported device types (POS Desktop, Android Mobile, Android Tablet)
+			document.write('<script type="text/javascript" src="../../../assets/js/qrcode.min.js"><\/script>');
+			document.write('<script type="text/javascript" src="../../../assets/js/qrious.js"><\/script>');
+	//	} else {
+			// Load scripts for other device types (Web Desktop, web android, Web Tablet, Web IOS)
+		//	document.write('<script type="text/javascript" src="' + baseUrl + '/assets/js/qrcode.min.js"><\/script>');
+		//	document.write('<script type="text/javascript" src="' + baseUrl + '/assets/js/qrious.js"><\/script>');
+	//	}
+	</script>
+
+	<style>
+		body {
+			background: white;
+		}
+
+		.page {
+			background: white;
+			width: 21cm;
+			height: 29.7cm;
+			margin: 0 auto;
+			box-shadow: 0 0 0.1cm rgba(0, 0, 0, 0.1);
+			margin-bottom: 0.5cm;
+			display: block;
+		}
+
+		@media print {
+
+			body,
+			.page {
+				height: auto;
+				margin: 0;
+				box-shadow: initial;
+				page-break-after: always;
+			}
+
+			.FloatNum {
+				/* position: fixed; */
+				width: 100%;
+				/* top: 0px; */
+			}
+
+			/* .Space {
+    width: 100%;
+    height: 15%;
+  }
+  .fSpace {
+    width: 100%;
+    height: 25%;
+  } */
+			.Dfoot {
+				/* position: fixed;  */
+				bottom: 0px;
+				width: 100%;
+			}
+
+			.no-print {
+				display: none
+			}
+		}
+
+		/* header */
+		h5 {
+			text-align: left;
+			color: black;
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 13;
+			margin-right: 15px;
+			margin-left: 25px;
+			padding-top: 5%;
+			font-weight: normal;
+		}
+
+		.Hname {
+			font-family: Arial, Helvetica, sans-serif;
+		}
+
+		.floatrightp {
+			font-weight: bold;
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 13;
+			margin-right: 25px;
+		}
+
+		.footer2,
+		.footer1 {
+			font-weight: bold;
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 13;
+		}
+
+		/* Table */
+
+		table,
+		table,
+		th {
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 13px;
+			border-collapse: collapse;
+			width: 100%;
+		}
+
+		td {
+			font-size: 12;
+		}
+
+		th {
+			font-weight: bold;
+			font-size: 14;
+		}
+
+		/* Footer */
+		.footer1 {
+			margin-left: 5%;
+		}
+
+		#maintable,
+		td,
+		th {
+			/* border: 1px solid; */
+			border-collapse: collapse;
+			font-family: Arial, Helvetica, sans-serif;
+		}
+
+		.tab {
+			font-size: 9px;
+			font-weight: normal;
+		}
+
+		.d_footer_grid {
+			display: grid;
+			grid-template-columns: repeat(2, 1fr);
+			justify-content: space-between;
+		}
+
+		.beName {
+			font-size: 16px;
+			margin-bottom: -10px !important;
+			/* Adjust as needed */
+		}
+
+		.footer-section {
+			border: 1px solid black;
+			padding: 3px;
+			text-align: left;
+			font-size: 12px;
+		}
+	</style>
+</head>
+
+<body>
+
+	<script>
+		// Flags to control the visibility of certain sections of the invoice.
+		let isHSNSection = false; //for Hsn header hide
+		let isTermandConditionSection = false; //for hide product column and hsn header hide
+		var typeOfCopy = 0;
+		let currentPageCount = 1; // Initialize the page count for each copy
+		let jsonData;
+		let pageSize;
+		let isFirstPage = true; // Flag to indicate the first page
+		let maxHeight;
+
+		// Function to convert a base64 encoded string to UTF-8.
+		function base64ToUtf8(base64) {
+
+			const binaryString = atob(base64);
+			const bytes = new Uint8Array([...binaryString].map(char => char.charCodeAt(0)));
+			return new TextDecoder().decode(bytes);
+		}
+
+		// Function to wait for all sections to have non-zero heights
+		function waitForNonZeroHeights(currentPage) {
+			return new Promise((resolve) => {
+				function checkHeights() {
+					const headerAddSection = currentPage.querySelector('.FloatNum');
+
+					// getBoundingClientRect() returns sub-pixel float values that reflect true
+					// CSS layout geometry - unlike offsetHeight, which rounds to whole device
+					// pixels and can round differently at different browser zoom levels, which
+					// was throwing off pagination whenever the page was zoomed in or out.
+					const headerAddHeight = headerAddSection ? headerAddSection.getBoundingClientRect().height : 0;
+
+					if (headerAddHeight > 0) {
+						resolve({
+							headerAddHeight,
+
+						});
+					} else {
+						requestAnimationFrame(checkHeights);
+					}
+				}
+				checkHeights();
+			});
+		}
+
+		// Main function to generate the invoice content.
+		async function generateSingleCopy() {
+			let searchParams = new URLSearchParams(window.location.search);
+			let message = searchParams.get('message');
+
+			if (message) {
+				try {
+					var retrievedValue = localStorage.getItem('ledgerData');
+					if (retrievedValue !== null) {
+						let decodedString = base64ToUtf8(retrievedValue);
+						jsonData = JSON.parse(decodedString);
+
+					}
+					else {
+						let decodedString = base64ToUtf8(message);
+						jsonData = JSON.parse(decodedString);
+					}
+
+
+
+					// Set page height based on page size
+					const pageHeightInPx = 1100; //height in pixels
+
+					//Create new page
+					let currentPage = createNewPage();
+
+					let localPageNumber = currentPageCount;
+
+					// Generate sections of the invoice (header, attribute)
+					addSectionToPage(currentPage, generateHeaderSection, jsonData, isFirstPage);
+
+					// Wait for non-zero heights
+					const { headerAddHeight } = await waitForNonZeroHeights(currentPage);
+
+					// Calculate available height for body section
+					const footerSectionHeight = 80;
+					const usedHeight = headerAddHeight + footerSectionHeight;
+					maxHeight = pageHeightInPx - usedHeight;
+
+					// Generate body and footer sections with pagination
+					generateBodySectionWithPagination(currentPage, jsonData, jsonData.ledger_details, maxHeight);
+					addSectionToPage(currentPage, generateFooterSection, jsonData, localPageNumber);
+
+				} catch (error) {
+					console.error('Error decoding or parsing JSON:', error);
+				}
+			} else {
+				console.error('No message found in the URL parameters.');
+			}
+		}
+
+		// Function to create a new page for the invoice.
+		function createNewPage() {
+			let newPage = document.createElement('div');
+			newPage.className = 'page';
+			newPage.style.position = 'relative';
+			newPage.style.pageBreakBefore = 'always';
+			newPage.style.width = "21cm"
+			newPage.style.height = "1100px"; /* a4 size */
+
+			document.body.appendChild(newPage);
+			return newPage;
+		}
+
+		// Function to add a section to the current page.
+		function addSectionToPage(currentPage, sectionFunc, ...args) {
+			let tempSection = document.createElement('div');
+			sectionFunc(tempSection, ...args);
+			currentPage.appendChild(tempSection);
+			return tempSection.getBoundingClientRect().height;
+		}
+
+		function generateBodySectionWithPagination(currentPage, jsonData, items, maxHeight) {
+			let tbody;
+			let currentHeight = 0;
+			let headerHeight = 0;
+			let adjustedMaxHeight = 0;
+			const middleGap = 5; // Gap between sections
+			let currentPageCount = 1;
+			let td;
+
+			// Setup a body section for the current page
+			function setupBodySection() {
+
+
+				const bodySection = document.createElement('div');
+				bodySection.className = 'body';
+				if (jsonData.config.main_table_border == false) {
+					bodySection.style.border = 'hidden';
+				}
+				else {
+					bodySection.style.border = '1px solid black';
+				}
+				bodySection.style.margin = '0 20px';
+				bodySection.style.maxHeight = `${maxHeight}px`;
+
+				const bodyTable = document.createElement('table');
+				bodyTable.className = 'body-table';
+				bodyTable.style.border = 'hidden';
+				bodyTable.style.width = '100%';
+				bodyTable.style.borderCollapse = 'collapse';
+
+				const thead = document.createElement('thead');
+				const headerRow = document.createElement('tr');
+
+				// Creating table headers
+				const headers = [
+					{ name: "Date", width: "13%" },
+					{ name: "Journal ID", width: "5%", show: jsonData.config.show_journal_id },
+					{ name: "By/To", width: "3%" },
+					{ name: "Type", width: "5%" },
+					{ name: "Account Name", width: "45%" },
+					{ name: "Debit", width: "10%" },
+					{ name: "Credit", width: "10%" },
+					{ name: "Balance", width: "15%" }
+				];
+
+				headers.forEach((header) => {
+					if (header.show === undefined || header.show) {
+						const th = document.createElement('th');
+						th.innerHTML = header.name;
+						if (jsonData.config.main_table_border == false) {
+							th.style.borderTop = 'hidden';
+							th.style.borderLeft = 'hidden';
+							th.style.borderRight = 'hidden';
+							th.style.borderBottom = '1px solid black';
+						}
+						else {
+							th.style.border = '1px solid black';
+						}
+						th.style.textAlign = 'center';
+						th.style.width = header.width;
+						headerRow.appendChild(th);
+					}
+				});
+
+				thead.appendChild(headerRow);
+				bodyTable.appendChild(thead);
+
+				tbody = document.createElement('tbody');
+				bodyTable.appendChild(tbody);
+				bodySection.appendChild(bodyTable);
+				currentPage.appendChild(bodySection);
+
+				headerHeight = thead.getBoundingClientRect().height;
+				adjustedMaxHeight = maxHeight - headerHeight - middleGap;
+				return { bodySection, bodyTable };
+			}
+
+			// Create a new page and initialize header and footer
+			function createNewPageWithHeaderFooter() {
+				currentPage = createNewPage(); // Assume createNewPage is defined elsewhere
+				currentPageCount++;
+				addSectionToPage(currentPage, generateHeaderSection, jsonData, false); // Assume generateHeaderSection is defined
+				addSectionToPage(currentPage, generateFooterSection, jsonData, currentPageCount); // Assume generateFooterSection is defined
+				return setupBodySection();
+			}
+
+			// Add a row to the table
+			function addRow(item) {
+				const tableRow = document.createElement('tr');
+
+				// Populate each cell dynamically
+				const columns = [
+					{ value: item.journal_date, textAlign: 'center' },
+					{ value: jsonData.config.show_journal_id ? item.journal_unique_id : null, textAlign: 'center' },
+					{ value: item.by_to, textAlign: 'center' },
+					{ value: item.voucher_type, textAlign: 'left' },
+					{
+						// Combine `by_to_account_name`, `det_ac_name`, and `det_amount`
+						value: generateByToAccountNameContent(item),
+						textAlign: 'left'
+					},
+					{ value: indianFormat(item.dr_amount), textAlign: 'right' },
+					{ value: indianFormat(item.cr_amount), textAlign: 'right' },
+					{ value: indianFormat(item.balance), textAlign: 'right' }
+				];
+
+				let maxRowHeight = 0; // To calculate the maximum height of this row
+
+				columns.forEach((column) => {
+					if (column.value !== null && column.value !== undefined) {
+						const td = document.createElement('td');
+						td.innerHTML = column.value;
+						td.style.textAlign = column.textAlign;
+						td.style.width = 'auto';
+
+						if (jsonData.config.main_table_border == false) {
+							td.style.border = 'hidden';
+						}
+						else {
+							td.style.border = '1px solid black';
+						}
+						td.style.verticalAlign = 'top'; // Align to the top for multi-line content
+						tableRow.appendChild(td);
+
+						// Append the row temporarily to measure height
+						tbody.appendChild(tableRow);
+						const cellHeight = td.getBoundingClientRect().height;
+						if (cellHeight > maxRowHeight) {
+							maxRowHeight = cellHeight;
+						}
+						tbody.removeChild(tableRow); // Remove to avoid premature rendering
+					}
+				});
+
+				tbody.appendChild(tableRow); // Re-append the row after calculating height
+
+
+
+
+				// Adjust total height of the current page
+				currentHeight += maxRowHeight;
+
+				// Handle pagination
+				if (currentHeight > adjustedMaxHeight) {
+					tbody.removeChild(tableRow);
+					({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+					tbody = bodyTable.querySelector('tbody');
+					tbody.appendChild(tableRow);
+					currentHeight = maxRowHeight;
+				}
+			}
+
+			// Helper function to generate content for `by_to_account_name` column
+			function generateByToAccountNameContent(item) {
+				// Split `det_ac_name` and `det_amount` by '\n'
+				const accountNames = item.det_ac_name ? item.det_ac_name.split('\n') : [];
+				const amounts = item.det_amount ? item.det_amount.split('\n') : [];
+				let rowContent;
+
+				if (item.view_order == 1) {
+					// Initialize content for the rows
+					rowContent = item.by_to_account_name + "<br>";
+
+					// Loop through account names and amounts
+					for (let j = 0; j < accountNames.length; j++) {
+						rowContent += `
+							<div style="display: flex; justify-content: space-between; margin-left: 20px;">
+								<span>${accountNames[j] || '-'}</span>
+								<span>${amounts[j] || '-'}</span>
+							</div>`;
+					}
+					// Append the narration after the loop
+					if (item.narration) {
+						rowContent += `<div style="font-style: italic; font-size: 12px;">
+							${item.narration}
+						</div>`;
+					}
+				}
+				else if (item.view_order == 0) {
+					rowContent = item.by_to_account_name +
+						`<div style= "font-style: italic; font-size: 12px;">
+                         ${item.narration}
+                </div>`;
+
+				}
+
+				return rowContent;
+			}
+
+			// Initialize the first page
+			let { bodySection, bodyTable } = setupBodySection();
+
+			// Loop through items and add rows
+			items.forEach((item) => addRow(item));
+
+			// Add subtotal and other rows as necessary (optional)
+		}
+
+		// SECTION 2: Header Section
+		function generateHeaderSection(page, data, isFirstPage) {
+
+			//main div
+			var dfloatnum = document.createElement('div');
+			dfloatnum.id = 'Float_num';
+			dfloatnum.className = 'FloatNum';
+			dfloatnum.style.top = "0px";
+
+			// add div1
+			var dfloatleft = document.createElement('div');
+			dfloatleft.className = 'FloatLeft';
+
+			var floatLefth5 = document.createElement("h5");
+			floatLefth5.style.top = "0px";
+
+			if (data.company_details.be_phone != '' && data.company_details.be_gstin == '') {
+				floatLefth5.innerHTML = "<b><div class='beName'>" + data.company_details.be_name + "</div></b><br>" + data.company_details.be_addline1 + " " + data.company_details.be_addline2 + " " + data.company_details.be_state + " " + data.company_details.be_pin + "<br>Phone Number: " + data.company_details.be_phone;
+				dfloatleft.appendChild(floatLefth5);
+			}
+			else if (data.company_details.be_phone == '' && data.company_details.be_gstin != '') {
+				floatLefth5.innerHTML = "<b><div class='beName'>" + data.company_details.be_name + "</div></b><br>" + data.company_details.be_addline1 + " " + data.company_details.be_addline2 + " " + data.company_details.be_state + " " + data.company_details.be_pin + "<br><b>GSTIN: " + data.company_details.be_gstin + "</b>";
+				dfloatleft.appendChild(floatLefth5);
+			}
+			else if (data.company_details.be_phone != '' && data.company_details.be_gstin != '') {
+				floatLefth5.innerHTML = "<b><div class='beName'>" + data.company_details.be_name + "</div></b><br>" + data.company_details.be_addline1 + " " + data.company_details.be_addline2 + " " + data.company_details.be_state + " " + data.company_details.be_pin + "<br>Phone Number: " + data.company_details.be_phone + "<br><b>GSTIN: " + data.company_details.be_gstin + "</b>";
+				dfloatleft.appendChild(floatLefth5);
+			}
+			else if (data.company_details.be_phone == '' && data.company_details.be_gstin == '') {
+				floatLefth5.innerHTML = "<b><div class='beName'>" + data.company_details.be_name + "</div></b><br>" + data.company_details.be_addline1 + " " + data.company_details.be_addline2 + " " + data.company_details.be_state + " " + data.company_details.be_pin;
+				dfloatleft.appendChild(floatLefth5);
+			}
+
+
+			//add div2
+			var dfloatright = document.createElement('div');
+			dfloatright.className = 'FloatRight';
+
+			var floatrightp = document.createElement("p");
+			floatrightp.className = 'floatrightp';
+			floatrightp.innerHTML = "Account Ledger<br>From: " + data.other.from_date + " to " + data.other.to_date;
+			floatrightp.style.marginTop = '-60';
+			floatrightp.style.textAlign = 'right';
+			dfloatright.appendChild(floatrightp);
+
+			//line
+			var hrlinr = document.createElement("hr");
+			hrlinr.style.marginTop = "18";
+			hrlinr.style.border = "1px solid";
+			hrlinr.style.width = "95%";
+
+			//creating heading of page
+			var headingName = document.createElement('div');
+			headingName.className = 'Hname';
+
+			var hName = document.createElement("h4");
+
+			hName.style.textAlign = 'center';
+			hName.style.fontSize = '17px';
+			hName.style.fontWeight = 'bold';
+			hName.innerHTML = "Account: " + data.accounts.account_name;
+			headingName.appendChild(hName);
+
+
+			//appending it to main div
+			dfloatnum.appendChild(dfloatleft);
+			dfloatnum.appendChild(dfloatright);
+			dfloatnum.appendChild(hrlinr);
+			dfloatnum.appendChild(headingName);
+
+			// Finally, append the table to the page
+			page.appendChild(dfloatnum);
+
+		}
+
+		// SECTION 4: Footer Section
+		function generateFooterSection(page, footerData, pageNumber) {
+
+			// Create the main footer container
+			var footerSection = document.createElement('div');
+			footerSection.style.position = 'absolute'; // Fix footer at the bottom of the page
+			footerSection.style.bottom = '0'; // Align footer to the bottom
+			footerSection.style.left = '0'; // Align to the left
+			footerSection.style.width = '97%'; // Full width of the page
+			footerSection.style.display = 'flex'; // Flexbox for alignment
+			footerSection.style.justifyContent = 'space-between'; // Space between elements
+			footerSection.style.alignItems = 'center'; // Vertically align items
+			footerSection.style.backgroundColor = '#fff'; // White background
+
+			// Date and Time Section
+			var dateTimeDiv = document.createElement('div');
+			dateTimeDiv.style.width = '50%'; // Occupies half the width
+			dateTimeDiv.style.textAlign = 'left'; // Align text to the left
+
+			var dateTimeText = document.createElement('p');
+			dateTimeText.className = 'footer1'; // Add a class for styling
+			dateTimeText.id = 'foot1';
+
+			var today = new Date();
+			var date = today.getDate() + '-' + (today.getMonth() + 1) + '-' + today.getFullYear();
+			var hours = today.getHours();
+			var minutes = today.getMinutes();
+			var seconds = today.getSeconds();
+			var amOrPm = hours >= 12 ? 'PM' : 'AM';
+			hours = hours % 12 || 12; // Convert 24-hour time to 12-hour
+			minutes = minutes < 10 ? '0' + minutes : minutes;
+			seconds = seconds < 10 ? '0' + seconds : seconds;
+
+			var dateTime = `${date} ${hours}:${minutes}:${seconds} ${amOrPm}`;
+			dateTimeText.innerHTML = dateTime;
+
+			dateTimeDiv.appendChild(dateTimeText);
+
+			// Page Number Section
+			var pageNumberDiv = document.createElement('div');
+			pageNumberDiv.style.width = '50%'; // Occupies half the width
+			pageNumberDiv.style.textAlign = 'right'; // Align text to the right
+
+			var pageText = document.createElement('p');
+			pageText.className = 'footer2'; // Add a class for styling
+			pageText.innerHTML = `Page No: ${pageNumber}`;
+
+			pageNumberDiv.appendChild(pageText);
+
+			// Append both sections to the footer
+			footerSection.appendChild(dateTimeDiv);
+			footerSection.appendChild(pageNumberDiv);
+
+			// Append the footer to the page
+			page.appendChild(footerSection);
+
+
+		}
+
+
+		// Run the main function to generate all copies
+		generateSingleCopy();
+	</script>
+
+</body>
+
+</html>
