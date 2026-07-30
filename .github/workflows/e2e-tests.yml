@@ -1,4 +1,5 @@
 name: E2E Party Form Test
+run-name: E2E Party Form Test
 
 on:
   push:
