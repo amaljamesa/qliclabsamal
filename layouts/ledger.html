@@ -279,9 +279,6 @@
 
 
 
-					// Set page height based on page size
-					const pageHeightInPx = 1100; //height in pixels
-
 					//Create new page
 					let currentPage = createNewPage();
 
@@ -300,8 +297,18 @@
 					// letting data fill the page. Measure its real rendered height instead, so
 					// the reserved space matches what the footer actually needs, with only a
 					// small buffer for breathing room.
-					const footerSectionHeight = measureFooterHeight(jsonData, localPageNumber) + 25;
+					const footerSectionHeight = measureFooterHeight(jsonData, localPageNumber) + 40;
 					const usedHeight = headerAddHeight + footerSectionHeight;
+					// Page height was previously a hardcoded 1100px constant, but every other
+					// measurement here (header/footer/row heights) is a live getBoundingClientRect()
+					// reading, which reports the actual visually-rendered size at whatever zoom is
+					// currently active. At 100% zoom those happen to line up, so this went
+					// unnoticed - but at any other zoom, the real rendered page height shrinks or
+					// grows while this constant stayed fixed, over- or under-allocating the row
+					// budget by the difference and causing rows to overflow into (or leave a huge
+					// gap before) the footer. Measuring the actual page keeps every quantity in the
+					// same, currently-true unit.
+					const pageHeightInPx = currentPage.getBoundingClientRect().height;
 					maxHeight = pageHeightInPx - usedHeight;
 
 					// Generate body and footer sections with pagination
@@ -375,6 +382,14 @@
 				bodyTable.style.border = 'hidden';
 				bodyTable.style.width = '100%';
 				bodyTable.style.borderCollapse = 'collapse';
+				// Without this, the browser's default "auto" table layout redistributes
+				// column widths based on *all* rows' content collectively - so a long
+				// narration added several rows later can retroactively shift column widths,
+				// making the per-row height measurements taken during incremental
+				// construction (below) stale by the time the full table exists. Fixed
+				// layout locks column widths to the header's percentages from the first
+				// row, so what's measured while building matches what's actually rendered.
+				bodyTable.style.tableLayout = 'fixed';
 
 				const thead = document.createElement('thead');
 				const headerRow = document.createElement('tr');
@@ -681,6 +696,25 @@
 
 		// Run the main function to generate all copies
 		generateSingleCopy();
+
+		// Re-run pagination whenever the viewport actually changes size - this includes
+		// browser/OS zoom changes, which fire a resize event since they change the
+		// effective CSS pixel viewport. Without this, pagination is a one-time calculation
+		// done at load: if the user zooms in/out *after* the report is already rendered
+		// (not before, which was already handled), text can reflow slightly differently at
+		// the new zoom (the same subpixel rounding issue fixed elsewhere, just triggered
+		// live instead of at load), making the last row on a page grow taller than what was
+		// originally budgeted for - and since the footer sits at a fixed position, that
+		// growth pushes the row into/past it. generateSingleCopy() already resets and
+		// rebuilds from scratch (see the cleanup at its top), so re-running it here just
+		// re-paginates against the new zoom's real measurements.
+		let resizeRegenerateTimer;
+		window.addEventListener('resize', () => {
+			clearTimeout(resizeRegenerateTimer);
+			resizeRegenerateTimer = setTimeout(() => {
+				generateSingleCopy();
+			}, 200);
+		});
 	</script>
 
 </body>
