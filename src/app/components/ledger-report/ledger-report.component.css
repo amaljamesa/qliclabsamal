@@ -23,6 +23,11 @@
   display: block;
 }
 
+@page {
+  size: A4;
+  margin: 0;
+}
+
 @media print {
   body,
   .page {
@@ -30,6 +35,15 @@
     margin: 0;
     box-shadow: initial;
     page-break-after: always;
+  }
+
+  /* The JS decides which .page a row belongs to by measuring heights up front, but without
+     this, the browser's print engine can still slice an individual row's multi-line cell
+     content across a physical page boundary if the real printed height (after margins/DPI)
+     comes out even slightly smaller than what the JS budgeted for. */
+  tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   .FloatNum {
