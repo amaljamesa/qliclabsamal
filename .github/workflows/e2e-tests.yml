@@ -1,5 +1,5 @@
-name: E2E Party Form Test
-run-name: E2E Party Form Test
+name: QA automation test - 1
+run-name: QA automation test - 1
 
 on:
   push:
