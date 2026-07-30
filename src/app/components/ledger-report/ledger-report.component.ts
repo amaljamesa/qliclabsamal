@@ -5,7 +5,7 @@ import { indianFormat } from '../../services/indian-number-format.util';
 
 const PAGE_HEIGHT_PX = 1100;
 const MIDDLE_GAP_PX = 5;
-const FOOTER_BUFFER_PX = 10;
+const FOOTER_BUFFER_PX = 25;
 
 @Component({
   selector: 'app-ledger-report',
@@ -140,7 +140,15 @@ export class LedgerReportComponent implements AfterViewInit {
       bodySection.className = 'body';
       bodySection.style.border = jsonData.config.main_table_border === false ? 'hidden' : '1px solid black';
       bodySection.style.margin = '0 20px';
-      bodySection.style.maxHeight = `${maxHeight}px`;
+      // No max-height here on purpose: the row-counting logic below is what actually
+      // decides how many rows fit on this page (comparing measured heights against
+      // adjustedMaxHeight). A CSS max-height would cap this box's border at our
+      // *estimated* budget - if that estimate is ever even slightly off from how a given
+      // environment actually renders (font metrics, sub-pixel rounding), the bordered box
+      // gets capped there while the actual rows keep extending past it, making the border
+      // look like it cuts through the middle of the table instead of wrapping around all
+      // of it. Letting the box size itself to its real content keeps the border aligned
+      // with exactly the rows that are actually in it, regardless of estimate drift.
 
       const bodyTable = document.createElement('table');
       bodyTable.className = 'body-table';
