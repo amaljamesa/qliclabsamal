@@ -19,7 +19,11 @@ jobs:
           cache: 'npm'
 
       - name: Install frontend dependencies
-        run: npm ci
+        # npm ci fails here: package-lock.json was generated on Windows, and its
+        # strict validation rejects the peer deps of an optional wasm32-only
+        # package (@napi-rs/wasm-runtime) that Windows never needed to resolve.
+        # npm install resolves per-platform correctly instead.
+        run: npm install
 
       - name: Set up Python
         uses: actions/setup-python@v5
