@@ -233,6 +233,20 @@
 			});
 		}
 
+		// Renders a throwaway footer off in the body (not the visible page) purely to measure
+		// its real height, since it's the same content/font on every page regardless of page
+		// number - measuring once and reusing that height is enough, no need to re-measure per page.
+		function measureFooterHeight(jsonData, pageNumber) {
+			const probe = document.createElement('div');
+			generateFooterSection(probe, jsonData, pageNumber);
+			document.body.appendChild(probe);
+			// generateFooterSection's own element is absolutely positioned, so it doesn't
+			// contribute to a non-positioned wrapper's height - measure it directly instead.
+			const height = probe.firstElementChild.getBoundingClientRect().height;
+			document.body.removeChild(probe);
+			return height;
+		}
+
 		// Main function to generate the invoice content.
 		async function generateSingleCopy() {
 			// Defensive reset: some preview/PDF flows reuse the same window or iframe for a
@@ -280,7 +294,13 @@
 					const { headerAddHeight } = await waitForNonZeroHeights(currentPage);
 
 					// Calculate available height for body section
-					const footerSectionHeight = 80;
+					// Footer height was previously a hardcoded 80px guess, which reserved far
+					// more room than the footer (a single line of date/time + page number)
+					// actually needs - leaving a large unused gap before the footer instead of
+					// letting data fill the page. Measure its real rendered height instead, so
+					// the reserved space matches what the footer actually needs, with only a
+					// small buffer for breathing room.
+					const footerSectionHeight = measureFooterHeight(jsonData, localPageNumber) + 10;
 					const usedHeight = headerAddHeight + footerSectionHeight;
 					maxHeight = pageHeightInPx - usedHeight;
 
