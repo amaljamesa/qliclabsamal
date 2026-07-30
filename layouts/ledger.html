@@ -300,7 +300,7 @@
 					// letting data fill the page. Measure its real rendered height instead, so
 					// the reserved space matches what the footer actually needs, with only a
 					// small buffer for breathing room.
-					const footerSectionHeight = measureFooterHeight(jsonData, localPageNumber) + 10;
+					const footerSectionHeight = measureFooterHeight(jsonData, localPageNumber) + 25;
 					const usedHeight = headerAddHeight + footerSectionHeight;
 					maxHeight = pageHeightInPx - usedHeight;
 
@@ -359,7 +359,16 @@
 					bodySection.style.border = '1px solid black';
 				}
 				bodySection.style.margin = '0 20px';
-				bodySection.style.maxHeight = `${maxHeight}px`;
+				// No max-height here on purpose: the JS row-counting logic below is what
+				// actually decides how many rows fit on this page (by comparing measured
+				// heights against adjustedMaxHeight). A CSS max-height would cap this box's
+				// border at our *estimated* budget - if that estimate is ever even slightly
+				// off from how a given browser/environment actually renders (font metrics,
+				// sub-pixel rounding), the bordered box gets capped there while the actual
+				// rows keep extending past it, making the border look like it cuts through
+				// the middle of the table instead of wrapping around all of it. Letting the
+				// box size itself to its real content means the border is always aligned
+				// with exactly the rows that are actually in it, regardless of estimate drift.
 
 				const bodyTable = document.createElement('table');
 				bodyTable.className = 'body-table';
