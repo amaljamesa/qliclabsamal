@@ -4,8 +4,8 @@ import { LedgerData, LedgerDetailItem } from '../../models/ledger.model';
 import { indianFormat } from '../../services/indian-number-format.util';
 
 const PAGE_HEIGHT_PX = 1100;
-const FOOTER_SECTION_HEIGHT_PX = 80;
 const MIDDLE_GAP_PX = 5;
+const FOOTER_BUFFER_PX = 10;
 
 @Component({
   selector: 'app-ledger-report',
@@ -36,6 +36,23 @@ export class LedgerReportComponent implements AfterViewInit {
     const binaryString = atob(base64);
     const bytes = new Uint8Array([...binaryString].map((char) => char.charCodeAt(0)));
     return new TextDecoder().decode(bytes);
+  }
+
+  // Renders a throwaway footer off in the body purely to measure its real height, since
+  // it's the same content/font on every page regardless of page number - one measurement
+  // covers the whole document. Previously this budget was a hardcoded 80px guess, which
+  // reserved far more room than the footer (a single line of date/time + page number)
+  // actually needs, leaving a large unused gap before the footer instead of letting data
+  // fill the page.
+  private measureFooterHeight(pageNumber: number): number {
+    const probe = document.createElement('div');
+    this.generateFooterSection(probe, pageNumber);
+    document.body.appendChild(probe);
+    // generateFooterSection's own element is absolutely positioned, so it doesn't
+    // contribute to a non-positioned wrapper's height - measure it directly instead.
+    const height = (probe.firstElementChild as HTMLElement).getBoundingClientRect().height;
+    document.body.removeChild(probe);
+    return height;
   }
 
   // Polls with rAF until the header section has actually laid out, since its rendered
@@ -76,7 +93,8 @@ export class LedgerReportComponent implements AfterViewInit {
       this.addSectionToPage(page, (el) => this.generateHeaderSection(el, this.jsonData));
       const headerAddHeight = await this.waitForHeaderHeight(page);
 
-      const usedHeight = headerAddHeight + FOOTER_SECTION_HEIGHT_PX;
+      const footerSectionHeight = this.measureFooterHeight(localPageNumber) + FOOTER_BUFFER_PX;
+      const usedHeight = headerAddHeight + footerSectionHeight;
       const maxHeight = PAGE_HEIGHT_PX - usedHeight;
 
       this.generateBodySectionWithPagination(page, this.jsonData, this.jsonData.ledger_details, maxHeight);
