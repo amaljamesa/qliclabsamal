@@ -46,7 +46,7 @@ export class LedgerService {
     return {
       config: {
         show_journal_id: false,
-        main_table_border: false,
+        main_table_border: true,
         footer_date_time: true
       },
       other: {
