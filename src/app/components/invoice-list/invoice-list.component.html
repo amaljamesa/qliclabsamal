@@ -100,6 +100,7 @@
             <th class="action-th"></th>
             <th class="action-th"></th>
             <th class="action-th"></th>
+            <th class="action-th"></th>
           </tr>
         </thead>
         <tbody>
@@ -126,6 +127,11 @@
               </td>
               <td class="action-td" data-label="More" (click)="$event.stopPropagation()">
                 <button class="row-icon-btn more-btn" (click)="deleteInvoice(inv.id, $event)" title="More">...</button>
+              </td>
+              <td class="action-td" data-label="Ledger" (click)="$event.stopPropagation()">
+                <button class="row-icon-btn" (click)="viewLedger(inv.partyName, $event)" title="View party ledger">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="4" y="3" width="16" height="18" rx="1"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>
+                </button>
               </td>
               <td class="action-td share-td" data-label="Share" (click)="$event.stopPropagation()">
                 <button class="row-icon-btn" (click)="viewInvoiceLink(inv.id, $event)" title="View invoice link">
