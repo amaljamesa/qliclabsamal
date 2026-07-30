@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DataService, Invoice } from '../../services/data.service';
+import { LedgerService } from '../../services/ledger.service';
 
 @Component({
   selector: 'app-invoice-list',
@@ -26,7 +27,7 @@ export class InvoiceListComponent implements OnInit {
   itemsPerPage = 50;
   currentPage = 1;
 
-  constructor(private dataService: DataService, private router: Router) {}
+  constructor(private dataService: DataService, private router: Router, private ledgerService: LedgerService) {}
 
   ngOnInit(): void {
     this.loadInvoices();
@@ -85,6 +86,11 @@ export class InvoiceListComponent implements OnInit {
   viewInvoiceLink(id: string, event: Event): void {
     event.stopPropagation();
     window.open(this.getWeblinkUrl(id), '_blank');
+  }
+
+  viewLedger(partyName: string, event: Event): void {
+    event.stopPropagation();
+    this.ledgerService.openLedger(partyName);
   }
 
   shareInvoiceLink(id: string, event: Event): void {
