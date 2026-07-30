@@ -1,11 +1,11 @@
-import { AfterViewInit, Component, ElementRef, ViewChild, ViewEncapsulation } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, ViewEncapsulation } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { LedgerData, LedgerDetailItem } from '../../models/ledger.model';
 import { indianFormat } from '../../services/indian-number-format.util';
 
-const PAGE_HEIGHT_PX = 1100;
 const MIDDLE_GAP_PX = 5;
-const FOOTER_BUFFER_PX = 25;
+const FOOTER_BUFFER_PX = 40;
+const RESIZE_DEBOUNCE_MS = 200;
 
 @Component({
   selector: 'app-ledger-report',
@@ -18,18 +18,37 @@ const FOOTER_BUFFER_PX = 25;
   // wouldn't apply to these dynamically-created nodes - styles need to be global instead.
   encapsulation: ViewEncapsulation.None
 })
-export class LedgerReportComponent implements AfterViewInit {
+export class LedgerReportComponent implements AfterViewInit, OnDestroy {
   @ViewChild('pagesContainer', { static: true }) pagesContainer!: ElementRef<HTMLDivElement>;
 
   errorMessage = '';
 
   private jsonData!: LedgerData;
   private pageCount = 1;
+  private resizeTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly onResize = (): void => {
+    clearTimeout(this.resizeTimer);
+    this.resizeTimer = setTimeout(() => void this.generateReport(), RESIZE_DEBOUNCE_MS);
+  };
 
   constructor(private route: ActivatedRoute) {}
 
   ngAfterViewInit(): void {
     void this.generateReport();
+    // Pagination is otherwise a one-time calculation done at load. If the user zooms
+    // in/out *after* the report is already rendered, text can reflow slightly differently
+    // at the new zoom (the same subpixel rounding issue fixed elsewhere, just triggered
+    // live instead of at load), making the last row on a page grow past what was
+    // originally budgeted for - and since the footer sits at a fixed position, that
+    // growth pushes the row into/past it. Zoom changes fire a resize event (they change
+    // the effective CSS pixel viewport), so re-running generateReport() there re-paginates
+    // against the new zoom's real measurements.
+    window.addEventListener('resize', this.onResize);
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('resize', this.onResize);
+    clearTimeout(this.resizeTimer);
   }
 
   private base64ToUtf8(base64: string): string {
@@ -76,6 +95,12 @@ export class LedgerReportComponent implements AfterViewInit {
   }
 
   private async generateReport(): Promise<void> {
+    // Defensive reset: this runs again on every resize/zoom change (see ngAfterViewInit),
+    // reusing the same container - without clearing it first, old .page elements would
+    // stay in the DOM and the new run's pages would just pile up after them.
+    this.pagesContainer.nativeElement.innerHTML = '';
+    this.pageCount = 1;
+
     const message = this.route.snapshot.queryParamMap.get('message');
     if (!message) {
       this.errorMessage = 'No message found in the URL parameters.';
@@ -95,7 +120,16 @@ export class LedgerReportComponent implements AfterViewInit {
 
       const footerSectionHeight = this.measureFooterHeight(localPageNumber) + FOOTER_BUFFER_PX;
       const usedHeight = headerAddHeight + footerSectionHeight;
-      const maxHeight = PAGE_HEIGHT_PX - usedHeight;
+      // Page height was previously a hardcoded 1100px constant, but every other measurement
+      // here (header/footer/row heights) is a live getBoundingClientRect() reading, which
+      // reports the actual visually-rendered size at whatever zoom is currently active. At
+      // 100% zoom those happen to line up, so this went unnoticed - but at any other zoom,
+      // the real rendered page height shrinks or grows while this constant stayed fixed,
+      // over- or under-allocating the row budget by the difference and causing rows to
+      // overflow into (or leave a huge gap before) the footer. Measuring the actual page
+      // keeps every quantity in the same, currently-true unit.
+      const pageHeightInPx = page.getBoundingClientRect().height;
+      const maxHeight = pageHeightInPx - usedHeight;
 
       this.generateBodySectionWithPagination(page, this.jsonData, this.jsonData.ledger_details, maxHeight);
       this.addSectionToPage(page, (el) => this.generateFooterSection(el, localPageNumber));
@@ -155,6 +189,13 @@ export class LedgerReportComponent implements AfterViewInit {
       bodyTable.style.border = 'hidden';
       bodyTable.style.width = '100%';
       bodyTable.style.borderCollapse = 'collapse';
+      // Without this, the browser's default "auto" table layout redistributes column
+      // widths based on all rows' content collectively - so a long narration added
+      // several rows later could retroactively shift column widths, making the per-row
+      // height measurements taken during incremental construction (below) stale by the
+      // time the full table exists. Fixed layout locks column widths to the header's
+      // percentages from the first row.
+      bodyTable.style.tableLayout = 'fixed';
 
       const thead = document.createElement('thead');
       const headerRow = document.createElement('tr');
