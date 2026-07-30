@@ -1,5 +1,10 @@
 .pages-container {
   background: white;
+  /* The app shell sets body { color: var(--text) }, a dark slate rather than pure black.
+     Since this component renders its DOM via document.createElement (ViewEncapsulation.None,
+     required so those nodes are actually styled at all), it would otherwise inherit that
+     shell color instead of matching the reference layout's plain black text. */
+  color: #000;
 }
 
 .ledger-error {
