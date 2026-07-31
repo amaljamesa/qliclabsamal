@@ -28,7 +28,10 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
   private resizeTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly onResize = (): void => {
     clearTimeout(this.resizeTimer);
-    this.resizeTimer = setTimeout(() => this.generateReport(), RESIZE_DEBOUNCE_MS);
+    this.resizeTimer = setTimeout(() => {
+      this.generateReport();
+      this.applyResponsiveScale();
+    }, RESIZE_DEBOUNCE_MS);
   };
   private readonly onBeforePrint = (): void => {
     this.generateReport();
@@ -38,6 +41,7 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.generateReport();
+    this.applyResponsiveScale();
     // Pagination is otherwise a one-time calculation done at load. If the user zooms
     // in/out *after* the report is already rendered, text can reflow slightly differently
     // at the new zoom (the same subpixel rounding issue fixed elsewhere, just triggered
@@ -45,7 +49,8 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
     // originally budgeted for - and since the footer sits at a fixed position, that
     // growth pushes the row into/past it. Zoom changes fire a resize event (they change
     // the effective CSS pixel viewport), so re-running generateReport() there re-paginates
-    // against the new zoom's real measurements.
+    // against the new zoom's real measurements. applyResponsiveScale() runs after so a
+    // narrow window still just shrinks to fit rather than scrolling.
     window.addEventListener('resize', this.onResize);
     // Printing is a separate rendering pass that generally ignores whatever on-screen zoom
     // is active - so a page grouping calibrated for the current screen zoom doesn't
@@ -150,6 +155,9 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
   }
 
   private createNewPage(): HTMLDivElement {
+    const pageFrame = document.createElement('div');
+    pageFrame.className = 'page-frame';
+
     const newPage = document.createElement('div');
     newPage.className = 'page';
     newPage.style.position = 'relative';
@@ -157,8 +165,44 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
     newPage.style.width = '21cm';
     newPage.style.height = '1100px';
 
-    this.pagesContainer.nativeElement.appendChild(newPage);
+    pageFrame.appendChild(newPage);
+    this.pagesContainer.nativeElement.appendChild(pageFrame);
     return newPage;
+  }
+
+  // Shrinks each page to fit the available screen width, like how a PDF viewer auto-fits
+  // a document to a phone screen - purely a visual scale (CSS transform), so the actual
+  // data/pagination decided by generateReport() is completely untouched. Never scales up
+  // past 100%, only down, so it never affects wide/desktop screens where the page already fits.
+  private applyResponsiveScale(): void {
+    const frames = this.pagesContainer.nativeElement.querySelectorAll<HTMLDivElement>('.page-frame');
+    frames.forEach((frame) => {
+      const page = frame.querySelector<HTMLDivElement>('.page');
+      if (!page) {
+        return;
+      }
+      // Reset before measuring, so repeated calls always measure the page's true natural
+      // size rather than compounding an already-applied scale.
+      page.style.transform = 'none';
+      frame.style.width = '';
+      frame.style.height = '';
+
+      const naturalWidth = page.getBoundingClientRect().width;
+      const naturalHeight = page.getBoundingClientRect().height;
+      // A small safety margin (rather than the exact measured width) absorbs the vertical
+      // scrollbar that a tall multi-page document needs - its width isn't always reflected
+      // yet in clientWidth at the exact moment this measures, which could otherwise leave a
+      // few px of horizontal overflow.
+      const availableWidth = document.documentElement.clientWidth - 20;
+      const scale = Math.min(1, availableWidth / naturalWidth);
+
+      page.style.transform = `scale(${scale})`;
+      page.style.transformOrigin = 'top left';
+      // A CSS transform doesn't change the element's own layout box, so without this the
+      // frame would still occupy the page's full, unscaled width/height.
+      frame.style.width = `${naturalWidth * scale}px`;
+      frame.style.height = `${naturalHeight * scale}px`;
+    });
   }
 
   private addSectionToPage(page: HTMLDivElement, sectionFn: (el: HTMLDivElement) => void): number {

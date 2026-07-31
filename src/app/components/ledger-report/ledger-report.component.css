@@ -1,5 +1,10 @@
 .pages-container {
   background: white;
+  /* The page is a fixed 21cm wide - on a narrow screen (phone, small window) that would
+     normally force a horizontal scrollbar. The responsive scaling in the component shrinks
+     the *visual* size to fit instead, so nothing should ever actually overflow, but this is
+     a safety net against any residual sub-pixel overflow. */
+  overflow-x: hidden;
   /* The app shell sets body { color: var(--text) }, a dark slate rather than pure black.
      Since this component renders its DOM via document.createElement (ViewEncapsulation.None,
      required so those nodes are actually styled at all), it would otherwise inherit that
@@ -17,10 +22,21 @@
   background: white;
   width: 21cm;
   height: 29.7cm;
-  margin: 0 auto;
   box-shadow: 0 0 0.1cm rgba(0, 0, 0, 0.1);
-  margin-bottom: 0.5cm;
   display: block;
+}
+
+/* Each page sits inside a frame that reports the *scaled* (visual) size, since a CSS
+   transform doesn't change the element's own layout box - without this wrapper, the page
+   would still occupy its full 21cm of layout width/height even when scaled down to look
+   smaller on a narrow screen, causing a horizontal scrollbar and a large gap below it. */
+.page-frame {
+  overflow: hidden;
+  margin: 0 auto 0.5cm auto;
+}
+
+.page-frame .page {
+  margin: 0;
 }
 
 @page {
@@ -35,6 +51,20 @@
     margin: 0;
     box-shadow: initial;
     page-break-after: always;
+  }
+
+  /* Printing must always use the true, full-size layout regardless of whatever on-screen
+     responsive scale is currently applied - !important guarantees this beats the inline
+     transform/width/height set for on-screen display. */
+  .page-frame {
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+  }
+
+  .page {
+    transform: none !important;
   }
 
   /* The JS decides which .page a row belongs to by measuring heights up front, but without
