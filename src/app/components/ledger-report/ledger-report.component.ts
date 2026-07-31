@@ -254,12 +254,18 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
       const thead = document.createElement('thead');
       const headerRow = document.createElement('tr');
 
+      // These 7 always-visible columns sum to 95%, plus Journal ID's 5% (shown only when
+      // show_journal_id is on) makes exactly 100%. They used to sum to 101% even without
+      // Journal ID - harmless under the browser's default table-layout: auto (which treats
+      // these as hints and redistributes), but table-layout: fixed (needed elsewhere to
+      // keep row-height measurements stable) honors them strictly, so that 1% overflow was
+      // clipping the right edge of the last column.
       const headers: { name: string; width: string; show?: boolean }[] = [
         { name: 'Date', width: '13%' },
         { name: 'Journal ID', width: '5%', show: jsonData.config.show_journal_id },
         { name: 'By/To', width: '3%' },
         { name: 'Type', width: '5%' },
-        { name: 'Account Name', width: '45%' },
+        { name: 'Account Name', width: '39%' },
         { name: 'Debit', width: '10%' },
         { name: 'Credit', width: '10%' },
         { name: 'Balance', width: '15%' }

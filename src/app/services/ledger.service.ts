@@ -74,6 +74,6 @@ export class LedgerService {
     const data = this.buildLedgerData(partyName);
     const base64 = utf8ToBase64(JSON.stringify(data));
     localStorage.setItem('ledgerData', base64);
-    window.open('/print/ledger?message=1', '_blank');
+    window.open('/print/ledger-preview?message=1', '_blank');
   }
 }
