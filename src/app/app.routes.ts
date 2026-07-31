@@ -8,6 +8,7 @@ import { InvoiceWeblinkComponent } from './components/invoice-weblink/invoice-we
 import { WeblinkBrandingComponent } from './components/weblink-branding/weblink-branding.component';
 import { PartyFormComponent } from './components/party-form/party-form.component';
 import { LedgerReportComponent } from './components/ledger-report/ledger-report.component';
+import { LedgerPreviewComponent } from './components/ledger-preview/ledger-preview.component';
 
 export const routes: Routes = [
   { path: 'dashboard', component: DashboardComponent },
@@ -23,6 +24,8 @@ export const routes: Routes = [
   { path: 'parties/new', component: PartyFormComponent },
   // Print-only report pages render full-page, no ERP shell (see app.component.ts)
   { path: 'print/ledger', component: LedgerReportComponent },
+  // Responsive preview: embeds print/ledger in a scaled iframe so it fits any screen width
+  { path: 'print/ledger-preview', component: LedgerPreviewComponent },
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
   { path: '**', redirectTo: '/dashboard' }
 ];

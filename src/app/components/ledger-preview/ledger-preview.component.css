@@ -1,0 +1,26 @@
+:host {
+  display: block;
+  background: #eef1f4;
+}
+
+/* Reports its own scaled (visual) size, since a CSS transform doesn't change the iframe's
+   own layout box - without this, the wrapper would still occupy the report's full,
+   unscaled width/height even when the iframe is shrunk to fit. */
+.frame-wrapper {
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+/* Fixed at a size comfortably larger than any real report page (21cm ~ 794px wide). This
+   must never shrink below the report's own natural size - doing so would change the
+   iframe's *internal* viewport and fire the report's own internal resize handling (it has
+   its own independent responsive scaling for when it's opened directly, not via this
+   wrapper), which would shrink its content before this component ever gets a chance to
+   measure the true, natural size. Only a CSS transform (never the width/height) is used to
+   fit it to the screen from the outside. */
+.ledger-frame {
+  border: none;
+  display: block;
+  width: 900px;
+  height: 1400px;
+}
