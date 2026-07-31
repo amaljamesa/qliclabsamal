@@ -715,6 +715,18 @@
 				generateSingleCopy();
 			}, 200);
 		});
+
+		// Printing is a separate rendering pass that generally ignores whatever on-screen
+		// zoom is active (it renders at its own scale, ignoring live document zoom) - so a
+		// page grouping calibrated for the current screen zoom (see the resize handler
+		// above) doesn't necessarily match how many rows actually fit once the browser
+		// switches to print layout. By the time 'beforeprint' fires, the browser has
+		// already applied print-specific layout, so re-measuring and regenerating here
+		// calibrates pagination against what will actually be printed, not whatever the
+		// screen happened to be showing beforehand.
+		window.addEventListener('beforeprint', () => {
+			generateSingleCopy();
+		});
 	</script>
 
 </body>

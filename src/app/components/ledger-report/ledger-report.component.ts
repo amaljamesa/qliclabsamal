@@ -30,6 +30,9 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
     clearTimeout(this.resizeTimer);
     this.resizeTimer = setTimeout(() => void this.generateReport(), RESIZE_DEBOUNCE_MS);
   };
+  private readonly onBeforePrint = (): void => {
+    void this.generateReport();
+  };
 
   constructor(private route: ActivatedRoute) {}
 
@@ -44,10 +47,18 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
     // the effective CSS pixel viewport), so re-running generateReport() there re-paginates
     // against the new zoom's real measurements.
     window.addEventListener('resize', this.onResize);
+    // Printing is a separate rendering pass that generally ignores whatever on-screen zoom
+    // is active - so a page grouping calibrated for the current screen zoom doesn't
+    // necessarily match how many rows actually fit once the browser switches to print
+    // layout. By the time 'beforeprint' fires, the browser has already applied print-
+    // specific layout, so regenerating here calibrates pagination against what will
+    // actually be printed, not whatever the screen happened to be showing beforehand.
+    window.addEventListener('beforeprint', this.onBeforePrint);
   }
 
   ngOnDestroy(): void {
     window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('beforeprint', this.onBeforePrint);
     clearTimeout(this.resizeTimer);
   }
 
