@@ -1,0 +1,2109 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>EPrise</title>
+
+    <script type="text/javascript">
+        function getQueryParam(param) {
+            let searchParams = new URLSearchParams(window.location.search);
+            return searchParams.get(param);
+        }
+
+        var deviceType = getQueryParam('device_type');
+        var supportedDeviceTypes = ['1', '2', '6', '8'];
+
+        document.write('<script type="text/javascript" src="../../../assets/js/qrcode.min.js"><\/script>');
+        document.write('<script type="text/javascript" src="../../../assets/js/qrious.js"><\/script>');
+    </script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .page {
+            background: white;
+            position: relative;
+            margin: 0 auto;
+            padding: 0.53cm 0.53cm 0.15cm 0.53cm;
+            box-shadow: 0 0 0.5cm rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            page-break-after: always;
+            overflow: hidden;
+        }
+
+        @media print {
+            .page {
+                height: auto;
+                margin: 0;
+                box-shadow: initial;
+                background: initial;
+                page-break-after: always;
+            }
+
+            /* Without this, the browser's print engine can slice a row's multi-line cell
+               content across a physical page boundary if a page's true printed dimensions
+               (after margins/DPI) diverge even slightly from the JS's height budget. */
+            tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+        }
+
+        .page:last-child {
+            page-break-after: auto;
+        }
+
+        .imgwatermark {
+            opacity: 0.10;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            z-index: 100;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .imgwatermark img {
+            width: 7.94cm;
+            height: 7.94cm;
+            object-fit: contain;
+        }
+
+        h3, h4, p { margin: 0; }
+        h5 { font-weight: normal; margin: 0; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .page-a4 th, .page-a4 td { font-size: 12px; }
+        .page-other th, .page-other td { font-size: 11px; }
+
+        th, td {
+            border: 1px solid black;
+            padding: 1px;
+            font-size: 12px;
+        }
+
+        .header-title { text-align: center; font-size: 14px; }
+        .header-subtitle { text-align: center; font-size: 12px; }
+
+        .body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .body-table { width: 100%; }
+        .body-table th, .body-table td { text-align: center; vertical-align: top; }
+
+        .empty-row td {
+            border-left: 1px solid black;
+            border-right: 1px solid black;
+            border-top: none;
+            border-bottom: none;
+            height: 0.53cm;
+        }
+
+        .tax-row td { text-align: left; border-right: none; }
+        .tax-row td:last-child { text-align: right; border-left: none; }
+        .total-row td { font-weight: bold; border-top: 1px solid black; text-align: right; }
+
+        .amount-text {
+            border: 1px solid black;
+            margin-bottom: 0;
+            font-size: 12px;
+            text-align: left;
+        }
+
+        .hsn-section { margin-bottom: 0px; }
+
+        .invoice-attribute-section {
+            display: flex;
+            border: 1px solid black;
+        }
+
+        .invoice-attribute-half {
+            flex: 1;
+            padding: 3px;
+            border-right: 1px solid black;
+        }
+
+        .invoice-attribute-half:last-child { border-right: none; }
+
+        .footer-section {
+            border: 1px solid black;
+            padding: 3px;
+            text-align: left;
+            font-size: 12px;
+        }
+
+        .qr-section { text-align: center; }
+
+        .watermark {
+            opacity: 0.25;
+            position: absolute;
+            top: 40%;
+            left: 20%;
+            font-size: 100px;
+            transform: rotate(-30deg);
+        }
+
+        .tab {
+            display: block;
+            margin-left: 0.5em;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 10.5px;
+        }
+
+        .tab-serial {
+            display: block;
+            margin-left: 1em;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <script>
+        let isHSNSection = false;
+        let isTermandConditionSection = false;
+        var typeOfCopy = 0;
+        let currentPageCount = 1;
+        let jsonData;
+        let pageSize;
+        let isFirstPage = true;
+        let maxHeight;
+        // Track page indices per copy for per-copy page numbering
+        let copyPageIndices = [];
+
+        let _pxPerCm = null;
+        function getPxPerCm() {
+            if (_pxPerCm === null) {
+                let ref = document.createElement('div');
+                ref.style.width = '10cm';
+                ref.style.height = '10cm';
+                ref.style.position = 'absolute';
+                ref.style.left = '-9999px';
+                ref.style.top = '-9999px';
+                ref.style.visibility = 'hidden';
+                document.body.appendChild(ref);
+                _pxPerCm = ref.getBoundingClientRect().height / 10;
+                document.body.removeChild(ref);
+            }
+            return _pxPerCm;
+        }
+
+        function cmToPx(cm) {
+            return cm * getPxPerCm();
+        }
+
+        function getPageContentHeightPx() {
+            let heightCm = pageSize == 'a4' ? 29.7 : 21;
+            let paddingCm = 0.53 + 0.15;
+            return cmToPx(heightCm - paddingCm);
+        }
+
+        function getFooterReserveHeightPx() {
+            if (pageSize == 'a4') {
+                return cmToPx(3.1);
+            } else {
+                return cmToPx(2.3);
+            }
+        }
+
+        function getElHeight(el) {
+            if (!el) return 0;
+            return el.getBoundingClientRect().height;
+        }
+
+        function base64ToUtf8(urlSafeBase64) {
+            let base64 = urlSafeBase64.replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4) { base64 += '='; }
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array([...binaryString].map(char => char.charCodeAt(0)));
+            return new TextDecoder().decode(bytes);
+        }
+
+        // getBoundingClientRect() (used inside getElHeight) forces a synchronous layout flush,
+        // so the header sections appended just above are already accurately measurable here -
+        // no need to wait/poll across animation frames for a non-zero height.
+        function measureHeaderHeights(currentPage) {
+            const headerAddSection = currentPage.querySelector('.maintable');
+            const headerEinvoiceSection = currentPage.querySelector('.mainEinvoicetable');
+            const invoiceAttributeSection = currentPage.querySelector('.invoice-attribute-section');
+
+            return {
+                headerAddHeight: headerAddSection ? getElHeight(headerAddSection) : 0,
+                headerEinvoiceHeight: headerEinvoiceSection ? getElHeight(headerEinvoiceSection) : 0,
+                invoiceAttributeHeight: invoiceAttributeSection ? getElHeight(invoiceAttributeSection) : 0
+            };
+        }
+
+        function generateSingleCopy(copy) {
+            let searchParams = new URLSearchParams(window.location.search);
+            let message = searchParams.get('message');
+
+            if (message) {
+                try {
+                    var retrievedValue = sessionStorage.getItem('temp_inv_data');
+                    if (retrievedValue !== null) {
+                        let decodedString = base64ToUtf8(retrievedValue);
+                        jsonData = JSON.parse(decodedString);
+                    } else {
+                        let decodedString = base64ToUtf8(message);
+                        jsonData = JSON.parse(decodedString);
+                    }
+
+                    pageSize = (jsonData.others.page_size == "" || jsonData.others.page_size == undefined) ? 'a4' : jsonData.others.page_size;
+
+                    const container = document.querySelector('body');
+                    container.classList.add(pageSize == 'a4' ? 'page-a4' : 'page-other');
+
+                    // Record starting page index for this copy
+                    let startPageIndex = document.querySelectorAll('.page').length;
+
+                    let currentPage = createNewPage();
+                    let localPageNumber = currentPageCount;
+
+                    addSectionToPage(currentPage, generateHeaderSection, jsonData, isFirstPage);
+                    addSectionToPage(currentPage, generateInvoiceAttributeSection, jsonData);
+
+                    const { headerAddHeight, headerEinvoiceHeight, invoiceAttributeHeight } = measureHeaderHeights(currentPage);
+
+                    const pageContentHeight = getPageContentHeightPx();
+                    const footerReserve = getFooterReserveHeightPx();
+                    const usedHeight = headerAddHeight + headerEinvoiceHeight + invoiceAttributeHeight + footerReserve;
+                    maxHeight = pageContentHeight - usedHeight;
+
+                    generateBodySectionWithPagination(currentPage, jsonData, jsonData.product_columns, jsonData.items, maxHeight);
+
+                    // Record ending page index for this copy
+                    let endPageIndex = document.querySelectorAll('.page').length;
+                    copyPageIndices.push({ start: startPageIndex, end: endPageIndex });
+
+                } catch (error) {
+                    console.error('Error decoding or parsing JSON:', error);
+                }
+            } else {
+                console.error('No message found in the URL parameters.');
+            }
+        }
+
+        function createNewPage() {
+            let newPage = document.createElement('div');
+            newPage.className = 'page';
+            newPage.style.position = 'relative';
+            newPage.style.pageBreakBefore = 'always';
+
+            if (pageSize == 'a4') {
+                newPage.style.width = "21cm";
+                newPage.style.height = "29.7cm";
+            } else if (pageSize == 'a5') {
+                newPage.style.width = "14.8cm";
+                newPage.style.height = "21cm";
+            }
+
+            if (jsonData.config.is_canceled == true) {
+                cancelWatermark(newPage);
+            }
+
+            addLogoWatermark(newPage);
+            document.body.appendChild(newPage);
+            return newPage;
+        }
+
+        function addSectionToPage(currentPage, sectionFunc, ...args) {
+            let tempSection = document.createElement('div');
+            sectionFunc(tempSection, ...args);
+            currentPage.appendChild(tempSection);
+            return getElHeight(tempSection);
+        }
+
+        function cancelWatermark(page) {
+            var watermark = document.createElement('div');
+            watermark.id = 'watermark';
+            watermark.className = 'watermark';
+            watermark.style.fontFamily = 'Arial, Helvetica, sans-serif';
+            watermark.innerHTML = 'Cancelled';
+            page.appendChild(watermark);
+        }
+
+        // Helper: get per-copy page number for a given global page index
+        function getCopyPageNumber(globalIndex) {
+            for (let c = 0; c < copyPageIndices.length; c++) {
+                if (globalIndex >= copyPageIndices[c].start && globalIndex < copyPageIndices[c].end) {
+                    return globalIndex - copyPageIndices[c].start + 1;
+                }
+            }
+            // Page belongs to current copy (not yet recorded in copyPageIndices)
+            if (copyPageIndices.length > 0) {
+                let lastCopy = copyPageIndices[copyPageIndices.length - 1];
+                if (globalIndex >= lastCopy.end) {
+                    return globalIndex - lastCopy.end + 1;
+                }
+            }
+            return globalIndex + 1; // fallback
+        }
+
+        // SECTION 1: Body Section
+        function generateBodySectionWithPagination(currentPage, jsonData, product_columns, items, maxHeight) {
+            let tbody, hsnTbody, bodySection;
+            let currentHeight = 0;
+            let subtotal = 0;
+            let headerHeight = 0;
+            let adjustedMaxHeight = 0;
+            const middleGap = cmToPx(pageSize == 'a4' ? 0.05 : 0.05);
+            let hsn = false;
+
+            function setupBodySection() {
+                if (currentPageCount != 1) {
+                    const pageContentHeight = getPageContentHeightPx();
+                    const headerAddSection = currentPage.querySelector('.maintable');
+                    const footerReserve = getFooterReserveHeightPx();
+                    const headerAddHeight = headerAddSection ? getElHeight(headerAddSection) : 0;
+                    const usedHeight = headerAddHeight + footerReserve;
+                    maxHeight = pageContentHeight - usedHeight - middleGap;
+                }
+
+                bodySection = document.createElement('div');
+                bodySection.className = 'body';
+
+                let bodyTable = document.createElement('table');
+                bodyTable.className = 'body-table';
+
+                let thead = document.createElement('thead');
+                let headerRow = document.createElement('tr');
+
+                if (!isHSNSection && !isTermandConditionSection) {
+                    product_columns.forEach((column) => {
+                        let th = document.createElement('th');
+                        if (column.name == "sl_no") {
+                            column.display_name = "SL";
+                        }
+                        if (column.name == "marks_nos_container" || column.name == "no_pkgs") {
+                            th.style.maxWidth = '1.85cm';
+                        }
+                        th.innerHTML = column.display_name;
+                        headerRow.appendChild(th);
+                    });
+                }
+                thead.appendChild(headerRow);
+                bodyTable.appendChild(thead);
+
+                tbody = document.createElement('tbody');
+                bodyTable.appendChild(tbody);
+                bodySection.appendChild(bodyTable);
+                currentPage.appendChild(bodySection);
+
+                headerHeight = getElHeight(thead);
+                let safetyBuffer = 0;
+                adjustedMaxHeight = maxHeight - headerHeight - middleGap - safetyBuffer;
+
+                return { bodySection, bodyTable };
+            }
+
+            function createNewPageWithHeaderFooter() {
+                currentPage = createNewPage();
+                currentPageCount++;
+
+                addSectionToPage(currentPage, generateHeaderSection, jsonData, false);
+
+                return setupBodySection();
+            }
+
+            function renderItems(tbody, items) {
+                items.forEach((item) => {
+                    let tr = document.createElement('tr');
+
+                    const columnStyles = {
+                        sl_no: { width: '2%', textAlign: 'center' },
+                        marks_nos_container: { width: '3%', textAlign: 'center' },
+                        no_pkgs: { width: '3%', textAlign: 'center' },
+                        pro_code: { width: '10%', textAlign: 'center' },
+                        pro_barcode: { width: '10%', textAlign: 'center' },
+                        pro_name: { width: '50%', textAlign: 'left' },
+                        bra_name: { width: '10%', textAlign: 'center' },
+                        batch: { width: '10%', textAlign: 'center' },
+                        mfg_date: { width: '10%', textAlign: 'center' },
+                        exp_date: { width: '10%', textAlign: 'center' },
+                        hsn: { width: '4%', textAlign: 'center' },
+                        tax_rate: { width: '4%', textAlign: 'center' },
+                        alt_qty: { width: '5%', textAlign: 'right', paddingRight: '5px' },
+                        qty: { width: '5%', textAlign: 'right', paddingRight: '5px' },
+                        free_qty: { width: '5%', textAlign: 'right', paddingRight: '5px' },
+                        unit: { width: '5%', textAlign: 'center' },
+                        mrp: { width: '8%', textAlign: 'right', paddingRight: '5px' },
+                        rate: { width: '8%', textAlign: 'right', paddingRight: '5px' },
+                        rate_post_tax: { width: '8%', textAlign: 'right', paddingRight: '5px' },
+                        rate_pre_tax: { width: '8%', textAlign: 'right', paddingRight: '5px' },
+                        per: { width: '4%', textAlign: 'center' },
+                        disc1_per: { width: '5%', textAlign: 'center' },
+                        disc1_amt: { width: '8%', textAlign: 'right', paddingRight: '5px' },
+                        disc2_per: { width: '5%', textAlign: 'center' },
+                        disc2_amt: { width: '8%', textAlign: 'right', paddingRight: '5px' },
+                        amount: { width: '10%', textAlign: 'right', paddingRight: '5px' }
+                    };
+
+                    product_columns.forEach((column) => {
+                        let td = document.createElement('td');
+                        td.style.borderTop = 'none';
+                        td.style.borderBottom = 'none';
+                        td.style.borderLeft = '1px solid black';
+                        td.style.borderRight = '1px solid black';
+                        if (item.pro_image == "") {
+                            td.style.verticalAlign = 'top';
+                        }
+                        if (pageSize == 'a5') {
+                            td.style.fontSize = '10.5px';
+                        }
+                        const styles = columnStyles[column.name] || {};
+                        td.style.width = 'auto';
+                        td.style.textAlign = styles.textAlign;
+                        td.style.paddingRight = styles.paddingRight;
+                        td.style.whiteSpace = styles.whiteSpace;
+                        td.style.wordBreak = styles.wordBreak;
+
+                        if (column.name == 'pro_name') {
+                            if (item.pro_image) {
+                                td.style.display = "flex";
+                                td.style.alignItems = "center";
+                                td.style.gap = "5px";
+                                td.style.border = 'none';
+
+                                let img = document.createElement("img");
+                                img.src = item.pro_image;
+                                if (pageSize == 'a5') {
+                                    img.style.width = "1.59cm";
+                                    img.style.height = "1.59cm";
+                                } else {
+                                    img.style.width = "2.12cm";
+                                    img.style.height = "2.12cm";
+                                }
+                                img.style.objectFit = "contain";
+                                td.appendChild(img);
+                            }
+
+                            let textContainer = document.createElement("div");
+                            textContainer.style.display = "flex";
+                            textContainer.style.flexDirection = "column";
+                            textContainer.style.gap = "2px";
+
+                            if (item.desc && jsonData.config.display_desc) {
+                                let description = document.createElement("span");
+                                if (jsonData.config.display_desc == 1) {
+                                    description.innerHTML = `${item[column.name]}<span style="font-size: 10px;">&ensp;${formatText(item?.desc)}</span>`;
+                                } else if (jsonData.config.display_desc == 2) {
+                                    const lines = formatText(item?.desc).split('<br />');
+                                    const indented = lines.map(line => `<span class="tab">${line}</span>`).join('');
+                                    description.innerHTML = `${item[column.name]}<br>` + indented;
+                                }
+                                textContainer.appendChild(description);
+                            }
+                            if (item.serial_no) {
+                                let serialSpan = document.createElement("span");
+                                const lines = formatText(item?.serial_no).split('<br />');
+                                const indented = lines.map(line => `<span class="tab-serial">${line}</span>`).join('');
+                                if (!item.desc) {
+                                    serialSpan.innerHTML = `${item[column.name]}<span style="font-size: 10px;">&ensp;${indented}</span>`;
+                                } else {
+                                    serialSpan.innerHTML = indented;
+                                }
+                                textContainer.appendChild(serialSpan);
+                            }
+
+                            if (!item.desc && !item.serial_no) {
+                                textContainer.innerHTML = item[column.name] || '';
+                            }
+
+                            td.appendChild(textContainer);
+                        } else {
+                            td.innerHTML = (item[column.name] == 0 || item[column.name] == null) ? '' : item[column.name];
+                        }
+
+                        tr.appendChild(td);
+                    });
+
+                    tbody.appendChild(tr);
+
+                    const rowHeight = getElHeight(tr);
+                    currentHeight += rowHeight;
+
+                    if (currentHeight > adjustedMaxHeight) {
+                        tbody.removeChild(tr);
+
+                        const lastRow = tbody.lastElementChild;
+                        if (lastRow) {
+                            lastRow.querySelectorAll('td').forEach((td) => {
+                                td.style.borderBottom = '1px solid black';
+                            });
+                        }
+
+                        ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+                        tbody = bodyTable.querySelector('tbody');
+                        tbody.appendChild(tr);
+                        currentHeight = getElHeight(tr);
+                    }
+                });
+            }
+
+            function renderSubTotal(tbody) {
+                let subtotalRow = document.createElement('tr');
+                product_columns.forEach((column) => {
+                    let td = document.createElement('td');
+                    td.style.borderTop = 'none';
+                    td.style.borderBottom = 'none';
+                    td.style.paddingRight = '5px';
+                    td.style.fontSize = pageSize == 'a4' ? '13px' : '11px';
+
+                    if (column.name === 'amount') {
+                        td.style.borderTop = jsonData.tax_details_total.total_taxable_value != "" ? "1px solid black" : "none";
+                        td.style.textAlign = 'right';
+                        td.innerHTML = `<b>${jsonData.tax_details_total.total_taxable_value}</b>`;
+                    } else {
+                        td.innerHTML = '';
+                    }
+                    subtotalRow.appendChild(td);
+                });
+                tbody.appendChild(subtotalRow);
+                currentHeight += getElHeight(subtotalRow);
+
+                if (currentHeight > adjustedMaxHeight) {
+                    tbody.removeChild(subtotalRow);
+                    const lastRow = tbody.lastElementChild;
+                    if (lastRow) {
+                        lastRow.querySelectorAll('td').forEach((td) => {
+                            td.style.borderBottom = '1px solid black';
+                        });
+                    }
+                    ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+                    tbody = bodyTable.querySelector('tbody');
+                    tbody.appendChild(subtotalRow);
+                    currentHeight = getElHeight(subtotalRow);
+                }
+            }
+
+            let emptyRow;
+
+            function renderTaxSplitUp(tbody) {
+                const emptyRowsToAdd = pageSize == 'a4' ? 2 : 1;
+                for (let i = 0; i < emptyRowsToAdd; i++) {
+                    emptyRow = document.createElement('tr');
+                    product_columns.forEach((column) => {
+                        let td = document.createElement('td');
+                        td.style.borderTop = 'none';
+                        td.style.borderBottom = 'none';
+                        td.style.borderLeft = '1px solid black';
+                        td.style.borderRight = '1px solid black';
+                        td.innerHTML = '';
+                        emptyRow.appendChild(td);
+                    });
+                    tbody.appendChild(emptyRow);
+                    currentHeight += getElHeight(emptyRow);
+
+                    if (currentHeight > adjustedMaxHeight) {
+                        tbody.removeChild(emptyRow);
+                        const lastRow = tbody.lastElementChild;
+                        if (lastRow) {
+                            lastRow.querySelectorAll('td').forEach((td) => {
+                                td.style.borderBottom = '1px solid black';
+                            });
+                        }
+                        ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+                        tbody = bodyTable.querySelector('tbody');
+                        tbody.appendChild(emptyRow);
+                        currentHeight = getElHeight(emptyRow);
+                    }
+                }
+
+                if (jsonData.config?.is_packing_slip != true) {
+                    jsonData.tax_split_up_total.forEach((tax) => {
+                        let taxRow = document.createElement('tr');
+                        product_columns.forEach((column) => {
+                            let td = document.createElement('td');
+                            td.style.borderTop = 'none';
+                            td.style.borderBottom = 'none';
+                            td.style.borderLeft = '1px solid black';
+                            td.style.borderRight = '1px solid black';
+                            td.style.textAlign = 'right';
+                            td.style.fontWeight = 700;
+                            td.style.paddingRight = '5px';
+
+                            if (column.name === 'pro_name') {
+                                td.innerHTML = `<i>${tax.name}</i>`;
+                            } else if (column.name === 'amount') {
+                                td.innerHTML = `<i>${tax.amount}</i>`;
+                            } else if (column.name === 'rate') {
+                                td.innerHTML = `<i>${tax.rate}</i>`;
+                            } else if (column.name === 'rate_pre_tax') {
+                                const hasRateCol = product_columns.some(c => c.name === 'rate');
+                                td.innerHTML = hasRateCol ? '' : `<i>${tax.rate}</i>`;
+                            } else if (column.name === 'rate_post_tax') {
+                                const hasRateCol = product_columns.some(c => c.name === 'rate');
+                                const hasPreTaxCol = product_columns.some(c => c.name === 'rate_pre_tax');
+                                td.innerHTML = (hasRateCol || hasPreTaxCol) ? '' : `<i>${tax.rate}</i>`;
+                            } else {
+                                td.innerHTML = '';
+                            }
+                            taxRow.appendChild(td);
+                        });
+                        tbody.appendChild(taxRow);
+                        currentHeight += getElHeight(taxRow);
+
+                        if (currentHeight > adjustedMaxHeight) {
+                            tbody.removeChild(taxRow);
+                            const lastRow = tbody.lastElementChild;
+                            if (lastRow) {
+                                lastRow.querySelectorAll('td').forEach((td) => {
+                                    td.style.borderBottom = '1px solid black';
+                                });
+                            }
+                            ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+                            tbody = bodyTable.querySelector('tbody');
+                            tbody.appendChild(taxRow);
+                            currentHeight = getElHeight(taxRow);
+                        }
+                    });
+                }
+
+                let emptyRowaftertaxsplitup = document.createElement('tr');
+                emptyRowaftertaxsplitup.className = 'tax-split-section';
+
+                product_columns.forEach((column) => {
+                    let td = document.createElement('td');
+                    td.style.borderTop = 'none';
+                    td.style.borderBottom = 'none';
+                    td.style.borderLeft = '1px solid black';
+                    td.style.borderRight = '1px solid black';
+                    td.innerHTML = '';
+                    emptyRowaftertaxsplitup.appendChild(td);
+                });
+                tbody.appendChild(emptyRowaftertaxsplitup);
+                currentHeight += getElHeight(emptyRowaftertaxsplitup);
+
+                if (currentHeight > adjustedMaxHeight) {
+                    tbody.removeChild(emptyRowaftertaxsplitup);
+                    const lastRow = tbody.lastElementChild;
+                    if (lastRow) {
+                        lastRow.querySelectorAll('td').forEach((td) => {
+                            td.style.borderBottom = '1px solid black';
+                        });
+                    }
+                    ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+                    tbody = bodyTable.querySelector('tbody');
+                    tbody.appendChild(emptyRowaftertaxsplitup);
+                    currentHeight = getElHeight(emptyRowaftertaxsplitup);
+                }
+            }
+
+            function renderTotal(tbody) {
+                let totalRow = document.createElement('tr');
+                product_columns.forEach((column) => {
+                    let td = document.createElement('td');
+                    td.style.fontWeight = 700;
+                    td.style.textAlign = 'right';
+                    td.style.paddingRight = '5px';
+
+                    switch (column.name) {
+                        case 'pro_name':
+                            td.innerHTML = jsonData.others.name;
+                            break;
+                        case 'qty':
+                            td.innerHTML = jsonData.others.total_qty > 0 ? jsonData.others.total_qty : "";
+                            td.style.fontSize = pageSize == 'a4' ? '16px' : '12px';
+                            break;
+                        case 'free_qty':
+                            td.innerHTML = jsonData.others.total_free_qty > 0 ? jsonData.others.total_free_qty : "";
+                            td.style.fontSize = pageSize == 'a4' ? '16px' : '12px';
+                            break;
+                        case 'disc1_per':
+                            td.innerHTML = jsonData.others.total_disc1 == 0 ? '' : jsonData.others.total_disc1;
+                            td.style.fontSize = pageSize == 'a4' ? '16px' : '12px';
+                            break;
+                        case 'disc2_per':
+                            td.innerHTML = jsonData.others.total_disc2 == 0 ? '' : jsonData.others.total_disc2;
+                            td.style.fontSize = pageSize == 'a4' ? '16px' : '12px';
+                            break;
+                        case 'amount':
+                            td.innerHTML = jsonData.others.total_amount;
+                            td.style.fontSize = pageSize == 'a4' ? '16px' : '13px';
+                            break;
+                        default:
+                            td.innerHTML = '';
+                    }
+                    totalRow.appendChild(td);
+                });
+                tbody.appendChild(totalRow);
+                currentHeight += getElHeight(totalRow);
+
+                if (currentHeight > adjustedMaxHeight) {
+                    tbody.removeChild(totalRow);
+                    const lastRow = tbody.lastElementChild;
+                    if (lastRow) {
+                        lastRow.querySelectorAll('td').forEach((td) => {
+                            td.style.borderBottom = '1px solid black';
+                        });
+                    }
+
+                    ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+                    tbody = bodyTable.querySelector('tbody');
+
+                    // FIX: No filler rows â content sits at top naturally
+                    currentHeight = 0;
+
+                    tbody.appendChild(totalRow);
+                    currentHeight += getElHeight(totalRow);
+                }
+
+                // Amount in Words Section
+                if (jsonData.config.display_arrears == false) {
+                    let amountTextRow = document.createElement('tr');
+                    let amountTextCell = document.createElement('td');
+                    isHSNSection = true;
+
+                    amountTextCell.colSpan = product_columns.length;
+                    amountTextCell.style.fontSize = pageSize == 'a4' ? '10px' : '9px';
+
+                    let taxAmountText = "";
+                    if (jsonData.config.tax_in_words !== false) {
+                        if (jsonData.others.tax_amt_in_words != ' Rupees Only' && jsonData.others.tax_amt_in_words != '') {
+                            taxAmountText = `<b>Tax Amount (in words):</b> ${jsonData.others.tax_amt_in_words}<br>`;
+                        }
+                    }
+
+                    let amountChargeableText = "";
+                    if (jsonData.config.show_amt_in_words !== false) {
+                        amountChargeableText = `Amount Chargeable (in words):<b> ${jsonData.others.amt_in_words}</b><br>`;
+                    }
+
+                    if (amountChargeableText || taxAmountText) {
+                        amountTextCell.innerHTML = `
+                           <div style="display: flex; justify-content: space-between;">
+                                <div style="text-align: left;">
+                                    ${amountChargeableText}
+                                    ${taxAmountText}
+                                </div>
+                                <div style="text-align: right;">
+                                    <b>E.&O.E</b>
+                                </div>
+                            </div>`;
+
+                        amountTextRow.appendChild(amountTextCell);
+                        tbody.appendChild(amountTextRow);
+                        currentHeight += getElHeight(amountTextRow);
+
+                        if (currentHeight > adjustedMaxHeight) {
+                            tbody.removeChild(amountTextRow);
+                            const lastRow = tbody.lastElementChild;
+                            if (lastRow) {
+                                lastRow.querySelectorAll('td').forEach((td) => {
+                                    td.style.borderBottom = '1px solid black';
+                                });
+                            }
+                            ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+                            tbody = bodyTable.querySelector('tbody');
+                            tbody.appendChild(amountTextRow);
+                            currentHeight = getElHeight(amountTextRow);
+                        }
+                    }
+                }
+            }
+
+            function renderHSNTaxSummarySection() {
+                if (jsonData.config.print_hsn_summary == true && jsonData.config?.is_packing_slip != true) {
+                    let remainingHeight = maxHeight - currentHeight;
+
+                    function setupHsnTable() {
+                        isHSNSection = true;
+                        let hsnTable = document.createElement('table');
+                        hsnTable.className = 'hsn-table';
+                        hsnTable.style.width = '100%';
+
+                        let hsnThead = document.createElement('thead');
+                        if (!isTermandConditionSection) {
+                            let hsnHeaderRow = document.createElement('tr');
+                            let hsnSubHeaderRow = document.createElement('tr');
+
+                            jsonData.hsncolumns.forEach((column, index) => {
+                                if (column.display_name_rate && column.display_name_amt) {
+                                    if ((index === 2 && jsonData.tax_details_total.total_central_tax_amount > 0) ||
+                                        (index === 3 && jsonData.tax_details_total.total_state_tax_amount > 0) ||
+                                        (index === 4 && jsonData.tax_details_total.total_integrated_tax_amount > 0) ||
+                                        (index === 5 && jsonData.tax_details_total.total_cess_tax_amount > 0)) {
+
+                                        let mainTh = document.createElement('th');
+                                        mainTh.colSpan = 2;
+                                        mainTh.innerHTML = column.display_name;
+                                        mainTh.style.textAlign = 'center';
+                                        if (pageSize == 'a5') mainTh.style.fontSize = '10px';
+                                        hsnHeaderRow.appendChild(mainTh);
+
+                                        let rateTh = document.createElement('th');
+                                        rateTh.style.textAlign = 'center';
+                                        if (pageSize == 'a5') rateTh.style.fontSize = '10px';
+                                        rateTh.innerHTML = column.display_name_rate;
+                                        hsnSubHeaderRow.appendChild(rateTh);
+
+                                        let amountTh = document.createElement('th');
+                                        amountTh.style.textAlign = 'center';
+                                        if (pageSize == 'a5') amountTh.style.fontSize = '10px';
+                                        amountTh.innerHTML = column.display_name_amt;
+                                        hsnSubHeaderRow.appendChild(amountTh);
+                                    }
+                                } else if (index !== 6) {
+                                    let singleTh = document.createElement('th');
+                                    singleTh.rowSpan = 2;
+                                    singleTh.style.textAlign = 'center';
+                                    if (pageSize == 'a5') singleTh.style.fontSize = '10.5px';
+                                    singleTh.innerHTML = column.display_name;
+                                    hsnHeaderRow.appendChild(singleTh);
+                                }
+                            });
+
+                            hsnThead.appendChild(hsnHeaderRow);
+                            hsnThead.appendChild(hsnSubHeaderRow);
+                        }
+                        hsnTable.appendChild(hsnThead);
+
+                        hsnTbody = document.createElement('tbody');
+                        hsnTable.appendChild(hsnTbody);
+                        bodySection.appendChild(hsnTable);
+
+                        currentHeight += getElHeight(hsnThead);
+                        headerHeight = getElHeight(hsnThead);
+
+                        return hsnTable;
+                    }
+
+                    // Orphan check BEFORE creating HSN table
+                    let remainingBeforeHsn = adjustedMaxHeight - currentHeight;
+                    if (remainingBeforeHsn < cmToPx(2.5) && jsonData.tax_details.length > 0) {
+                        ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+                        hsn = true;
+                        currentHeight = 0;
+                    }
+
+                    let hsnTable = setupHsnTable();
+                    let hsnAdjustedMax = maxHeight - headerHeight - middleGap;
+
+                    jsonData.tax_details.forEach((tax) => {
+                        let hsnRow = document.createElement('tr');
+                        isHSNSection = true;
+
+                        let hsnTd = document.createElement('td');
+                        hsnTd.innerHTML = tax.hsn;
+                        hsnTd.style.width = '10%';
+                        if (pageSize == 'a5') hsnTd.style.fontSize = '10.5px';
+                        hsnRow.appendChild(hsnTd);
+
+                        let taxableValueTd = document.createElement('td');
+                        taxableValueTd.innerHTML = tax.taxable_value;
+                        taxableValueTd.style.textAlign = 'right';
+                        taxableValueTd.style.paddingRight = '5px';
+                        taxableValueTd.style.width = '1%';
+                        hsnRow.appendChild(taxableValueTd);
+
+                        if (jsonData.tax_details_total.total_central_tax_amount > 0) {
+                            let centralRateTd = document.createElement('td');
+                            centralRateTd.innerHTML = tax.central_tax_rate;
+                            centralRateTd.style.width = '1%';
+                            centralRateTd.style.textAlign = 'center';
+                            let centralAmountTd = document.createElement('td');
+                            centralAmountTd.innerHTML = tax.central_tax_amount;
+                            centralAmountTd.style.textAlign = 'right';
+                            centralAmountTd.style.paddingRight = '5px';
+                            centralAmountTd.style.width = '1%';
+                            hsnRow.appendChild(centralRateTd);
+                            hsnRow.appendChild(centralAmountTd);
+                        }
+
+                        if (jsonData.tax_details_total.total_state_tax_amount > 0) {
+                            let stateRateTd = document.createElement('td');
+                            stateRateTd.innerHTML = tax.state_tax_rate;
+                            stateRateTd.style.textAlign = 'center';
+                            stateRateTd.style.width = '1%';
+                            let stateAmountTd = document.createElement('td');
+                            stateAmountTd.innerHTML = tax.state_tax_amount;
+                            stateAmountTd.style.textAlign = 'right';
+                            stateAmountTd.style.paddingRight = '5px';
+                            stateAmountTd.style.width = '1%';
+                            hsnRow.appendChild(stateRateTd);
+                            hsnRow.appendChild(stateAmountTd);
+                        }
+
+                        if (jsonData.tax_details_total.total_integrated_tax_amount > 0) {
+                            let integratedRateTd = document.createElement('td');
+                            integratedRateTd.innerHTML = tax.integrated_tax_rate;
+                            integratedRateTd.style.textAlign = 'center';
+                            integratedRateTd.style.width = '1%';
+                            let integratedAmountTd = document.createElement('td');
+                            integratedAmountTd.innerHTML = tax.integrated_tax_amount;
+                            integratedAmountTd.style.textAlign = 'right';
+                            integratedAmountTd.style.paddingRight = '5px';
+                            integratedAmountTd.style.width = '1%';
+                            hsnRow.appendChild(integratedRateTd);
+                            hsnRow.appendChild(integratedAmountTd);
+                        }
+
+                        if (jsonData.tax_details_total.total_cess_tax_amount > 0) {
+                            let cessRateTd = document.createElement('td');
+                            cessRateTd.innerHTML = tax.cess_tax_rate;
+                            cessRateTd.style.textAlign = 'center';
+                            cessRateTd.style.width = '1%';
+                            let cessAmountTd = document.createElement('td');
+                            cessAmountTd.innerHTML = tax.cess_tax_amount;
+                            cessAmountTd.style.textAlign = 'right';
+                            cessAmountTd.style.paddingRight = '5px';
+                            cessAmountTd.style.width = '1%';
+                            hsnRow.appendChild(cessRateTd);
+                            hsnRow.appendChild(cessAmountTd);
+                        }
+
+                        let totalTaxAmountTd = document.createElement('td');
+                        totalTaxAmountTd.innerHTML = tax.total_tax_amount;
+                        totalTaxAmountTd.style.width = '1%';
+                        totalTaxAmountTd.style.textAlign = 'right';
+                        totalTaxAmountTd.style.paddingRight = '5px';
+                        hsnRow.appendChild(totalTaxAmountTd);
+
+                        hsnTbody.appendChild(hsnRow);
+                        currentHeight += getElHeight(hsnRow);
+
+                        if (currentHeight > hsnAdjustedMax) {
+                            ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+                            hsn = true;
+                            hsnTable = setupHsnTable();
+                            hsnTbody = hsnTable.querySelector('tbody');
+                            hsnTbody.appendChild(hsnRow);
+                            currentHeight = getElHeight(hsnRow);
+                        }
+                    });
+
+                    let hsnTotalRow = document.createElement('tr');
+                    hsnTotalRow.style.fontWeight = 'bold';
+
+                    function createCell(content, align = 'right', isBold = false) {
+                        let cell = document.createElement('td');
+                        cell.style.textAlign = align;
+                        cell.style.paddingRight = '5px';
+                        cell.innerHTML = isBold ? `<b>${content}</b>` : content;
+                        hsnTotalRow.appendChild(cell);
+                    }
+
+                    createCell('Total', 'right', true);
+                    createCell(jsonData.tax_details_total.total_taxable_value);
+
+                    const taxComponents = [
+                        { rate: 'central_tax_rate', amount: 'total_central_tax_amount', condition: jsonData.tax_details_total.total_central_tax_amount > 0 },
+                        { rate: 'state_tax_rate', amount: 'total_state_tax_amount', condition: jsonData.tax_details_total.total_state_tax_amount > 0 },
+                        { rate: 'integrated_tax_rate', amount: 'total_integrated_tax_amount', condition: jsonData.tax_details_total.total_integrated_tax_amount > 0 },
+                        { rate: 'cess_tax_rate', amount: 'total_cess_tax_amount', condition: jsonData.tax_details_total.total_cess_tax_amount > 0 }
+                    ];
+
+                    taxComponents.forEach(({ rate, amount, condition }) => {
+                        if (condition) {
+                            createCell("", 'center');
+                            createCell(jsonData.tax_details_total[amount]);
+                        }
+                    });
+
+                    createCell(jsonData.tax_details_total.total_tax_amount);
+
+                    hsnTbody.appendChild(hsnTotalRow);
+                    currentHeight += getElHeight(hsnTotalRow);
+
+                    if (currentHeight > hsnAdjustedMax) {
+                        ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+                        hsn = true;
+                        hsnTable = setupHsnTable();
+                        hsnTbody = hsnTable.querySelector('tbody');
+                        hsnTbody.appendChild(hsnTotalRow);
+                        currentHeight = getElHeight(hsnTotalRow);
+                    }
+                }
+
+                // Tax Summary Section
+                if (jsonData.config.print_tax_summary == true && jsonData.config?.is_packing_slip != true) {
+                    let remainingHeight = maxHeight - currentHeight;
+
+                    function setupHsnTable() {
+                        isHSNSection = true;
+                        let hsnTable = document.createElement('table');
+                        hsnTable.className = 'hsn-table';
+                        hsnTable.style.width = '100%';
+
+                        let hsnThead = document.createElement('thead');
+                        if (!isTermandConditionSection) {
+                            let hsnHeaderRow = document.createElement('tr');
+                            let hsnSubHeaderRow = document.createElement('tr');
+
+                            jsonData.hsncolumns.forEach((column, index) => {
+                                if (column.display_name_rate && column.display_name_amt) {
+                                    if ((index === 2 && jsonData.tax_details_total.total_central_tax_amount > 0) ||
+                                        (index === 3 && jsonData.tax_details_total.total_state_tax_amount > 0) ||
+                                        (index === 4 && jsonData.tax_details_total.total_integrated_tax_amount > 0) ||
+                                        (index === 5 && jsonData.tax_details_total.total_cess_tax_amount > 0)) {
+
+                                        let mainTh = document.createElement('th');
+                                        mainTh.colSpan = 2;
+                                        mainTh.innerHTML = column.display_name;
+                                        mainTh.style.textAlign = 'center';
+                                        if (pageSize == 'a5') mainTh.style.fontSize = '10px';
+                                        hsnHeaderRow.appendChild(mainTh);
+
+                                        let rateTh = document.createElement('th');
+                                        rateTh.style.textAlign = 'center';
+                                        if (pageSize == 'a5') rateTh.style.fontSize = '10px';
+                                        rateTh.innerHTML = column.display_name_rate;
+                                        hsnSubHeaderRow.appendChild(rateTh);
+
+                                        let amountTh = document.createElement('th');
+                                        amountTh.style.textAlign = 'center';
+                                        if (pageSize == 'a5') amountTh.style.fontSize = '10px';
+                                        amountTh.innerHTML = column.display_name_amt;
+                                        hsnSubHeaderRow.appendChild(amountTh);
+                                    }
+                                } else if (index !== 0 && index !== 1 && index !== 6) {
+                                    let singleTh = document.createElement('th');
+                                    singleTh.style.textAlign = 'center';
+                                    singleTh.rowSpan = 2;
+                                    if (pageSize == 'a5') singleTh.style.fontSize = '10.5px';
+                                    singleTh.innerHTML = column.display_name;
+                                    hsnHeaderRow.appendChild(singleTh);
+                                } else if (index == 1) {
+                                    let singleTh = document.createElement('th');
+                                    singleTh.rowSpan = 2;
+                                    singleTh.style.textAlign = 'right';
+                                    if (pageSize == 'a5') singleTh.style.fontSize = '10.5px';
+                                    singleTh.innerHTML = column.display_name;
+                                    hsnHeaderRow.appendChild(singleTh);
+                                }
+                            });
+
+                            hsnThead.appendChild(hsnHeaderRow);
+                            hsnThead.appendChild(hsnSubHeaderRow);
+                        }
+                        hsnTable.appendChild(hsnThead);
+
+                        hsnTbody = document.createElement('tbody');
+                        hsnTable.appendChild(hsnTbody);
+                        bodySection.appendChild(hsnTable);
+
+                        headerHeight = getElHeight(hsnThead);
+                        return hsnTable;
+                    }
+
+                    // Orphan check BEFORE creating Tax Summary table
+                    let remainingBeforeTaxSummary = adjustedMaxHeight - currentHeight;
+                    if (remainingBeforeTaxSummary < cmToPx(2.5) && jsonData.tax_summary_details.length > 0) {
+                        ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+                        hsn = true;
+                        currentHeight = 0;
+                    }
+
+                    let hsnTable = setupHsnTable();
+                    let taxSummaryAdjustedMax = maxHeight - headerHeight - middleGap;
+
+                    jsonData.tax_summary_details.forEach((tax) => {
+                        let hsnRow = document.createElement('tr');
+                        isHSNSection = true;
+
+                        let taxableValueTd = document.createElement('td');
+                        taxableValueTd.innerHTML = tax.taxable_value;
+                        taxableValueTd.style.textAlign = 'right';
+                        taxableValueTd.style.width = '10%';
+                        hsnRow.appendChild(taxableValueTd);
+
+                        if (jsonData.tax_details_total.total_central_tax_amount > 0) {
+                            let centralRateTd = document.createElement('td');
+                            centralRateTd.innerHTML = tax.central_tax_rate;
+                            centralRateTd.style.width = '1%';
+                            centralRateTd.style.textAlign = 'center';
+                            let centralAmountTd = document.createElement('td');
+                            centralAmountTd.innerHTML = tax.central_tax_amount;
+                            centralAmountTd.style.textAlign = 'right';
+                            centralAmountTd.style.width = '1%';
+                            hsnRow.appendChild(centralRateTd);
+                            hsnRow.appendChild(centralAmountTd);
+                        }
+
+                        if (jsonData.tax_details_total.total_state_tax_amount > 0) {
+                            let stateRateTd = document.createElement('td');
+                            stateRateTd.innerHTML = tax.state_tax_rate;
+                            stateRateTd.style.textAlign = 'center';
+                            stateRateTd.style.width = '1%';
+                            let stateAmountTd = document.createElement('td');
+                            stateAmountTd.innerHTML = tax.state_tax_amount;
+                            stateAmountTd.style.textAlign = 'right';
+                            stateAmountTd.style.width = '1%';
+                            hsnRow.appendChild(stateRateTd);
+                            hsnRow.appendChild(stateAmountTd);
+                        }
+
+                        if (jsonData.tax_details_total.total_integrated_tax_amount > 0) {
+                            let integratedRateTd = document.createElement('td');
+                            integratedRateTd.innerHTML = tax.integrated_tax_rate;
+                            integratedRateTd.style.textAlign = 'center';
+                            integratedRateTd.style.width = '1%';
+                            let integratedAmountTd = document.createElement('td');
+                            integratedAmountTd.innerHTML = tax.integrated_tax_amount;
+                            integratedAmountTd.style.textAlign = 'right';
+                            integratedAmountTd.style.width = '1%';
+                            hsnRow.appendChild(integratedRateTd);
+                            hsnRow.appendChild(integratedAmountTd);
+                        }
+
+                        if (jsonData.tax_details_total.total_cess_tax_amount > 0) {
+                            let cessRateTd = document.createElement('td');
+                            cessRateTd.innerHTML = tax.cess_tax_rate;
+                            cessRateTd.style.textAlign = 'center';
+                            cessRateTd.style.width = '1%';
+                            let cessAmountTd = document.createElement('td');
+                            cessAmountTd.innerHTML = tax.cess_tax_amount;
+                            cessAmountTd.style.textAlign = 'right';
+                            cessAmountTd.style.width = '1%';
+                            hsnRow.appendChild(cessRateTd);
+                            hsnRow.appendChild(cessAmountTd);
+                        }
+
+                        let totalTaxAmountTd = document.createElement('td');
+                        totalTaxAmountTd.innerHTML = tax.total_tax_amount;
+                        totalTaxAmountTd.style.width = '1%';
+                        totalTaxAmountTd.style.textAlign = 'right';
+                        hsnRow.appendChild(totalTaxAmountTd);
+
+                        hsnTbody.appendChild(hsnRow);
+                        currentHeight += getElHeight(hsnRow);
+
+                        if (currentHeight > taxSummaryAdjustedMax) {
+                            ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+                            hsn = true;
+                            hsnTable = setupHsnTable();
+                            hsnTbody = hsnTable.querySelector('tbody');
+                            hsnTbody.appendChild(hsnRow);
+                            currentHeight = getElHeight(hsnRow);
+                        }
+                    });
+
+                    let hsnTotalRow = document.createElement('tr');
+                    hsnTotalRow.style.fontWeight = 'bold';
+
+                    function createCell(content, align = 'right', isBold = false) {
+                        let cell = document.createElement('td');
+                        cell.style.textAlign = align;
+                        cell.innerHTML = isBold ? `<b>${content}</b>` : content;
+                        hsnTotalRow.appendChild(cell);
+                    }
+
+                    createCell('Total:&nbsp;&nbsp; ' + jsonData.tax_details_total.total_taxable_value);
+
+                    const taxComponents = [
+                        { rate: 'central_tax_rate', amount: 'total_central_tax_amount', condition: jsonData.tax_details_total.total_central_tax_amount > 0 },
+                        { rate: 'state_tax_rate', amount: 'total_state_tax_amount', condition: jsonData.tax_details_total.total_state_tax_amount > 0 },
+                        { rate: 'integrated_tax_rate', amount: 'total_integrated_tax_amount', condition: jsonData.tax_details_total.total_integrated_tax_amount > 0 },
+                        { rate: 'cess_tax_rate', amount: 'total_cess_tax_amount', condition: jsonData.tax_details_total.total_cess_tax_amount > 0 }
+                    ];
+
+                    taxComponents.forEach(({ rate, amount, condition }) => {
+                        if (condition) {
+                            createCell("", 'center');
+                            createCell(jsonData.tax_details_total[amount]);
+                        }
+                    });
+
+                    createCell(jsonData.tax_details_total.total_tax_amount);
+
+                    hsnTbody.appendChild(hsnTotalRow);
+                    currentHeight += getElHeight(hsnTotalRow);
+
+                    if (currentHeight > taxSummaryAdjustedMax) {
+                        ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+                        hsn = true;
+                        hsnTable = setupHsnTable();
+                        hsnTbody = hsnTable.querySelector('tbody');
+                        hsnTbody.appendChild(hsnTotalRow);
+                        currentHeight = getElHeight(hsnTotalRow);
+                    }
+                }
+            }
+
+            function renderArrearsSection() {
+                if (jsonData.config?.is_packing_slip) return;
+
+                if (jsonData.config.display_arrears == true) {
+                    let remainingHeight = maxHeight - currentHeight;
+
+                    function setupArrearsTable() {
+                        isArrearsSection = true;
+
+                        let arrearsTable = document.createElement('table');
+                        arrearsTable.className = 'arrears-table';
+                        arrearsTable.style.width = '100%';
+
+                        let arrearsThead = document.createElement('thead');
+                        let arrearsRow = document.createElement('tr');
+
+                        const natureWord = (lbl) => lbl === 'Cr' ? '' : lbl === 'Dr' ? '(Due)' : '';
+                        const fmt = (n) => Math.abs(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                        const arrearsText = jsonData.others.arrears.trim();
+                        const arrearsLabel = (arrearsText.match(/\b(Cr|Dr)\b/) || [])[0] || '';
+
+                        // Convert to number and format to 2 decimals
+                        const arrearsNum   = parseFloat(arrearsText.replace(/[^0-9.\-]/g, '')) || 0;
+
+                        const paymentModeText = jsonData.master_details.paid_topay.trim();
+                        const paymentModeLabelMatch = paymentModeText.match(/\b(Paid|Credit)\b/);
+                        const paymentModeLabel = paymentModeLabelMatch ? paymentModeLabelMatch[0] : '';
+
+                        let arrearLabelTh = document.createElement('th');
+                        arrearLabelTh.innerHTML = `<b>Previous Balance ${natureWord(arrearsLabel)}</b>`;
+                        arrearLabelTh.style.textAlign = 'right';
+                        arrearLabelTh.style.width = '80%';
+                        if (pageSize == 'a5') arrearLabelTh.style.fontSize = '11px';
+                        arrearsRow.appendChild(arrearLabelTh);
+
+                        let arrearValueTh = document.createElement('th');
+                        arrearValueTh.innerHTML = `${fmt(arrearsNum)} ${arrearsLabel ? '(' + arrearsLabel + ')' : ''}`;
+                        arrearValueTh.style.textAlign = 'right';
+                        arrearValueTh.style.width = '20%';
+                        arrearValueTh.style.paddingRight = '5px';
+                        arrearValueTh.style.fontSize = pageSize == 'a5' ? '12px' : '14px';
+                        arrearsRow.appendChild(arrearValueTh);
+
+                        let totalRow = document.createElement('tr');
+
+                        let totalLabelTh = document.createElement('th');
+
+                        const outstand   = parseFloat(String(jsonData.others.total_outstand).replace(/,/g, '')) || 0;
+                        const currLabel  = outstand < 0 ? 'Cr' : outstand > 0 ? 'Dr' : '';
+
+                        totalLabelTh.innerHTML = `<b>Current Balance ${natureWord(currLabel)}</b>`;
+                        totalLabelTh.style.textAlign = 'right';
+                        totalLabelTh.style.width = '80%';
+                        if (pageSize == 'a5') totalLabelTh.style.fontSize = '11px';
+                        totalRow.appendChild(totalLabelTh);
+
+                        let totalValueTd = document.createElement('td');
+                        totalValueTd.innerHTML = `<b>${fmt(outstand)} ${currLabel ? '(' + currLabel + ')' : ''}</b>`;
+                        totalValueTd.style.textAlign = 'right';
+                        totalValueTd.style.width = '20%';
+                        totalValueTd.style.paddingRight = '5px';
+                        totalValueTd.style.fontSize = pageSize == 'a5' ? '13px' : '16px';
+                        totalRow.appendChild(totalValueTd);
+
+                        arrearsThead.appendChild(arrearsRow);
+                        arrearsThead.appendChild(totalRow);
+                        arrearsTable.appendChild(arrearsThead);
+
+                        arrearTbody = document.createElement('tbody');
+                        arrearsTable.appendChild(arrearTbody);
+                        bodySection.appendChild(arrearsTable);
+
+                        currentHeight += getElHeight(arrearsThead);
+                        headerHeight = getElHeight(arrearsThead);
+
+                        return arrearsTable;
+                    }
+
+                    let arrearsTable = setupArrearsTable();
+                    let adjustedMaxHeight = maxHeight - headerHeight - middleGap;
+
+                    if (currentHeight > adjustedMaxHeight) {
+                        ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+                        arrearsTable = setupArrearsTable();
+                    }
+
+                    let amountTextRow = document.createElement('tr');
+                    let amountTextCell = document.createElement('td');
+                    isHSNSection = true;
+
+                    amountTextCell.colSpan = product_columns.length;
+                    amountTextCell.style.fontSize = pageSize == 'a4' ? '10px' : '9px';
+
+                    let taxAmountText = jsonData.others.tax_amt_in_words != ' Rupees Only' && jsonData.others.tax_amt_in_words != '' ? `<b>Tax Amount (in words):</b> ${jsonData.others.tax_amt_in_words}<br>` : "";
+                    amountTextCell.innerHTML = `
+                        <div style="display: flex; justify-content: space-between;">
+                            <div style="text-align: left;">
+                                Amount Chargeable (in words):<b> ${jsonData.others.amt_in_words}</b><br>
+                                ${taxAmountText}
+                            </div>
+                            <div style="text-align: right;">
+                                <b>E.&O.E</b>
+                            </div>
+                        </div>`;
+                    amountTextRow.appendChild(amountTextCell);
+                    arrearTbody.appendChild(amountTextRow);
+                    currentHeight += getElHeight(amountTextRow);
+
+                    if (currentHeight > adjustedMaxHeight) {
+                        arrearTbody.removeChild(amountTextRow);
+                        const lastRow = arrearTbody.lastElementChild;
+                        if (lastRow) {
+                            lastRow.querySelectorAll('td').forEach((td) => {
+                                td.style.borderBottom = '1px solid black';
+                            });
+                        }
+                        ({ bodySection, arrearsTable } = createNewPageWithHeaderFooter());
+                        arrearTbody = arrearsTable.querySelector('tbody');
+                        arrearTbody.appendChild(amountTextRow);
+                        currentHeight = getElHeight(amountTextRow);
+                    }
+                }
+            }
+
+            function renderTermsAndConditions() {
+                let termsText = jsonData.others?.terms_and_conditions || '';
+                if (!termsText.trim()) return; // Skip if no terms
+
+                let termsTable, termsTbody, termsRow;
+                let remainingHeight = maxHeight - currentHeight;
+
+                isTermandConditionSection = true;
+
+                termsTable = document.createElement('table');
+                termsTable.className = 'terms-table';
+                termsTable.style.width = '100%';
+
+                termsTbody = document.createElement('tbody');
+                termsTable.appendChild(termsTbody);
+                bodySection.appendChild(termsTable);
+
+                let formattedText = formatText(termsText);
+                let termsLines = formattedText.split('<br />');
+
+                termsLines.forEach((line, index) => {
+                    termsRow = document.createElement('tr');
+
+                    let textCell = document.createElement('td');
+                    textCell.style.border = 'none';
+                    textCell.innerHTML = line;
+                    termsRow.appendChild(textCell);
+
+                    termsTbody.appendChild(termsRow);
+
+                    currentHeight += getElHeight(termsRow);
+
+                    if (currentHeight > adjustedMaxHeight) {
+                        termsTbody.removeChild(termsRow);
+
+                        ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
+                        termsTable = document.createElement('table');
+                        termsTable.className = 'terms-table';
+                        termsTable.style.width = '100%';
+                        termsTable.style.borderCollapse = 'collapse';
+
+                        termsTbody = document.createElement('tbody');
+                        termsTable.appendChild(termsTbody);
+                        bodySection.appendChild(termsTable);
+
+                        termsTbody.appendChild(termsRow);
+                        currentHeight = getElHeight(termsRow);
+                    }
+                });
+
+                bodySection.appendChild(termsTable);
+            }
+
+            // Shrink-to-fit: scale down only pages that overflow
+
+            // Main Steps
+            function calculateHeightAndRender() {
+                // Record the starting page index for this copy
+                let copyStartIndex = document.querySelectorAll('.page').length - 1;
+
+                let { bodySection, bodyTable } = setupBodySection();
+                renderItems(tbody, items);
+                renderSubTotal(tbody);
+                renderTaxSplitUp(tbody);
+                renderTotal(tbody);
+                renderArrearsSection();
+                renderHSNTaxSummarySection();
+                renderTermsAndConditions();
+
+                const remainingSpaceHeight = adjustedMaxHeight - currentHeight - middleGap;
+                if (!hsn) {
+                    appendEmptyRowsToTaxSplitUp(remainingSpaceHeight);
+                }
+
+                // Add footer only to THIS copy's pages
+                let allPages = document.querySelectorAll('.page');
+                for (let i = copyStartIndex; i < allPages.length; i++) {
+                    let pg = allPages[i];
+                    if (!pg.querySelector('.footer-wrapper')) {
+                        let pageNum = i - copyStartIndex + 1;
+                        addSectionToPage(pg, generateFooterSection, jsonData, jsonData.others, pageNum);
+                    }
+                }
+
+                // Cap body sections so they don't extend behind footer (only this copy's pages)
+                allPages = document.querySelectorAll('.page');
+                for (let i = copyStartIndex; i < allPages.length; i++) {
+                    let pg = allPages[i];
+                    let body = pg.querySelector('.body');
+                    if (body) {
+                        let footerWrapper = pg.querySelector('.footer-wrapper');
+                        if (footerWrapper) {
+                            let footerTop = footerWrapper.getBoundingClientRect().top;
+                            let bodyBottom = body.getBoundingClientRect().bottom;
+                            if (bodyBottom > footerTop) {
+                                let bodyTop = body.getBoundingClientRect().top;
+                                body.style.maxHeight = (footerTop - bodyTop - 1) + 'px';
+                                body.style.overflow = 'hidden';
+                            }
+                        }
+                    }
+                }
+
+                // Shrink-to-fit: only for THIS copy's pages that overflow
+                allPages = document.querySelectorAll('.page');
+                for (let i = copyStartIndex; i < allPages.length; i++) {
+                    let pg = allPages[i];
+                    let pageHeightPx = pageSize == 'a4' ? cmToPx(29.7) : cmToPx(21);
+                    let paddingPx = cmToPx(0.53 + 0.15);
+                    let availableHeight = pageHeightPx - paddingPx;
+
+                    let contentHeight = 0;
+                    Array.from(pg.children).forEach(child => {
+                        if (child.classList.contains('imgwatermark') || child.classList.contains('watermark')) return;
+                        contentHeight += getElHeight(child);
+                    });
+
+                    // Only shrink if overflow is more than 5px (avoid micro-adjustments)
+                    if (contentHeight > availableHeight + 5) {
+                        let scale = availableHeight / contentHeight;
+                        scale = Math.max(scale, 0.75);
+
+                        let wrapper = document.createElement('div');
+                        wrapper.style.transformOrigin = 'top left';
+                        wrapper.style.transform = 'scale(' + scale + ')';
+                        wrapper.style.width = (100 / scale) + '%';
+                        // Set wrapper height to scaled content height so no blank space remains
+                        wrapper.style.height = availableHeight + 'px';
+
+                        let children = Array.from(pg.children);
+                        children.forEach(child => {
+                            if (child.classList.contains('imgwatermark') || child.classList.contains('watermark')) return;
+                            wrapper.appendChild(child);
+                        });
+                        pg.appendChild(wrapper);
+                    }
+                }
+            }
+
+            function appendEmptyRowsToTaxSplitUp(remainingHeight) {
+                if (remainingHeight <= 2) return;
+                const pages = document.querySelectorAll('.page');
+                const lastPage = pages[pages.length - 1];
+                const taxSplitSection = lastPage.querySelector('.tax-split-section');
+                if (taxSplitSection) {
+                    let spacer = document.createElement('div');
+                    spacer.style.height = Math.max(0, remainingHeight) + 'px';
+                    taxSplitSection.appendChild(spacer);
+                }
+            }
+            const remainingHeight = calculateHeightAndRender();
+        }
+
+        // SECTION 2: Header Section
+        function generateHeaderSection(page, data, isFirstPage) {
+            let maintable = document.createElement('table');
+            maintable.className = 'maintable';
+            maintable.style.width = '100%';
+            if (pageSize == "a4") maintable.style.fontSize = '12px';
+            else if (pageSize == "a5") maintable.style.fontSize = '11px';
+
+            let mainEinvoicetable = document.createElement('table');
+            mainEinvoicetable.className = 'mainEinvoicetable';
+            mainEinvoicetable.style.width = '100%';
+            if (pageSize == "a4") mainEinvoicetable.style.fontSize = '12px';
+            else if (pageSize == "a5") mainEinvoicetable.style.fontSize = '11px';
+
+            if (!data.copies || data.copies.length == 0 || data.copies == undefined) {
+                data.copies = [{ type: "Original", typeOfCopy: 0 }];
+            }
+
+            let headingName = data.config?.is_packing_slip == true ? 'Packing Slip' : data.heading.name;
+            let copyObject = data.copies.find(copy => copy.typeOfCopy === typeOfCopy);
+            let copyType = copyObject ? copyObject.type : "Original";
+            let beDetails = data.be_details || {};
+            let billToDetails = data.bill_to || {};
+            let masterDetails = data.master_details || {};
+            let shipToDetails = data.ship_to || {};
+
+            let headingRow = document.createElement('tr');
+
+            let emptyCell = document.createElement('td');
+            emptyCell.style.border = 'none';
+            emptyCell.style.width = '30%';
+            headingRow.appendChild(emptyCell);
+
+            let headingCell = document.createElement('td');
+            headingCell.style.width = '40%';
+            headingCell.style.border = 'none';
+            headingCell.style.verticalAlign = 'top';
+            headingCell.style.textAlign = 'center';
+            headingCell.innerHTML = `
+                <h3>${headingName}</h3>
+                ${data.config?.is_packing_slip != true ? `
+                    ${data.heading.sub_name ? `<h5>${data.heading.sub_name}</h5>` : ''}
+                    <h4>${data.copies.find(copy => copy.typeOfCopy === typeOfCopy)?.type || 'Original'}</h4>
+                ` : ''}
+            `;
+            headingRow.appendChild(headingCell);
+
+            let qrCell = document.createElement('td');
+            qrCell.style.border = 'none';
+            qrCell.style.float = 'right';
+            qrCell.style.marginTop = '-9%';
+
+            if (isFirstPage && data.others.einvoice_details != '' && data.config?.is_packing_slip != true) {
+                var einvoice_heading = document.createElement('h6');
+                einvoice_heading.style.textAlign = 'center';
+                einvoice_heading.style.marginBottom = 0;
+                einvoice_heading.innerHTML = "e-Invoice";
+                qrCell.appendChild(einvoice_heading);
+
+                var qrcode = document.createElement('canvas');
+                qrcode.id = `qr-${typeOfCopy}`;
+                qrCell.appendChild(qrcode);
+
+                var qr = new QRious({
+                    element: qrcode,
+                    value: data.others.einvoice_details,
+                    level: 'L',
+                    size: 110,
+                });
+            }
+
+            headingRow.appendChild(qrCell);
+            mainEinvoicetable.appendChild(headingRow);
+
+            if (isFirstPage && data.others.einvoice_details != '' && data.config?.is_packing_slip != true) {
+                let irnDetailsRow = document.createElement('tr');
+                let irnDetailsCell = document.createElement('td');
+                irnDetailsCell.style.border = 'none';
+                irnDetailsCell.colSpan = '3';
+                irnDetailsCell.innerHTML = `
+                    <div style="width: 100%; margin-bottom: 1%;">
+                        <p><strong>IRN:</strong> ${data.others.irn}</p>
+                        <p><strong>Ack No.:</strong> ${data.others.ack_no}</p>
+                        <p><strong>Ack Date:</strong> ${data.others.ack_date}</p>
+                    </div>`;
+                irnDetailsRow.appendChild(irnDetailsCell);
+                mainEinvoicetable.appendChild(irnDetailsRow);
+            }
+
+            var table_row_main = document.createElement('tr');
+
+            var table_data_add = document.createElement('td');
+            table_data_add.style.width = '50%';
+            table_data_add.rowSpan = '3';
+            table_data_add.style.padding = '3px';
+            table_data_add.style.verticalAlign = 'top';
+
+            var maindivnew = document.createElement('div');
+
+            if (data.design.logo != "") {
+                maindivnew.style.display = 'flex';
+                maindivnew.style.alignItems = 'center';
+
+                var figure = document.createElement("figure");
+                figure.style.margin = '0 5px 0 0';
+                figure.style.width = '2.65cm';
+                figure.style.height = '2.65cm';
+
+                var logoImage = document.createElement("img");
+                logoImage.src = data.design.logo;
+                logoImage.style.width = '2.65cm';
+                logoImage.style.height = '2.65cm';
+                logoImage.style.objectFit = 'contain';
+                figure.appendChild(logoImage);
+
+                maindivnew.appendChild(figure);
+            }
+
+            var detailsDiv = document.createElement('div');
+            detailsDiv.style.flexGrow = '1';
+
+            var beDetailsString = `<b>${beDetails.beb_name.toUpperCase() || ''}</b>`;
+            beDetailsString += beDetails.beb_addline1 ? '<br>' + formatText(beDetails?.beb_addline1) : '';
+            beDetailsString += beDetails.beb_addline2 ? beDetails.beb_addline2 : '';
+            beDetailsString += beDetails.beb_addline3 ? beDetails.beb_addline3 : '';
+            if (beDetails.pin) beDetailsString += `<br>PIN: ${beDetails.pin}`;
+            beDetailsString += beDetails?.fssai_number ? `<br>FSSAI: ${beDetails.fssai_number}` : '';
+            beDetailsString += beDetails.phone ? `<br>Phone: ${beDetails.phone}` : '';
+            beDetailsString += beDetails.beb_gstin ? `<br><b>GSTIN/UIN: ${beDetails.beb_gstin}</b>` : '';
+            if (data.config.be_details == true) detailsDiv.innerHTML = beDetailsString;
+
+            maindivnew.appendChild(detailsDiv);
+            table_data_add.appendChild(maindivnew);
+            table_row_main.appendChild(table_data_add);
+
+            var table_data_inv = document.createElement('td');
+            table_data_inv.style.width = '25%';
+            table_data_inv.innerHTML = `${data.heading.name} No.<br><b>${masterDetails.inv_no || ''}</b>`;
+            table_row_main.appendChild(table_data_inv);
+
+            var table_data_date = document.createElement('td');
+            table_data_date.style.width = '25%';
+            table_data_date.innerHTML = `Dated<br><b>${masterDetails.pmt_doc_date || ''}</b>`;
+            table_row_main.appendChild(table_data_date);
+
+            maintable.appendChild(table_row_main);
+
+            if (jsonData.config?.is_packing_slip != true) {
+                var table_row_main1 = document.createElement('tr');
+                var table_data_note = document.createElement('td');
+                table_data_note.style.width = '25%';
+                table_data_note.innerHTML = `Place of Supply<br><b>${masterDetails.place_supply || ''}</b>`;
+                table_row_main1.appendChild(table_data_note);
+
+                var table_data_mode = document.createElement('td');
+                table_data_mode.style.width = '25%';
+                table_data_mode.innerHTML = `Mode/Terms of Payment<br><b>${masterDetails.paid_topay || ''}</b>`;
+                table_row_main1.appendChild(table_data_mode);
+
+                maintable.appendChild(table_row_main1);
+
+                var table_row_main2 = document.createElement('tr');
+                var table_data_Ref = document.createElement('td');
+                table_data_Ref.style.width = '25%';
+                if (masterDetails?.master_transaction == 2) {
+                    table_data_Ref.innerHTML = `PO Number & Date<br><b>${masterDetails.doc_reference || ''}</b>`;
+                } else {
+                    table_data_Ref.innerHTML = `Reference No. & Date<br><b>${masterDetails.doc_reference || ''}</b>`;
+                }
+                table_row_main2.appendChild(table_data_Ref);
+
+                var table_data_due_date = document.createElement('td');
+                table_data_due_date.style.width = '25%';
+                table_data_due_date.innerHTML = `Due Date<br><b>${masterDetails.due_by_date || ''}</b>`;
+                table_row_main2.appendChild(table_data_due_date);
+
+                maintable.appendChild(table_row_main2);
+            } else {
+                var table_slip_ref = document.createElement('tr');
+                var table_slip_data_Ref = document.createElement('td');
+                table_slip_data_Ref.style.width = '25%';
+                table_slip_data_Ref.innerHTML = `Reference No.<br><b>${''}</b>`;
+                table_slip_ref.appendChild(table_slip_data_Ref);
+
+                var table_slip_empty = document.createElement('td');
+                table_slip_empty.style.width = '25%';
+                table_slip_empty.innerHTML = '';
+                table_slip_ref.appendChild(table_slip_empty);
+
+                maintable.appendChild(table_slip_ref);
+
+                var table_row_main1 = document.createElement('tr');
+                var table_data_note = document.createElement('td');
+                table_data_note.style.width = '25%';
+                table_data_note.innerHTML = '';
+                table_row_main1.appendChild(table_data_note);
+
+                var table_data_mode = document.createElement('td');
+                table_data_mode.style.width = '25%';
+                table_data_mode.innerHTML = '';
+                table_row_main1.appendChild(table_data_mode);
+
+                maintable.appendChild(table_row_main1);
+            }
+
+            var table_row_main3 = document.createElement('tr');
+            var table_data_addbuyer = document.createElement('td');
+            table_data_addbuyer.style.width = '50%';
+            table_data_addbuyer.rowSpan = '3';
+            table_data_addbuyer.style.padding = '3px';
+            table_data_addbuyer.style.verticalAlign = 'top';
+
+            const isPurchase = masterDetails?.master_transaction == 1;
+            const partyLabel = isPurchase ? "Supplier" : "Buyer (Bill to)";
+
+            var billToDetailsString = `${partyLabel}<br><b>${billToDetails?.party_name?.toUpperCase() || ''}</b>`;
+            billToDetailsString += billToDetails.party_add1 ? '<br>' + formatText(billToDetails?.party_add1) + '' : '';
+            billToDetailsString += billToDetails.party_add2 ? `${billToDetails.party_add2}` : '';
+            billToDetailsString += billToDetails.party_add3 ? `${billToDetails.party_add3}` : '';
+            if (billToDetails.party_pin) billToDetailsString += `<br>PIN: ${billToDetails.party_pin}`;
+            billToDetailsString += billToDetails.party_phone ? `<br>Phone: ${billToDetails.party_phone}` : '';
+            billToDetailsString += billToDetails.party_gstin ? `<br><b>GSTIN/UIN: ${billToDetails.party_gstin}</b>` : '';
+            if (data.config.bill_to == true) table_data_addbuyer.innerHTML = billToDetailsString;
+            table_row_main3.appendChild(table_data_addbuyer);
+
+            var table_data_addship = document.createElement('td');
+            table_data_addship.style.width = '50%';
+            table_data_addship.rowSpan = '3';
+            table_data_addship.colSpan = '2';
+            table_data_addship.style.padding = '3px';
+            table_data_addship.style.verticalAlign = 'top';
+
+            if (shipToDetails.name || shipToDetails.add1 || shipToDetails.add2 ||
+                shipToDetails.add3 || shipToDetails.pin || shipToDetails.phone || shipToDetails.gstin) {
+                var shipToDetailsString = `Consignee (Ship to)<br><b>${shipToDetails.name?.toUpperCase() || ''}</b>`;
+                shipToDetailsString += shipToDetails.add1 ? '<br>' + formatText(shipToDetails?.add1) : '';
+                shipToDetailsString += shipToDetails.add2 ? shipToDetails.add2 : '';
+                shipToDetailsString += shipToDetails.add3 ? shipToDetails.add3 : '';
+                if (shipToDetails.pin) shipToDetailsString += `<br>PIN: ${shipToDetails.pin}`;
+                shipToDetailsString += shipToDetails.phone ? `<br>Phone: ${shipToDetails.phone}` : '';
+                shipToDetailsString += shipToDetails.gstin ? `<br><b>GSTIN/UIN: ${shipToDetails.gstin}</b>` : '';
+                if (data.config.ship_to === true) table_data_addship.innerHTML = shipToDetailsString;
+            }
+            table_row_main3.appendChild(table_data_addship);
+
+            maintable.appendChild(table_row_main3);
+
+            page.appendChild(mainEinvoicetable);
+            page.appendChild(maintable);
+        }
+
+        // SECTION 3: Invoice Attribute Section
+        function generateInvoiceAttributeSection(page, data) {
+            if (data.config?.is_packing_slip) return;
+
+            var invAttributes = data.inv_att || [];
+            if (invAttributes.length === 0) return;
+
+            var invoiceAttributeSection = document.createElement('div');
+            invoiceAttributeSection.className = 'invoice-attribute-section';
+            if (pageSize == "a4") invoiceAttributeSection.style.fontSize = '12px';
+            else if (pageSize == "a5") invoiceAttributeSection.style.fontSize = '11px';
+
+            var leftPart = document.createElement('div');
+            leftPart.className = 'invoice-attribute-half';
+
+            var rightPart = document.createElement('div');
+            rightPart.className = 'invoice-attribute-half';
+
+            var leftLines = 0;
+            var rightLines = 0;
+
+            invAttributes.forEach(function (attr) {
+                var valueLength = attr.value.length;
+                var newLineCount = valueLength > 25 ? 2 : 1;
+
+                if (leftLines + newLineCount <= 7) {
+                    leftPart.innerHTML += `<b>${attr.key}:</b> ${attr.value}<br>`;
+                    leftLines += newLineCount;
+                } else if (rightLines + newLineCount <= 7) {
+                    rightPart.innerHTML += `<b>${attr.key}:</b> ${attr.value}<br>`;
+                    rightLines += newLineCount;
+                }
+            });
+
+            invoiceAttributeSection.appendChild(leftPart);
+            invoiceAttributeSection.appendChild(rightPart);
+            page.appendChild(invoiceAttributeSection);
+        }
+
+        function getFormattedDateTime() {
+            var today = new Date();
+            var date = today.getDate() + '-' + (today.getMonth() + 1) + '-' + today.getFullYear();
+            var hours = today.getHours();
+            var minutes = today.getMinutes();
+            var seconds = today.getSeconds();
+            var amOrPm = 'AM';
+            if (hours >= 12) { amOrPm = 'PM'; if (hours > 12) hours -= 12; }
+            if (hours === 0) hours = 12;
+            if (minutes < 10) minutes = "0" + minutes;
+            if (seconds < 10) seconds = "0" + seconds;
+            return date + ' ' + hours + ':' + minutes + ':' + seconds + ' ' + amOrPm;
+        }
+
+        // SECTION 4: Footer Section
+        function generateFooterSection(page, footerData, others, pageNumber) {
+            let footerWrapper = document.createElement('div');
+            footerWrapper.className = 'footer-wrapper';
+            footerWrapper.style.marginTop = 'auto';
+
+            let footerSection = document.createElement('div');
+            footerSection.className = 'footer-section';
+            footerSection.style.display = 'flex';
+            footerSection.style.justifyContent = 'space-between';
+            footerSection.style.alignItems = 'flex-start';
+            footerSection.style.border = '1px solid black';
+            footerSection.style.backgroundColor = '#fff';
+
+            if (pageSize == "a4") {
+                footerSection.style.height = '2.9cm';
+            } else if (pageSize == "a5") {
+                footerSection.style.height = '2.1cm';
+            }
+
+            var leftDiv = document.createElement('div');
+            leftDiv.style.width = '60%';
+            leftDiv.style.display = 'flex';
+            leftDiv.style.alignItems = 'center';
+            leftDiv.style.padding = '3px';
+
+            var qrc = document.createElement('div');
+            qrc.id = "qrcode-" + Date.now();
+            qrc.style.marginRight = '0.53cm';
+
+            if (footerData.others.upi_id != "" && footerData.config.include_payment_qrcode == true && footerData.config?.is_packing_slip != true) {
+                if (pageSize == "a4") {
+                    new QRCode(qrc, { text: footerData.others.upi_id, height: 90, width: 90 });
+                } else if (pageSize == "a5") {
+                    new QRCode(qrc, { text: footerData.others.upi_id, height: 70, width: 70 });
+                }
+
+                var scanToPayText = document.createElement('div');
+                scanToPayText.style.fontSize = pageSize == "a4" ? '12px' : '10px';
+                scanToPayText.innerHTML = 'Scan to Pay';
+                scanToPayText.style.textAlign = 'center';
+                qrc.appendChild(scanToPayText);
+            }
+
+            var footerDetailsHTML = '';
+            if (footerData.footer && footerData.footer.length > 0 && footerData.config?.is_packing_slip != true) {
+                footerData.footer.forEach(item => {
+                    footerDetailsHTML += `${item.value}<br>`;
+                });
+            }
+
+            var bankDetailsDiv = document.createElement('div');
+            bankDetailsDiv.innerHTML = `${footerDetailsHTML}`;
+            leftDiv.appendChild(qrc);
+            leftDiv.appendChild(bankDetailsDiv);
+
+            var rightDiv = document.createElement('div');
+            rightDiv.style.width = '40%';
+            rightDiv.style.textAlign = 'center';
+            rightDiv.style.height = '100%';
+            rightDiv.style.display = 'flex';
+            rightDiv.style.flexDirection = 'column';
+            rightDiv.style.justifyContent = 'space-between';
+            rightDiv.style.padding = '3px';
+
+            var rcm_detail = document.createElement('p');
+            rcm_detail.style.textAlign = 'center';
+            rcm_detail.style.fontWeight = '700';
+            rcm_detail.style.fontSize = pageSize == "a4" ? '12px' : '10px';
+            rcm_detail.style.border = 'none';
+            if (footerData.config.is_rcm === true && footerData.config?.is_packing_slip != true) {
+                rcm_detail.innerHTML = "Amount of tax subject to Reverse Charge";
+            }
+            rightDiv.appendChild(rcm_detail);
+
+            if (footerData.config.authorised_signatory == true) {
+                var signatureDiv = document.createElement('div');
+                if (footerData.design?.signature && footerData.design.signature.trim() !== "" && footerData.config.include_signature == true) {
+                    signatureDiv.style.display = 'flex';
+                    signatureDiv.style.flexDirection = 'column';
+                    signatureDiv.style.alignItems = 'flex-end';
+                }
+                signatureDiv.style.textAlign = 'right';
+                var hasAuthorisedBorder = footerData.config.authorised_border != undefined ? footerData.config.authorised_border : true;
+                signatureDiv.style.borderLeft = hasAuthorisedBorder ? '1px solid black' : 'none';
+                signatureDiv.style.borderTop = hasAuthorisedBorder ? '1px solid black' : 'none';
+
+                if (pageSize == "a4") {
+                    signatureDiv.style.paddingTop = '0.26cm';
+                    signatureDiv.style.fontSize = '12px';
+                } else if (pageSize == "a5") {
+                    signatureDiv.style.fontSize = '10px';
+                }
+
+                if (footerData.design?.signature && footerData.design.signature !== "" && footerData.config.include_signature == true) {
+                    var companyNameDiv = document.createElement('div');
+                    companyNameDiv.innerHTML = `<b>for ${footerData.be_details.beb_name.toUpperCase()}</b>`;
+                    signatureDiv.appendChild(companyNameDiv);
+
+                    var figure = document.createElement("figure");
+                    figure.style.margin = '0';
+                    figure.style.width = '2.65cm';
+                    figure.style.height = '1.32cm';
+
+                    var logoImage = document.createElement("img");
+                    logoImage.src = footerData.design?.signature;
+                    logoImage.style.width = '100%';
+                    logoImage.style.height = '100%';
+                    logoImage.style.objectFit = 'contain';
+                    figure.appendChild(logoImage);
+
+                    signatureDiv.appendChild(figure);
+
+                    var signatoryText = document.createElement('div');
+                    signatoryText.innerHTML = `Authorised Signatory`;
+                    signatureDiv.appendChild(signatoryText);
+                } else {
+                    signatureDiv.innerHTML = `<b>for ${footerData.be_details.beb_name.toUpperCase()}</b><br><br><br>Authorised Signatory`;
+                }
+                rightDiv.appendChild(signatureDiv);
+            }
+
+            footerSection.appendChild(leftDiv);
+            footerSection.appendChild(rightDiv);
+            footerWrapper.appendChild(footerSection);
+
+            var additionalFooterRow = document.createElement('div');
+            additionalFooterRow.className = 'additionalFooterRow';
+            additionalFooterRow.style.display = 'flex';
+            additionalFooterRow.style.justifyContent = 'space-between';
+            additionalFooterRow.style.fontSize = pageSize == "a4" ? '12px' : '10px';
+
+            additionalFooterRow.id = `footer-row-${pageNumber}-${typeOfCopy}`;
+
+            additionalFooterRow.innerHTML = `
+                <div>${footerData.config?.footer_date ? getFormattedDateTime() : ''}</div>
+                <div style="text-align: center; flex-grow: 1;">
+                    ${footerData.config?.is_packing_slip !== true ? 'This is a Computer Generated Document' : ''}
+                </div>
+                <div style="text-align: right;">Page No. ${pageNumber}</div>
+            `;
+
+            footerWrapper.appendChild(additionalFooterRow);
+            page.appendChild(footerWrapper);
+
+            let bodyEl = page.querySelector('.body');
+            if (bodyEl) {
+                let footerTop = getElHeight(footerSection) + getElHeight(additionalFooterRow) + cmToPx(0.3);
+                let pageContentH = getPageContentHeightPx();
+                let headerEls = page.querySelectorAll('.maintable, .mainEinvoicetable, .invoice-attribute-section');
+                let headerH = 0;
+                headerEls.forEach(el => { headerH += getElHeight(el); });
+                let availableForBody = pageContentH - headerH - footerTop;
+                bodyEl.style.maxHeight = availableForBody + 'px';
+                bodyEl.style.overflow = 'hidden';
+            }
+        }
+
+        function addLogoWatermark(page) {
+            if (jsonData.design && jsonData.design.logo && jsonData.design.logo !== "" &&
+                jsonData.config && jsonData.config?.logo_watermark === true) {
+                var watermarkDiv = document.createElement('div');
+                watermarkDiv.className = 'imgwatermark';
+
+                var watermarkImg = document.createElement('img');
+                watermarkImg.src = jsonData.design.logo;
+                watermarkImg.alt = 'Watermark';
+                watermarkImg.style.width = '7.94cm';
+                watermarkImg.style.height = '7.94cm';
+                watermarkImg.style.objectFit = 'contain';
+
+                watermarkDiv.appendChild(watermarkImg);
+                page.appendChild(watermarkDiv);
+            }
+        }
+
+        //function formatText(text) {
+         //   return text
+         //       .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+         //       .replace(/_(.*?)_/g, '<i>$1</i>')
+         //       .replace(/~(.*?)~/g, '<u>$1</u>')
+         //       .replace(/\r?\n/g, '<br />');
+       // }
+
+        function formatText(text) {
+            if (!text) return '';
+            return text.replace(/\r?\n/g, '<br />'); // only normalize stray newlines
+        }
+
+        // Injects (or updates) an @page rule sized to the true physical paper (A4/A5) with
+        // zero margin. Without this, printing falls back to whatever default page size the
+        // browser/printer assumes (e.g. Letter), which is shorter than a 29.7cm A4 .page div -
+        // so the browser's own print pagination sliced a single .page in two, producing extra
+        // printed pages the on-screen preview never showed.
+        function ensurePageSizeStyle(size) {
+            let styleEl = document.getElementById('dynamic-page-size-style');
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.id = 'dynamic-page-size-style';
+                document.head.appendChild(styleEl);
+            }
+            let dimensions = size == 'a4' ? '21cm 29.7cm' : '14.8cm 21cm';
+            styleEl.textContent = '@page { size: ' + dimensions + '; margin: 0; }';
+        }
+
+        // Defensive reset: generateAllCopies() re-runs whole on every resize/beforeprint (see
+        // listeners below), reusing the same document - without clearing previously generated
+        // pages first, old .page elements would stay in the DOM and the new run would just pile
+        // up after them.
+        function resetGeneratedContent() {
+            document.querySelectorAll('.page').forEach((p) => p.remove());
+            document.body.classList.remove('page-a4', 'page-other');
+        }
+
+        function generateAllCopies() {
+            let searchParams = new URLSearchParams(window.location.search);
+            let message = searchParams.get('message');
+
+            if (message) {
+                try {
+                    resetGeneratedContent();
+
+                    var retrievedValue = sessionStorage.getItem('temp_inv_data');
+                    if (retrievedValue !== null) {
+                        let decodedString = base64ToUtf8(retrievedValue);
+                        jsonData = JSON.parse(decodedString);
+                    } else {
+                        let decodedString = base64ToUtf8(message);
+                        jsonData = JSON.parse(decodedString);
+                    }
+
+                    pageSize = (jsonData.others.page_size == "" || jsonData.others.page_size == undefined) ? 'a4' : jsonData.others.page_size;
+                    const container = document.querySelector('body');
+                    container.classList.add(pageSize == 'a4' ? 'page-a4' : 'page-other');
+                    ensurePageSizeStyle(pageSize);
+
+                    if (!jsonData.copies || jsonData.copies.length === 0) {
+                        jsonData.copies = [{ type: "Original", typeOfCopy: 0 }];
+                    }
+
+                    copyPageIndices = [];
+
+                    for (let a = 0; a < jsonData.copies.length; a++) {
+                        typeOfCopy = jsonData.copies[a].typeOfCopy;
+                        currentPageCount = 1;
+                        isHSNSection = false;
+                        isTermandConditionSection = false;
+                        isFirstPage = true;
+                        _pxPerCm = null;
+                        generateSingleCopy(typeOfCopy);
+                    }
+
+                } catch (error) {
+                    console.error('Error decoding or parsing JSON:', error);
+                }
+            } else {
+                console.error('No message found in the URL parameters.');
+            }
+        }
+
+        const RESIZE_DEBOUNCE_MS = 200;
+        let resizeTimer;
+        // Pagination is otherwise a one-time calculation done at load. If the user zooms
+        // in/out (or resizes the window) after the report is already rendered, text can
+        // reflow slightly differently at the new size, growing a row past what was originally
+        // budgeted for - and since later sections/footer sit at positions computed from the
+        // old budget, that growth pushes content into/past them. Zoom changes fire a resize
+        // event (they change the effective CSS pixel viewport), so re-running generateAllCopies()
+        // here re-paginates against the new, live measurements.
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(generateAllCopies, RESIZE_DEBOUNCE_MS);
+        });
+
+        // Printing is a separate rendering pass that can differ from the on-screen zoom, so a
+        // page grouping calibrated for the current screen doesn't necessarily match what
+        // actually prints. Regenerating here calibrates pagination against print. This is only
+        // safe because generateAllCopies()/generateSingleCopy() are fully synchronous now - an
+        // async handler here would risk the browser capturing print output mid-rebuild (right
+        // after resetGeneratedContent() clears the page but before the new content is added),
+        // producing a blank printed page.
+        window.addEventListener('beforeprint', generateAllCopies);
+
+        generateAllCopies();
+    </script>
+
+</body>
+</html>
