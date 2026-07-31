@@ -105,6 +105,16 @@
         .body-table { width: 100%; }
         .body-table th, .body-table td { text-align: center; vertical-align: top; }
 
+        /* Built incrementally, one row at a time, with per-row height measurements used to
+           decide page breaks - table-layout:auto (the default) would recalculate column
+           widths from all rows collectively as they're added, going stale mid-construction.
+           These tables already give every row explicit inline % widths (unlike body-table,
+           which needed the same fix applied in JS instead - see getColumnWidthPercent), so
+           this is a defensive consistency measure rather than a fix for an observed bug. */
+        .hsn-table, .arrears-table, .terms-table {
+            table-layout: fixed;
+        }
+
         .empty-row td {
             border-left: 1px solid black;
             border-right: 1px solid black;
@@ -214,12 +224,33 @@
             return cmToPx(heightCm - paddingCm);
         }
 
+        // Renders a throwaway footer off in the body purely to measure its real height, since
+        // it's the same content/structure on every page of a given copy regardless of page
+        // number - one measurement covers the whole copy. Previously this was a hardcoded cm
+        // guess (3.1cm for A4, 2.3cm for A5), which measured 11-13px shorter than the real
+        // footer (QR code + bank details + signature block stack taller than that guess
+        // assumed) - so pagination packed rows into a budget that was already too generous
+        // before the real footer ever got placed, then relying entirely on the later
+        // clamp/shrink-to-fit safety nets to paper over the gap instead of getting the row
+        // count right in the first place.
+        let _footerReserveHeight = null;
         function getFooterReserveHeightPx() {
-            if (pageSize == 'a4') {
-                return cmToPx(3.1);
-            } else {
-                return cmToPx(2.3);
+            if (_footerReserveHeight !== null) {
+                return _footerReserveHeight;
             }
+            let probe = document.createElement('div');
+            probe.style.position = 'absolute';
+            probe.style.left = '-9999px';
+            probe.style.top = '-9999px';
+            probe.style.visibility = 'hidden';
+            probe.style.width = pageSize == 'a4' ? '21cm' : '14.8cm';
+            document.body.appendChild(probe);
+            generateFooterSection(probe, jsonData, jsonData.others, 1);
+            let footerWrapper = probe.querySelector('.footer-wrapper');
+            let measured = footerWrapper ? footerWrapper.getBoundingClientRect().height : null;
+            document.body.removeChild(probe);
+            _footerReserveHeight = (measured !== null ? measured : cmToPx(pageSize == 'a4' ? 3.1 : 2.3)) + cmToPx(0.3);
+            return _footerReserveHeight;
         }
 
         function getElHeight(el) {
@@ -366,6 +397,54 @@
             const middleGap = cmToPx(pageSize == 'a4' ? 0.05 : 0.05);
             let hsn = false;
 
+            // Base proportions for each possible column. Actual invoices only ever show a
+            // subset of these (product_columns is configurable per business/invoice), so
+            // getColumnWidthPercent() below normalizes whichever subset is present to sum to
+            // exactly 100% - fixing two related bugs: (1) these widths were previously defined
+            // but never actually applied anywhere (every <td> hardcoded style.width = 'auto'
+            // regardless), and (2) with table-layout left at the browser's default "auto",
+            // the table recalculated column widths from ALL rows collectively as they were
+            // added - so a row's height, measured right after it was appended (used to decide
+            // page breaks), could go stale the moment a later row's content (e.g. a long
+            // product name) forced a retroactive width/wrap change in an earlier row's column.
+            // Confirmed empirically: a 7-column layout's "Description of Goods" column
+            // measured 313px after row 1 was added, then jumped to 599px once a long-named
+            // row 15 was added - invalidating every row height counted before that point.
+            const columnStyles = {
+                sl_no: { width: '2%', textAlign: 'center' },
+                marks_nos_container: { width: '3%', textAlign: 'center' },
+                no_pkgs: { width: '3%', textAlign: 'center' },
+                pro_code: { width: '10%', textAlign: 'center' },
+                pro_barcode: { width: '10%', textAlign: 'center' },
+                pro_name: { width: '50%', textAlign: 'left' },
+                bra_name: { width: '10%', textAlign: 'center' },
+                batch: { width: '10%', textAlign: 'center' },
+                mfg_date: { width: '10%', textAlign: 'center' },
+                exp_date: { width: '10%', textAlign: 'center' },
+                hsn: { width: '4%', textAlign: 'center' },
+                tax_rate: { width: '4%', textAlign: 'center' },
+                alt_qty: { width: '5%', textAlign: 'right', paddingRight: '5px' },
+                qty: { width: '5%', textAlign: 'right', paddingRight: '5px' },
+                free_qty: { width: '5%', textAlign: 'right', paddingRight: '5px' },
+                unit: { width: '5%', textAlign: 'center' },
+                mrp: { width: '8%', textAlign: 'right', paddingRight: '5px' },
+                rate: { width: '8%', textAlign: 'right', paddingRight: '5px' },
+                rate_post_tax: { width: '8%', textAlign: 'right', paddingRight: '5px' },
+                rate_pre_tax: { width: '8%', textAlign: 'right', paddingRight: '5px' },
+                per: { width: '4%', textAlign: 'center' },
+                disc1_per: { width: '5%', textAlign: 'center' },
+                disc1_amt: { width: '8%', textAlign: 'right', paddingRight: '5px' },
+                disc2_per: { width: '5%', textAlign: 'center' },
+                disc2_amt: { width: '8%', textAlign: 'right', paddingRight: '5px' },
+                amount: { width: '10%', textAlign: 'right', paddingRight: '5px' }
+            };
+            const columnBaseWidth = (name) => {
+                const style = columnStyles[name];
+                return style ? parseFloat(style.width) : 100 / product_columns.length;
+            };
+            const totalBaseWidth = product_columns.reduce((sum, col) => sum + columnBaseWidth(col.name), 0);
+            const getColumnWidthPercent = (name) => (columnBaseWidth(name) / totalBaseWidth * 100) + '%';
+
             function setupBodySection() {
                 if (currentPageCount != 1) {
                     const pageContentHeight = getPageContentHeightPx();
@@ -381,6 +460,12 @@
 
                 let bodyTable = document.createElement('table');
                 bodyTable.className = 'body-table';
+                // table-layout:auto (the default) recalculates column widths from ALL rows
+                // collectively as they're added, so per-row height measurements taken during
+                // incremental construction (below) go stale the moment a later row's content
+                // forces a retroactive width change in an earlier row's column. Fixed layout
+                // locks widths to this header row's percentages instead.
+                bodyTable.style.tableLayout = 'fixed';
 
                 let thead = document.createElement('thead');
                 let headerRow = document.createElement('tr');
@@ -391,6 +476,7 @@
                         if (column.name == "sl_no") {
                             column.display_name = "SL";
                         }
+                        th.style.width = getColumnWidthPercent(column.name);
                         if (column.name == "marks_nos_container" || column.name == "no_pkgs") {
                             th.style.maxWidth = '1.85cm';
                         }
@@ -426,35 +512,6 @@
                 items.forEach((item) => {
                     let tr = document.createElement('tr');
 
-                    const columnStyles = {
-                        sl_no: { width: '2%', textAlign: 'center' },
-                        marks_nos_container: { width: '3%', textAlign: 'center' },
-                        no_pkgs: { width: '3%', textAlign: 'center' },
-                        pro_code: { width: '10%', textAlign: 'center' },
-                        pro_barcode: { width: '10%', textAlign: 'center' },
-                        pro_name: { width: '50%', textAlign: 'left' },
-                        bra_name: { width: '10%', textAlign: 'center' },
-                        batch: { width: '10%', textAlign: 'center' },
-                        mfg_date: { width: '10%', textAlign: 'center' },
-                        exp_date: { width: '10%', textAlign: 'center' },
-                        hsn: { width: '4%', textAlign: 'center' },
-                        tax_rate: { width: '4%', textAlign: 'center' },
-                        alt_qty: { width: '5%', textAlign: 'right', paddingRight: '5px' },
-                        qty: { width: '5%', textAlign: 'right', paddingRight: '5px' },
-                        free_qty: { width: '5%', textAlign: 'right', paddingRight: '5px' },
-                        unit: { width: '5%', textAlign: 'center' },
-                        mrp: { width: '8%', textAlign: 'right', paddingRight: '5px' },
-                        rate: { width: '8%', textAlign: 'right', paddingRight: '5px' },
-                        rate_post_tax: { width: '8%', textAlign: 'right', paddingRight: '5px' },
-                        rate_pre_tax: { width: '8%', textAlign: 'right', paddingRight: '5px' },
-                        per: { width: '4%', textAlign: 'center' },
-                        disc1_per: { width: '5%', textAlign: 'center' },
-                        disc1_amt: { width: '8%', textAlign: 'right', paddingRight: '5px' },
-                        disc2_per: { width: '5%', textAlign: 'center' },
-                        disc2_amt: { width: '8%', textAlign: 'right', paddingRight: '5px' },
-                        amount: { width: '10%', textAlign: 'right', paddingRight: '5px' }
-                    };
-
                     product_columns.forEach((column) => {
                         let td = document.createElement('td');
                         td.style.borderTop = 'none';
@@ -468,7 +525,7 @@
                             td.style.fontSize = '10.5px';
                         }
                         const styles = columnStyles[column.name] || {};
-                        td.style.width = 'auto';
+                        td.style.width = getColumnWidthPercent(column.name);
                         td.style.textAlign = styles.textAlign;
                         td.style.paddingRight = styles.paddingRight;
                         td.style.whiteSpace = styles.whiteSpace;
@@ -2068,6 +2125,7 @@
                         isTermandConditionSection = false;
                         isFirstPage = true;
                         _pxPerCm = null;
+                        _footerReserveHeight = null;
                         generateSingleCopy(typeOfCopy);
                     }
 
