@@ -81,7 +81,11 @@
 			// A small safety margin (rather than the exact measured width) absorbs the
 			// vertical scrollbar this page needs for a tall multi-page report.
 			const availableWidth = document.documentElement.clientWidth - 20;
-			const scale = Math.min(1, availableWidth / naturalWidth);
+			// Always fill the available width - like a mobile PDF viewer's "fit to width",
+			// this scales UP on a screen wider than the report's natural size (previously
+			// capped at 1, which left the report at its natural size with dead space around
+			// it on anything wider than ~21cm) as well as down on a narrower one.
+			const scale = availableWidth / naturalWidth;
 
 			iframe.style.transform = `scale(${scale})`;
 			iframe.style.transformOrigin = 'top left';
