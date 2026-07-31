@@ -449,7 +449,13 @@
 				const headers = [
 					{ name: "Date", width: "13%" },
 					{ name: "Journal ID", width: "5%", show: jsonData.config.show_journal_id },
-					{ name: "By/To", width: "3%" },
+					// "By/To" as a single unbroken token (no space for the browser to wrap at)
+					// is wider than this column at any real font size, so it overflowed into
+					// the "Type" header next to it. The <br> forces it onto two lines instead
+					// of relying on the browser to find a break point in "By/To" (data rows
+					// only ever contain the short "By"/"To" on its own, so they were never
+					// affected).
+					{ name: "By/<br>To", width: "3%" },
 					{ name: "Type", width: "5%" },
 					{ name: "Account Name", width: "39%" },
 					{ name: "Debit", width: "10%" },
