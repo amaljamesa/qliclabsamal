@@ -208,29 +208,24 @@
 			return new TextDecoder().decode(bytes);
 		}
 
-		// Function to wait for all sections to have non-zero heights
-		function waitForNonZeroHeights(currentPage) {
-			return new Promise((resolve) => {
-				function checkHeights() {
-					const headerAddSection = currentPage.querySelector('.FloatNum');
-
-					// getBoundingClientRect() returns sub-pixel float values that reflect true
-					// CSS layout geometry - unlike offsetHeight, which rounds to whole device
-					// pixels and can round differently at different browser zoom levels, which
-					// was throwing off pagination whenever the page was zoomed in or out.
-					const headerAddHeight = headerAddSection ? headerAddSection.getBoundingClientRect().height : 0;
-
-					if (headerAddHeight > 0) {
-						resolve({
-							headerAddHeight,
-
-						});
-					} else {
-						requestAnimationFrame(checkHeights);
-					}
-				}
-				checkHeights();
-			});
+		// Measures the header's rendered height. This used to poll across animation frames
+		// waiting for a non-zero height, on the assumption that layout might not be ready
+		// the instant an element is appended - but getBoundingClientRect() forces the
+		// browser to flush any pending layout synchronously before returning, so the value
+		// is always accurate immediately, no waiting needed. That async polling was the
+		// actual cause of a real bug: generateSingleCopy() (below) had to be async to use
+		// it, and the browser does not wait for an async 'beforeprint' handler to finish
+		// before capturing print output - so printing could snapshot the page after this
+		// function's synchronous reset (which deletes the old pages) but before the
+		// rebuild finished, printing a blank page. Making this synchronous lets the whole
+		// generation run start-to-finish in one go, safe to call from 'beforeprint'.
+		function measureHeaderHeight(currentPage) {
+			const headerAddSection = currentPage.querySelector('.FloatNum');
+			// getBoundingClientRect() returns sub-pixel float values that reflect true CSS
+			// layout geometry - unlike offsetHeight, which rounds to whole device pixels and
+			// can round differently at different browser zoom levels, which was throwing off
+			// pagination whenever the page was zoomed in or out.
+			return headerAddSection ? headerAddSection.getBoundingClientRect().height : 0;
 		}
 
 		// Renders a throwaway footer off in the body (not the visible page) purely to measure
@@ -248,7 +243,7 @@
 		}
 
 		// Main function to generate the invoice content.
-		async function generateSingleCopy() {
+		function generateSingleCopy() {
 			// Defensive reset: some preview/PDF flows reuse the same window or iframe for a
 			// second render instead of doing a full page reload (e.g. navigating back to the
 			// outer screen, changing its zoom, then reopening the preview without a refresh).
@@ -287,8 +282,7 @@
 					// Generate sections of the invoice (header, attribute)
 					addSectionToPage(currentPage, generateHeaderSection, jsonData, isFirstPage);
 
-					// Wait for non-zero heights
-					const { headerAddHeight } = await waitForNonZeroHeights(currentPage);
+					const headerAddHeight = measureHeaderHeight(currentPage);
 
 					// Calculate available height for body section
 					// Footer height was previously a hardcoded 80px guess, which reserved far

@@ -28,16 +28,16 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
   private resizeTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly onResize = (): void => {
     clearTimeout(this.resizeTimer);
-    this.resizeTimer = setTimeout(() => void this.generateReport(), RESIZE_DEBOUNCE_MS);
+    this.resizeTimer = setTimeout(() => this.generateReport(), RESIZE_DEBOUNCE_MS);
   };
   private readonly onBeforePrint = (): void => {
-    void this.generateReport();
+    this.generateReport();
   };
 
   constructor(private route: ActivatedRoute) {}
 
   ngAfterViewInit(): void {
-    void this.generateReport();
+    this.generateReport();
     // Pagination is otherwise a one-time calculation done at load. If the user zooms
     // in/out *after* the report is already rendered, text can reflow slightly differently
     // at the new zoom (the same subpixel rounding issue fixed elsewhere, just triggered
@@ -85,27 +85,26 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
     return height;
   }
 
-  // Polls with rAF until the header section has actually laid out, since its rendered
-  // height (used to size the body section below it) isn't available the instant it's appended.
-  private waitForHeaderHeight(page: HTMLDivElement): Promise<number> {
-    return new Promise((resolve) => {
-      const check = () => {
-        const headerSection = page.querySelector('.FloatNum');
-        // getBoundingClientRect() returns sub-pixel float values that reflect true CSS
-        // layout geometry - unlike offsetHeight, which rounds to whole device pixels and
-        // can round differently at different browser zoom levels, throwing off pagination.
-        const height = headerSection ? headerSection.getBoundingClientRect().height : 0;
-        if (height > 0) {
-          resolve(height);
-        } else {
-          requestAnimationFrame(check);
-        }
-      };
-      check();
-    });
+  // Measures the header's rendered height. This used to poll across animation frames
+  // waiting for a non-zero height, on the assumption that layout might not be ready the
+  // instant an element is appended - but getBoundingClientRect() forces the browser to
+  // flush any pending layout synchronously before returning, so the value is always
+  // accurate immediately, no waiting needed. That async polling was the actual cause of a
+  // real bug: generateReport() had to be async to use it, and the browser does not wait
+  // for an async 'beforeprint' handler to finish before capturing print output - so
+  // printing could snapshot the page after this method's synchronous reset (which clears
+  // the container) but before the rebuild finished, printing a blank page. Making this
+  // synchronous lets the whole generation run start-to-finish in one go, safe to call
+  // from 'beforeprint'.
+  private measureHeaderHeight(page: HTMLDivElement): number {
+    const headerSection = page.querySelector('.FloatNum');
+    // getBoundingClientRect() returns sub-pixel float values that reflect true CSS layout
+    // geometry - unlike offsetHeight, which rounds to whole device pixels and can round
+    // differently at different browser zoom levels, throwing off pagination.
+    return headerSection ? headerSection.getBoundingClientRect().height : 0;
   }
 
-  private async generateReport(): Promise<void> {
+  private generateReport(): void {
     // Defensive reset: this runs again on every resize/zoom change (see ngAfterViewInit),
     // reusing the same container - without clearing it first, old .page elements would
     // stay in the DOM and the new run's pages would just pile up after them.
@@ -127,7 +126,7 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
       const localPageNumber = this.pageCount;
 
       this.addSectionToPage(page, (el) => this.generateHeaderSection(el, this.jsonData));
-      const headerAddHeight = await this.waitForHeaderHeight(page);
+      const headerAddHeight = this.measureHeaderHeight(page);
 
       const footerSectionHeight = this.measureFooterHeight(localPageNumber) + FOOTER_BUFFER_PX;
       const usedHeight = headerAddHeight + footerSectionHeight;
