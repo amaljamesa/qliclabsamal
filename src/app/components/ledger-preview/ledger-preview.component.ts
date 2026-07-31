@@ -19,6 +19,14 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
 
   private resizeTimer: ReturnType<typeof setTimeout> | undefined;
   private previousBodyOverflowX = '';
+  // Browser zoom (Ctrl +/-) scales the *entire* tab uniformly, including everything inside
+  // the iframe - so the outer viewport width and the report's measured natural width both
+  // move by the same factor when the user zooms, and that factor cancels out of the
+  // fit-to-width ratio in fitFrame() below. Without this baseline, zooming in/out alone
+  // (with no actual window resize) wouldn't change the on-screen size at all. Captured once
+  // at load as this display's "no zoom applied yet" reference point, since devicePixelRatio
+  // also reflects real monitor DPI, not just zoom - only *changes* from this baseline matter.
+  private readonly baselinePixelRatio = window.devicePixelRatio;
 
   private readonly onResize = (): void => {
     clearTimeout(this.resizeTimer);
@@ -41,12 +49,17 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
 
     this.ledgerFrame.nativeElement.addEventListener('load', this.onIframeLoad);
     window.addEventListener('resize', this.onResize);
+    // visualViewport is purpose-built to report zoom-driven viewport changes and fires more
+    // reliably for zoom-only changes (no accompanying window resize) than window's own
+    // resize event across browsers - belt-and-suspenders alongside the listener above.
+    window.visualViewport?.addEventListener('resize', this.onResize);
   }
 
   ngOnDestroy(): void {
     document.body.style.overflowX = this.previousBodyOverflowX;
     this.ledgerFrame.nativeElement.removeEventListener('load', this.onIframeLoad);
     window.removeEventListener('resize', this.onResize);
+    window.visualViewport?.removeEventListener('resize', this.onResize);
     clearTimeout(this.resizeTimer);
   }
 
@@ -81,7 +94,11 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
     // scales UP on a screen wider than the report's natural size (previously capped at 1,
     // which left the report at its natural size with dead space around it on anything wider
     // than ~21cm) as well as down on a narrower one.
-    const scale = availableWidth / naturalWidth;
+    const fitScale = availableWidth / naturalWidth;
+    // See baselinePixelRatio's comment: this factor is what actually makes zooming in/out
+    // change the on-screen size, since fitScale alone is zoom-invariant.
+    const zoomFactor = window.devicePixelRatio / this.baselinePixelRatio;
+    const scale = fitScale * zoomFactor;
 
     iframe.style.transform = `scale(${scale})`;
     iframe.style.transformOrigin = 'top left';
