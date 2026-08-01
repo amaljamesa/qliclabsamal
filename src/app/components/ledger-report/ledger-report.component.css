@@ -53,6 +53,16 @@
     page-break-after: always;
   }
 
+  /* Without this, the truly-last .page also gets page-break-after: always with nothing left
+     to flow onto the next page - Chrome still honors that as a forced break and prints a
+     genuine blank trailing page. Confirmed via a real print: an N-page report (N .page divs
+     on screen) came out as N+1 printed pages, the last one completely blank (0 characters of
+     text). appendChild's ordering means the actual final page is always body's last .page,
+     so this selector correctly targets only it, not the last page of some earlier copy. */
+  .page:last-child {
+    page-break-after: auto;
+  }
+
   /* Printing must always use the true, full-size layout regardless of whatever on-screen
      responsive scale is currently applied - !important guarantees this beats the inline
      transform/width/height set for on-screen display. */
