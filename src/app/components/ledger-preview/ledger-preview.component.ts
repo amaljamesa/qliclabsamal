@@ -39,6 +39,35 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
     setTimeout(() => this.fitFrame(), 50);
   };
 
+  // The iframe is deliberately kept at a fixed 900x1400px box on screen (see the CSS comment
+  // on .ledger-frame) and only visually scaled up/down with a CSS transform to fit the
+  // screen - but printing the *outer* wrapper page captures only what's actually laid out in
+  // that fixed box. Confirmed via a real print: the output only ever contained the first
+  // report page's content (oddly split across 2 physical pages) followed by several
+  // completely blank pages - the rest of the multi-page report, which on screen you'd only
+  // ever reach by scrolling inside the iframe, was never printed at all. Expanding the iframe
+  // to its true natural size beforehand (no transform, no clipping) makes the *entire* report
+  // part of the wrapper page's actual layout, so printing the wrapper prints all of it.
+  private readonly onBeforePrint = (): void => {
+    const iframe = this.ledgerFrame.nativeElement;
+    const doc = iframe.contentDocument;
+    if (!doc || !doc.documentElement) {
+      return;
+    }
+    const naturalWidth = doc.documentElement.scrollWidth;
+    const naturalHeight = doc.documentElement.scrollHeight;
+    iframe.style.transform = 'none';
+    iframe.style.width = `${naturalWidth}px`;
+    iframe.style.height = `${naturalHeight}px`;
+  };
+
+  private readonly onAfterPrint = (): void => {
+    const iframe = this.ledgerFrame.nativeElement;
+    iframe.style.width = '';
+    iframe.style.height = '';
+    this.fitFrame();
+  };
+
   ngAfterViewInit(): void {
     this.previousBodyOverflowX = document.body.style.overflowX;
     // The report is a fixed width - on a narrow screen that would normally force a
@@ -53,6 +82,8 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
     // reliably for zoom-only changes (no accompanying window resize) than window's own
     // resize event across browsers - belt-and-suspenders alongside the listener above.
     window.visualViewport?.addEventListener('resize', this.onResize);
+    window.addEventListener('beforeprint', this.onBeforePrint);
+    window.addEventListener('afterprint', this.onAfterPrint);
   }
 
   ngOnDestroy(): void {
@@ -60,6 +91,8 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
     this.ledgerFrame.nativeElement.removeEventListener('load', this.onIframeLoad);
     window.removeEventListener('resize', this.onResize);
     window.visualViewport?.removeEventListener('resize', this.onResize);
+    window.removeEventListener('beforeprint', this.onBeforePrint);
+    window.removeEventListener('afterprint', this.onAfterPrint);
     clearTimeout(this.resizeTimer);
   }
 

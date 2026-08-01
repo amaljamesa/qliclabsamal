@@ -94,6 +94,17 @@
 				page-break-after: always;
 			}
 
+			/* Without this, the truly-last .page also gets page-break-after: always with
+			   nothing left to flow onto the next page - Chrome still honors that as a forced
+			   break and prints a genuine blank trailing page. Confirmed via a real print: an
+			   N-page report (N .page divs on screen) came out as N+1 printed pages, the last
+			   one completely blank (0 characters of text). appendChild's ordering means the
+			   actual final page is always body's last .page, so this selector correctly
+			   targets only it. */
+			.page:last-child {
+				page-break-after: auto;
+			}
+
 			/* Our JS decides which .page a row belongs to by measuring heights up front, but
 			   without this, the browser's print engine can still slice an individual row's
 			   multi-line cell content across a physical page boundary if the real printed

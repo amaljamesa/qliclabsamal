@@ -24,3 +24,18 @@
   width: 900px;
   height: 1400px;
 }
+
+/* onBeforePrint expands the iframe to its true natural size (see the component) so the
+   entire multi-page report becomes part of the wrapper page's actual layout instead of just
+   whatever fit in the fixed on-screen box - but the wrapper div's own width/height (JS-set to
+   match the small *scaled* on-screen size) and overflow:hidden would otherwise clip that
+   expanded iframe right back down. !important guarantees this wins over those inline styles
+   regardless of whatever the last on-screen fit happened to compute. */
+@media print {
+  .frame-wrapper {
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+  }
+}
