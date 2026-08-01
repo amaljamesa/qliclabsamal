@@ -139,13 +139,17 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
     // A small safety margin (rather than the exact measured width) absorbs the vertical
     // scrollbar this page needs for a tall multi-page report.
     const availableWidth = document.documentElement.clientWidth - 20;
-    // Always fill the available width - like a mobile PDF viewer's "fit to width", this
-    // scales UP on a screen wider than the report's natural size (previously capped at 1,
-    // which left the report at its natural size with dead space around it on anything wider
-    // than ~21cm) as well as down on a narrower one.
-    const fitScale = availableWidth / naturalWidth;
+    // Capped at 1: on a screen wider than the report's natural size, show it centered at its
+    // true size (like a normal document viewer) rather than stretched to fill the whole
+    // screen - Priyanka's feedback was that filling wide screens made the report cover the
+    // entire display, which read as broken rather than responsive. Still shrinks below 1 on
+    // a narrower screen, where there wouldn't be room to show it at natural size without a
+    // horizontal scrollbar.
+    const fitScale = Math.min(1, availableWidth / naturalWidth);
     // See baselinePixelRatio's comment: this factor is what actually makes zooming in/out
-    // change the on-screen size, since fitScale alone is zoom-invariant.
+    // change the on-screen size, since fitScale alone is zoom-invariant. Applied on top of
+    // the capped fitScale, so zooming in can still enlarge past natural size if the user
+    // explicitly asks for that, even on a wide screen.
     const zoomFactor = window.devicePixelRatio / this.baselinePixelRatio;
     const scale = fitScale * zoomFactor;
 
