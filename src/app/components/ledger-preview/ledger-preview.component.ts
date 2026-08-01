@@ -42,23 +42,35 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
   // The iframe is deliberately kept at a fixed 900x1400px box on screen (see the CSS comment
   // on .ledger-frame) and only visually scaled up/down with a CSS transform to fit the
   // screen - but printing the *outer* wrapper page captures only what's actually laid out in
-  // that fixed box. Confirmed via a real print: the output only ever contained the first
-  // report page's content (oddly split across 2 physical pages) followed by several
-  // completely blank pages - the rest of the multi-page report, which on screen you'd only
-  // ever reach by scrolling inside the iframe, was never printed at all. Expanding the iframe
-  // to its true natural size beforehand (no transform, no clipping) makes the *entire* report
-  // part of the wrapper page's actual layout, so printing the wrapper prints all of it.
+  // that fixed box. Expanding the iframe to its true natural size beforehand (no transform,
+  // no clipping) makes the entire report part of the wrapper page's actual layout, so
+  // printing the wrapper prints all of it rather than just the first screenful.
+  //
+  // Deliberately NOT scrollWidth/scrollHeight here (like getBoundingClientRect, these reflect
+  // whatever on-screen zoom is currently active - confirmed via a real print that the page
+  // count varied by zoom level alone for identical data). Instead this counts .page elements
+  // (a plain DOM count, entirely unaffected by zoom) and multiplies by the report's own
+  // fixed, CSS-spec-defined page size (21cm x 29.7cm - see ledger-report.component.css,
+  // converted via the CSS specification's fixed 96px/2.54cm ratio). This wrapper page did not
+  // previously declare its own @page rule, so it fell back to the browser's default paper
+  // size (commonly Letter, not A4) - which didn't match the size the iframe's own internal
+  // page-break-after:always rules assume, and was the actual cause of a page's footer
+  // splitting off onto its own extra sheet in earlier testing (not the sizing math itself).
+  // The matching @page rule added to this component's CSS is what actually fixes that.
   private readonly onBeforePrint = (): void => {
     const iframe = this.ledgerFrame.nativeElement;
     const doc = iframe.contentDocument;
-    if (!doc || !doc.documentElement) {
+    if (!doc) {
       return;
     }
-    const naturalWidth = doc.documentElement.scrollWidth;
-    const naturalHeight = doc.documentElement.scrollHeight;
+    const pageCount = doc.querySelectorAll('.page').length;
+    if (pageCount === 0) {
+      return;
+    }
+    const CM_TO_PX = 96 / 2.54;
     iframe.style.transform = 'none';
-    iframe.style.width = `${naturalWidth}px`;
-    iframe.style.height = `${naturalHeight}px`;
+    iframe.style.width = `${21 * CM_TO_PX}px`;
+    iframe.style.height = `${pageCount * 29.7 * CM_TO_PX}px`;
   };
 
   private readonly onAfterPrint = (): void => {
@@ -84,6 +96,10 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
     window.visualViewport?.addEventListener('resize', this.onResize);
     window.addEventListener('beforeprint', this.onBeforePrint);
     window.addEventListener('afterprint', this.onAfterPrint);
+  }
+
+  print(): void {
+    window.print();
   }
 
   ngOnDestroy(): void {
