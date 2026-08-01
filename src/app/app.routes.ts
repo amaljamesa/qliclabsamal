@@ -9,6 +9,7 @@ import { WeblinkBrandingComponent } from './components/weblink-branding/weblink-
 import { PartyFormComponent } from './components/party-form/party-form.component';
 import { LedgerReportComponent } from './components/ledger-report/ledger-report.component';
 import { LedgerPreviewComponent } from './components/ledger-preview/ledger-preview.component';
+import { InvoicePreviewComponent } from './components/invoice-preview/invoice-preview.component';
 
 export const routes: Routes = [
   { path: 'dashboard', component: DashboardComponent },
@@ -26,6 +27,9 @@ export const routes: Routes = [
   { path: 'print/ledger', component: LedgerReportComponent },
   // Responsive preview: embeds print/ledger in a scaled iframe so it fits any screen width
   { path: 'print/ledger-preview', component: LedgerPreviewComponent },
+  // Invoice layout (A4/A5) - the report itself is a static file (public/print/invoice/view/),
+  // this route is only the responsive scaled-iframe wrapper around it, same pattern as above.
+  { path: 'print/invoice-preview', component: InvoicePreviewComponent },
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
   { path: '**', redirectTo: '/dashboard' }
 ];
