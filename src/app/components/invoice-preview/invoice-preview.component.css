@@ -1,0 +1,71 @@
+:host {
+  display: block;
+  background: #eef1f4;
+}
+
+/* Unlike the ledger (always A4), this report can be A4 or A5 per invoice - the @page rule
+   has to match whichever one the current data actually used, so it's injected dynamically
+   by the component (see ensurePageSizeStyle) rather than declared statically here. */
+
+#printButton {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
+  padding: 0.6rem 1.2rem;
+  font-size: 14px;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+#printButton:hover {
+  background: #1d4ed8;
+}
+
+/* Reports its own scaled (visual) size, since a CSS transform doesn't change the iframe's
+   own layout box - without this, the wrapper would still occupy the report's full,
+   unscaled width/height even when the iframe is shrunk to fit. margin: auto centers it
+   horizontally once it's narrower than the viewport (i.e. whenever fitFrame's scale is
+   capped at 1 on a wide screen) instead of sitting flush against the left edge. */
+.frame-wrapper {
+  overflow: hidden;
+  margin: 1rem auto;
+}
+
+/* Fixed at a size comfortably larger than any real report page (21cm ~ 794px wide, the
+   larger of A4/A5). This must never shrink below the report's own natural size - doing so
+   would change the iframe's *internal* viewport and fire the report's own internal resize
+   handling (it has its own independent responsive scaling for when it's opened directly,
+   not via this wrapper), which would shrink its content before this component ever gets a
+   chance to measure the true, natural size. Only a CSS transform (never the width/height) is
+   used to fit it to the screen from the outside. */
+.invoice-frame {
+  border: none;
+  display: block;
+  width: 900px;
+  height: 1400px;
+}
+
+/* onBeforePrint expands the iframe to its true natural size (see the component) so the
+   entire multi-page report becomes part of the wrapper page's actual layout instead of just
+   whatever fit in the fixed on-screen box - but the wrapper div's own width/height (JS-set to
+   match the small *scaled* on-screen size) and overflow:hidden would otherwise clip that
+   expanded iframe right back down. !important guarantees this wins over those inline styles
+   regardless of whatever the last on-screen fit happened to compute. */
+@media print {
+  .frame-wrapper {
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+  }
+
+  #printButton {
+    display: none !important;
+  }
+}
