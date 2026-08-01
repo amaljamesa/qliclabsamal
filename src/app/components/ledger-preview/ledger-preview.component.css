@@ -36,10 +36,12 @@
 
 /* Reports its own scaled (visual) size, since a CSS transform doesn't change the iframe's
    own layout box - without this, the wrapper would still occupy the report's full,
-   unscaled width/height even when the iframe is shrunk to fit. */
+   unscaled width/height even when the iframe is shrunk to fit. margin: auto centers it
+   horizontally once it's narrower than the viewport (i.e. whenever fitFrame's scale is
+   capped at 1 on a wide screen) instead of sitting flush against the left edge. */
 .frame-wrapper {
   overflow: hidden;
-  margin: 1rem 0;
+  margin: 1rem auto;
 }
 
 /* Fixed at a size comfortably larger than any real report page (21cm ~ 794px wide). This

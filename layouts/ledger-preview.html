@@ -18,13 +18,13 @@
 
 		/* Reports its own scaled (visual) size, since a CSS transform doesn't change the
 		   iframe's own layout box - without this, the wrapper would still occupy the
-		   report's full, unscaled width/height even when the iframe is shrunk to fit. */
+		   report's full, unscaled width/height even when the iframe is shrunk to fit.
+		   margin: auto centers it horizontally once it's narrower than the viewport (i.e.
+		   whenever fitFrame's scale is capped at 1 on a wide screen) instead of sitting
+		   flush against the left edge. */
 		#frameWrapper {
 			overflow: hidden;
-			/* No horizontal margin - the scale calculation below sizes this to fit the full
-			   available width, so any horizontal margin here would just push part of the
-			   content past the edge of the screen. */
-			margin: 1rem 0;
+			margin: 1rem auto;
 		}
 
 		/* Fixed at a size comfortably larger than any real report page (21cm ~ 794px wide).
@@ -144,11 +144,13 @@
 			// A small safety margin (rather than the exact measured width) absorbs the
 			// vertical scrollbar this page needs for a tall multi-page report.
 			const availableWidth = document.documentElement.clientWidth - 20;
-			// Always fill the available width - like a mobile PDF viewer's "fit to width",
-			// this scales UP on a screen wider than the report's natural size (previously
-			// capped at 1, which left the report at its natural size with dead space around
-			// it on anything wider than ~21cm) as well as down on a narrower one.
-			const fitScale = availableWidth / naturalWidth;
+			// Capped at 1: on a screen wider than the report's natural size, show it centered
+			// at its true size (like a normal document viewer) rather than stretched to fill
+			// the whole screen - Priyanka's feedback was that filling wide screens made the
+			// report cover the entire display, which read as broken rather than responsive.
+			// Still shrinks below 1 on a narrower screen, where there wouldn't be room to
+			// show it at natural size without a horizontal scrollbar.
+			const fitScale = Math.min(1, availableWidth / naturalWidth);
 			// See baselinePixelRatio's comment: this factor is what actually makes zooming
 			// in/out change the on-screen size, since fitScale alone is zoom-invariant.
 			const zoomFactor = window.devicePixelRatio / baselinePixelRatio;
