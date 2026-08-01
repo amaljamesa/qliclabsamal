@@ -55,11 +55,48 @@
 				overflow: visible !important;
 				margin: 0 !important;
 			}
+
+			#printButton {
+				display: none !important;
+			}
+		}
+
+		/* The report inside the iframe assumes A4 physical pages for its own internal
+		   page-break-after:always rules, but this wrapper page had no @page rule of its own -
+		   so printing it fell back to whatever default paper size the browser assumed
+		   (commonly Letter), which doesn't match A4. That mismatch was the actual cause of a
+		   page's footer splitting off onto its own extra sheet in testing - the outer page's
+		   own naive pagination didn't line up with the iframe's internal per-page boundaries
+		   until this was added. */
+		@page {
+			size: A4;
+			margin: 0;
+		}
+
+		#printButton {
+			position: fixed;
+			top: 1rem;
+			right: 1rem;
+			z-index: 10;
+			padding: 0.6rem 1.2rem;
+			font-size: 14px;
+			font-family: Arial, Helvetica, sans-serif;
+			background: #2563eb;
+			color: #fff;
+			border: none;
+			border-radius: 6px;
+			cursor: pointer;
+			box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+		}
+
+		#printButton:hover {
+			background: #1d4ed8;
 		}
 	</style>
 </head>
 
 <body>
+	<button id="printButton" type="button" onclick="window.print()">Print</button>
 	<div id="frameWrapper">
 		<iframe id="ledgerFrame" src="ledger.html?message=1"></iframe>
 	</div>
@@ -133,23 +170,33 @@
 		// The iframe is deliberately kept at a fixed 900x1400px box on screen and only
 		// visually scaled up/down with a CSS transform to fit the screen - but printing the
 		// *outer* wrapper page captures only what's actually laid out in that fixed box.
-		// Confirmed via a real print: the output only ever contained the first report page's
-		// content (oddly split across 2 physical pages) followed by several completely blank
-		// pages - the rest of the multi-page report, which on screen you'd only ever reach by
-		// scrolling inside the iframe, was never printed at all. Expanding the iframe to its
-		// true natural size beforehand (no transform, no clipping) makes the *entire* report
-		// part of the wrapper page's actual layout, so printing the wrapper prints all of it.
+		// Expanding the iframe to its true natural size beforehand (no transform, no
+		// clipping) makes the entire report part of the wrapper page's actual layout, so
+		// printing the wrapper prints all of it rather than just the first screenful.
+		//
+		// Deliberately NOT scrollWidth/scrollHeight here (like getBoundingClientRect, these
+		// reflect whatever on-screen zoom is currently active - confirmed via a real print
+		// that the page count varied by zoom level alone for identical data). Instead this
+		// counts .page elements (a plain DOM count, entirely unaffected by zoom) and
+		// multiplies by the report's own fixed, CSS-spec-defined page size (21cm x 29.7cm -
+		// see ledger.html - converted via the CSS specification's fixed 96px/2.54cm ratio).
+		// This wrapper page's matching @page rule above is what actually fixes the earlier
+		// footer-split-off-onto-its-own-page issue - that turned out to be caused by this
+		// page defaulting to a non-A4 paper size, not by the sizing math here.
 		window.addEventListener('beforeprint', () => {
 			const iframe = document.getElementById('ledgerFrame');
 			const doc = iframe.contentDocument || iframe.contentWindow.document;
-			if (!doc || !doc.documentElement) {
+			if (!doc) {
 				return;
 			}
-			const naturalWidth = doc.documentElement.scrollWidth;
-			const naturalHeight = doc.documentElement.scrollHeight;
+			const pageCount = doc.querySelectorAll('.page').length;
+			if (pageCount === 0) {
+				return;
+			}
+			const CM_TO_PX = 96 / 2.54;
 			iframe.style.transform = 'none';
-			iframe.style.width = `${naturalWidth}px`;
-			iframe.style.height = `${naturalHeight}px`;
+			iframe.style.width = `${21 * CM_TO_PX}px`;
+			iframe.style.height = `${pageCount * 29.7 * CM_TO_PX}px`;
 		});
 
 		window.addEventListener('afterprint', () => {

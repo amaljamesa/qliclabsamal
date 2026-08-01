@@ -3,6 +3,37 @@
   background: #eef1f4;
 }
 
+/* The report inside the iframe assumes A4 physical pages for its own internal
+   page-break-after:always rules, but this wrapper page had no @page rule of its own - so
+   printing it fell back to whatever default paper size the browser assumed (commonly
+   Letter), which doesn't match A4. That mismatch was the actual cause of a page's footer
+   splitting off onto its own extra sheet in testing - the outer page's own naive pagination
+   didn't line up with the iframe's internal per-page boundaries until this was added. */
+@page {
+  size: A4;
+  margin: 0;
+}
+
+#printButton {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
+  padding: 0.6rem 1.2rem;
+  font-size: 14px;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+#printButton:hover {
+  background: #1d4ed8;
+}
+
 /* Reports its own scaled (visual) size, since a CSS transform doesn't change the iframe's
    own layout box - without this, the wrapper would still occupy the report's full,
    unscaled width/height even when the iframe is shrunk to fit. */
@@ -37,5 +68,9 @@
     height: auto !important;
     overflow: visible !important;
     margin: 0 !important;
+  }
+
+  #printButton {
+    display: none !important;
   }
 }
