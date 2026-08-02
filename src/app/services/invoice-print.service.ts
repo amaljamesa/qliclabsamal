@@ -277,4 +277,218 @@ export class InvoicePrintService {
     sessionStorage.setItem('temp_inv_data', base64);
     window.open('/print/invoice-preview?message=1', '_blank');
   }
+
+  // Bulk print entry point: takes the ids selected in the invoice list and opens ONE preview
+  // covering all of them, back-to-back on the same document - the print layout script
+  // (public/print/invoice/view/invoice.html, see generateReport) renders a
+  // `{ invoices: [...] }` payload as one continuous run of pages, so the single Print button
+  // already wired up on InvoicePreviewComponent fires one window.print() call for the whole
+  // batch instead of one dialog per invoice.
+  //
+  // TEMPORARY testing stand-in per Priyanka's task (Slack, Interns Research 2026, 2026-08-01):
+  // the real flow is "Bulk Print" -> API call returning each selected invoice's JSON -> print.
+  // That API doesn't exist yet, so for now this ignores the real invoice data and repeats a
+  // single hardcoded JSON payload once per selected id, purely to prove out and test the
+  // continuous multi-invoice print flow itself. Swap HARDCODED_BULK_TEST_INVOICE (or this
+  // whole method body) for a real API call once that endpoint exists.
+  openBulkInvoicePreview(invoiceIds: string[]): void {
+    if (invoiceIds.length === 0) {
+      return;
+    }
+    const invoices = invoiceIds.map(() => HARDCODED_BULK_TEST_INVOICE);
+    const base64 = utf8ToBase64(JSON.stringify({ invoices }));
+    sessionStorage.setItem('temp_inv_data', base64);
+    window.open('/print/invoice-preview?message=1', '_blank');
+  }
 }
+
+// Test data for openBulkInvoicePreview() above - the actual JSON Priyanka shared (Slack,
+// Interns Research 2026, 2026-08-01) for this task, pasted in verbatim.
+const HARDCODED_BULK_TEST_INVOICE = {
+  items: [
+    {
+      hsn: '', key: '', mrp: '1500.00', per: 'PCS', qty: '1.00', desc: '', rate: '1500.00',
+      unit: 'PCS', batch: '', sl_no: 1, value: '', amount: '1271.18', alt_qty: ' ', no_pkgs: '',
+      bra_name: 'nan', exp_date: null, free_qty: 0, mfg_date: null, pro_code: '', pro_name: 'nan',
+      tax_rate: 18, disc1_amt: 0, disc1_per: 0, disc2_amt: 0, disc2_per: 0, pro_image: '',
+      serial_no: '', pro_barcode: '', rate_pre_tax: '1271.18', rate_post_tax: '1500.00',
+      with_tax_total_amt: '1500.00', marks_nos_container: ''
+    },
+    {
+      hsn: '3406', key: '', mrp: '10.00', per: 'UNT', qty: '1.00', desc: 'Blue Candle  Last for 2 Hours',
+      rate: '10.00', unit: 'UNT', batch: '', sl_no: 2, value: '', amount: '8.48', alt_qty: '1 UNT',
+      no_pkgs: '', bra_name: 'N/A', exp_date: '', free_qty: 0, mfg_date: '', pro_code: '12356',
+      pro_name: 'N/A', tax_rate: 18, disc1_amt: 0, disc1_per: 0, disc2_amt: 0, disc2_per: 0,
+      serial_no: '', pro_barcode: '895447521452', rate_pre_tax: '8.48', rate_post_tax: '10.00',
+      with_tax_total_amt: '10.00', marks_nos_container: ''
+    },
+    {
+      hsn: '100640', key: '', mrp: '20.00', per: 'KGS', qty: '1.00', desc: '', rate: '15.00',
+      unit: 'KGS', batch: '', sl_no: 3, value: '', amount: '15.00', alt_qty: '0.1 BAG', no_pkgs: '',
+      bra_name: 'N/A', exp_date: '', free_qty: 0, mfg_date: '', pro_code: '', pro_name: 'Rice',
+      tax_rate: 0, disc1_amt: 0, disc1_per: 0, disc2_amt: 0, disc2_per: 0, serial_no: '',
+      pro_barcode: '1800159', rate_pre_tax: '15.00', rate_post_tax: '15.00',
+      with_tax_total_amt: '15.00', marks_nos_container: ''
+    },
+    {
+      hsn: '72029990', key: '', mrp: '0.00', per: 'BAG', qty: '1.00', desc: '', rate: '55.00',
+      unit: 'BAG', batch: '', sl_no: 4, value: '', amount: '51.34', alt_qty: '1 BAG', no_pkgs: '',
+      bra_name: 'N/A', exp_date: '', free_qty: 0, mfg_date: '', pro_code: '', pro_name: 'Wheat',
+      tax_rate: 5, disc1_amt: 1.1, disc1_per: 2, disc2_amt: 0, disc2_per: 0, serial_no: '',
+      pro_barcode: '89541155454826', rate_pre_tax: '51.34', rate_post_tax: '53.90',
+      with_tax_total_amt: '53.90', marks_nos_container: ''
+    },
+    {
+      hsn: '0101', key: '', mrp: '55.00', per: 'NOS', qty: '1.00', desc: '', rate: '51.75',
+      unit: 'NOS', batch: '', sl_no: 5, value: '', amount: '32.89', alt_qty: '0.1 BAL', no_pkgs: '',
+      bra_name: 'N/A', exp_date: '', free_qty: 0, mfg_date: '', pro_code: '',
+      pro_name: 'Chocolate Parle 50 gram Pack', tax_rate: 18, disc1_amt: 12.94, disc1_per: 25,
+      disc2_amt: 0, disc2_per: 0, serial_no: '', pro_barcode: '5555555', rate_pre_tax: '32.89',
+      rate_post_tax: '38.81', with_tax_total_amt: '38.81', marks_nos_container: ''
+    },
+    {
+      hsn: '010410', key: '', mrp: '225.00', per: 'UNT', qty: '1.00', desc: '', rate: '217.00',
+      unit: 'UNT', batch: '', sl_no: 6, value: '', amount: '206.15', alt_qty: '1 UNT', no_pkgs: '',
+      bra_name: 'N/A', exp_date: '', free_qty: 0, mfg_date: '', pro_code: '',
+      pro_name: 'Bill of Material', tax_rate: 0, disc1_amt: 10.85, disc1_per: 5, disc2_amt: 0,
+      disc2_per: 0, serial_no: '', pro_barcode: '8904252525', rate_pre_tax: '206.15',
+      rate_post_tax: '206.15', with_tax_total_amt: '206.15', marks_nos_container: ''
+    },
+    {
+      hsn: '2524', key: '', mrp: '0.00', per: 'KGS', qty: '1.00', desc: '', rate: '20.00',
+      unit: 'KGS', batch: '', sl_no: 7, value: '', amount: '20.00', alt_qty: '1 KGS', no_pkgs: '',
+      bra_name: 'N/A', exp_date: '', free_qty: 0, mfg_date: '', pro_code: '',
+      pro_name: 'Bill of Material', tax_rate: 0, disc1_amt: 0, disc1_per: 0, disc2_amt: 0,
+      disc2_per: 0, serial_no: '', pro_barcode: 'Bill of Material', rate_pre_tax: '20.00',
+      rate_post_tax: '20.00', with_tax_total_amt: '20.00', marks_nos_container: ''
+    },
+    {
+      hsn: '', key: '', mrp: '0.00', per: 'LTR', qty: '1.00', desc: '', rate: '10.00', unit: 'LTR',
+      batch: '', sl_no: 8, value: '', amount: '10.00', alt_qty: '1 LTR', no_pkgs: '', bra_name: 'N/A',
+      exp_date: '', free_qty: 0, mfg_date: '', pro_code: '', pro_name: 'Bill of Material',
+      tax_rate: 0, disc1_amt: 0, disc1_per: 0, disc2_amt: 0, disc2_per: 0, serial_no: '',
+      pro_barcode: 'Bill of Material', rate_pre_tax: '10.00', rate_post_tax: '10.00',
+      with_tax_total_amt: '10.00', marks_nos_container: ''
+    },
+    {
+      hsn: '17019910', key: '', mrp: '0.00', per: 'KGS', qty: '1.00', desc: '', rate: '50.00',
+      unit: 'KGS', batch: '', sl_no: 9, value: '', amount: '50.00', alt_qty: '1 KGS', no_pkgs: '',
+      bra_name: 'N/A', exp_date: '', free_qty: 0, mfg_date: '', pro_code: '',
+      pro_name: 'Bill of Material', tax_rate: 0, disc1_amt: 0, disc1_per: 0, disc2_amt: 0,
+      disc2_per: 0, serial_no: '', pro_barcode: 'Bill of Material', rate_pre_tax: '50.00',
+      rate_post_tax: '50.00', with_tax_total_amt: '50.00', marks_nos_container: ''
+    },
+    {
+      hsn: '09109990', key: '', mrp: '0.00', per: 'KGS', qty: '1.00', desc: '', rate: '10.00',
+      unit: 'KGS', batch: '', sl_no: 10, value: '', amount: '10.00', alt_qty: ' ', no_pkgs: '',
+      bra_name: 'N/A', exp_date: '', free_qty: 0, mfg_date: '', pro_code: '',
+      pro_name: 'Garam Masala - BOM', tax_rate: 0, disc1_amt: 0, disc1_per: 0, disc2_amt: 0,
+      disc2_per: 0, serial_no: '', pro_barcode: 'Garam Masala - BOM', rate_pre_tax: '10.00',
+      rate_post_tax: '10.00', with_tax_total_amt: '10.00', marks_nos_container: ''
+    },
+    {
+      hsn: '39232100', key: '', mrp: '73.00', per: 'NOS', qty: '1.00', desc: '', rate: '73.00',
+      unit: 'NOS', batch: '', sl_no: 11, value: '', amount: '61.86', alt_qty: ' ', no_pkgs: '',
+      bra_name: 'N/A', exp_date: '', free_qty: 0, mfg_date: '', pro_code: '',
+      pro_name: 'GARBAGE BAGS 19*21', tax_rate: 18, disc1_amt: 0, disc1_per: 0, disc2_amt: 0,
+      disc2_per: 0, serial_no: '', pro_barcode: '', rate_pre_tax: '61.86', rate_post_tax: '73.00',
+      with_tax_total_amt: '73.00', marks_nos_container: ''
+    }
+  ],
+  config: {
+    is_rcm: false, bill_to: true, ship_to: false, be_details: true, footer_date: true,
+    is_canceled: false, display_desc: '2', rate_pre_tax: true, rate_pre_disc: true,
+    logo_watermark: true, display_arrears: false, is_packing_slip: false, include_you_save: false,
+    is_order_summary: false, include_signature: true, is_gst_applicable: true,
+    print_hsn_summary: true, print_tax_summary: false, tax_below_product: false,
+    authorised_signatory: true, include_payment_qrcode: true
+  },
+  copies: [{ type: 'Original', typeOfCopy: 0 }],
+  design: { logo: '', signature: '' },
+  footer: [{ value: '' }, { value: '' }, { value: '' }],
+  others: {
+    irn: '', name: 'Total', ack_no: '', upi_id: '', arrears: '112 Dr', ack_date: '',
+    page_size: 'a4', total_qty: 0, total_disc1: 25, total_disc2: 0,
+    amt_in_words: 'One Thousand Nine Hundred Eighty Seven  Rupees Only', bank_details: '',
+    total_amount: '1987.00', total_free_qty: 0, total_outstand: 112, einvoice_details: '',
+    tax_amt_in_words: 'Two Hundred Forty Nine  Rupees And Ninety Six Paise Only',
+    terms_and_conditions: 'Note\nterms and condition texted here'
+  },
+  recpay: {
+    recpay: [
+      {
+        amount: 1987, pmt_mid: 26186, account_id: 33, recpay_tid: 2089, recpay_auth: '',
+        recpay_name: 'Cash', received_cash: 2000, recpay_type_id: 1, recpay_card_number: ''
+      }
+    ]
+  },
+  bill_to: {
+    party_pin: '', party_add1: '', party_add2: '', party_add3: '', party_name: 'Walk - In',
+    party_gstin: '', party_phone: '9999999991'
+  },
+  heading: { name: 'Tax Invoice', sub_name: '', doc_copy_type: 'Original, Duplicate, Triplicate' },
+  inv_att: [],
+  ship_to: { pin: '', add1: '', add2: '', add3: '', name: '', gstin: '', phone: '' },
+  be_details: {
+    pin: '560026', phone: '7777777777', beb_name: 'Sunshine Limited', beb_gstin: '',
+    beb_addline1: '5th Floor Bejai, Bangalore-575003 FSSAI 256356 0824-205235', beb_addline2: '',
+    beb_addline3: '', fssai_number: '12345678321052'
+  },
+  hsncolumns: [
+    { name: 'hsn/sac', visible: '1', sequence: '', display_name: 'HSN/SAC', display_name_amt: '', display_name_rate: '' },
+    { name: 'taxable_value', visible: '1', sequence: '', display_name: 'Taxable Value', display_name_amt: '', display_name_rate: '' },
+    { name: 'output_cgst', visible: '1', sequence: '', display_name: 'Central Tax', display_name_amt: 'Amount', display_name_rate: 'Rate' },
+    { name: 'output_sgst', visible: '1', sequence: '', display_name: 'State Tax', display_name_amt: 'Amount', display_name_rate: 'Rate' },
+    { name: 'output_igst', visible: '0', sequence: '', display_name: 'Integrated Tax Amount', display_name_amt: 'Amount', display_name_rate: 'Rate' },
+    { name: 'cess', visible: '0', sequence: '', display_name: 'Cess', display_name_amt: 'Amount', display_name_rate: 'Rate' },
+    { name: 'round_off', visible: '1', sequence: '', display_name: 'Round Off', display_name_amt: '', display_name_rate: '' },
+    { name: 'total_tax', visible: '1', sequence: '', display_name: 'Total Tax Amount', display_name_amt: '', display_name_rate: '' }
+  ],
+  attr_border: { enable: true },
+  tax_details: [
+    { hsn: '', cess_tax_rate: '0%', taxable_value: '1271.18', state_tax_rate: '9%', cess_tax_amount: '0.00', central_tax_rate: '9%', state_tax_amount: '114.41', total_tax_amount: '228.82', central_tax_amount: '114.41', integrated_tax_rate: '18%', integrated_tax_amount: '228.82' },
+    { hsn: '3406', cess_tax_rate: '0%', taxable_value: '8.48', state_tax_rate: '9%', cess_tax_amount: '0.00', central_tax_rate: '9%', state_tax_amount: '0.76', total_tax_amount: '1.52', central_tax_amount: '0.76', integrated_tax_rate: '18%', integrated_tax_amount: '1.52' },
+    { hsn: '100640', cess_tax_rate: '0%', taxable_value: '15.00', state_tax_rate: '0%', cess_tax_amount: '0.00', central_tax_rate: '0%', state_tax_amount: '0.00', total_tax_amount: '0.00', central_tax_amount: '0.00', integrated_tax_rate: '0%', integrated_tax_amount: '0.00' },
+    { hsn: '72029990', cess_tax_rate: '0%', taxable_value: '51.34', state_tax_rate: '2.5%', cess_tax_amount: '0.00', central_tax_rate: '2.5%', state_tax_amount: '1.28', total_tax_amount: '2.56', central_tax_amount: '1.28', integrated_tax_rate: '5%', integrated_tax_amount: '2.56' },
+    { hsn: '0101', cess_tax_rate: '0%', taxable_value: '32.89', state_tax_rate: '9%', cess_tax_amount: '0.00', central_tax_rate: '9%', state_tax_amount: '2.96', total_tax_amount: '5.92', central_tax_amount: '2.96', integrated_tax_rate: '18%', integrated_tax_amount: '5.92' },
+    { hsn: '010410', cess_tax_rate: '0%', taxable_value: '206.15', state_tax_rate: '0%', cess_tax_amount: '0.00', central_tax_rate: '0%', state_tax_amount: '0.00', total_tax_amount: '0.00', central_tax_amount: '0.00', integrated_tax_rate: '0%', integrated_tax_amount: '0.00' },
+    { hsn: '2524', cess_tax_rate: '0%', taxable_value: '20.00', state_tax_rate: '0%', cess_tax_amount: '0.00', central_tax_rate: '0%', state_tax_amount: '0.00', total_tax_amount: '0.00', central_tax_amount: '0.00', integrated_tax_rate: '0%', integrated_tax_amount: '0.00' },
+    { hsn: '', cess_tax_rate: '0%', taxable_value: '10.00', state_tax_rate: '0%', cess_tax_amount: '0.00', central_tax_rate: '0%', state_tax_amount: '0.00', total_tax_amount: '0.00', central_tax_amount: '0.00', integrated_tax_rate: '0%', integrated_tax_amount: '0.00' },
+    { hsn: '17019910', cess_tax_rate: '0%', taxable_value: '50.00', state_tax_rate: '0%', cess_tax_amount: '0.00', central_tax_rate: '0%', state_tax_amount: '0.00', total_tax_amount: '0.00', central_tax_amount: '0.00', integrated_tax_rate: '0%', integrated_tax_amount: '0.00' },
+    { hsn: '09109990', cess_tax_rate: '0%', taxable_value: '10.00', state_tax_rate: '0%', cess_tax_amount: '0.00', central_tax_rate: '0%', state_tax_amount: '0.00', total_tax_amount: '0.00', central_tax_amount: '0.00', integrated_tax_rate: '0%', integrated_tax_amount: '0.00' },
+    { hsn: '39232100', cess_tax_rate: '0%', taxable_value: '61.86', state_tax_rate: '9%', cess_tax_amount: '0.00', central_tax_rate: '9%', state_tax_amount: '5.57', total_tax_amount: '11.14', central_tax_amount: '5.57', integrated_tax_rate: '18%', integrated_tax_amount: '11.14' }
+  ],
+  master_details: {
+    inv_no: 'RSP-S-26-00002', pmt_time: '5:08:04 PM', billed_by: 'Sachin', serial_no: 2,
+    paid_topay: 'Paid - Cash', design_type: 1, due_by_date: '', extra_lines: 0,
+    place_supply: '29 - Karnataka', pmt_doc_date: '24-07-2026', doc_reference: '',
+    master_transaction: 2
+  },
+  product_columns: [
+    { id: '1', name: 'sl_no', visible: '', sequence: '', display_name: 'SL.No' },
+    { id: '6', name: 'pro_name', visible: '', sequence: '', display_name: 'Description of Goods/Services' },
+    { id: '13', name: 'alt_qty', display_name: 'Alt.Qty' },
+    { id: '14', name: 'qty', visible: '', sequence: '', display_name: 'Qty' },
+    { id: '16', name: 'unit', visible: '', sequence: '', display_name: 'Unit' },
+    { id: '17', name: 'rate', display_name: 'Rate' },
+    { id: '25', name: 'tax_rate', visible: '', sequence: '', display_name: 'Tax%' },
+    { id: '26', name: 'amount', display_name: 'Amount' }
+  ],
+  tax_details_total: {
+    name: 'Total', total_tax_amount: '249.96', total_taxable_value: '1736.90',
+    total_cess_tax_amount: '0.00', total_state_tax_amount: '124.98',
+    total_central_tax_amount: '124.98', total_integrated_tax_amount: 0
+  },
+  tax_split_up_total: [
+    { name: 'Output CGST%', rate: 9, amount: '123.70' },
+    { name: 'Output SGST%', rate: 9, amount: '123.70' },
+    { name: 'Output CGST%', rate: 2.5, amount: '1.28' },
+    { name: 'Output SGST%', rate: 2.5, amount: '1.28' },
+    { name: 'Round Off', rate: '', amount: '0.14' }
+  ],
+  tax_summary_details: [
+    { cess_tax_rate: '0%', taxable_value: 1374.41, state_tax_rate: '9%', cess_tax_amount: 0, central_tax_rate: '9%', state_tax_amount: 123.7, total_tax_amount: 247.4, central_tax_amount: 123.7, integrated_tax_rate: '18%', integrated_tax_amount: 247.4 },
+    { cess_tax_rate: '0%', taxable_value: 311.15, state_tax_rate: '0%', cess_tax_amount: 0, central_tax_rate: '0%', state_tax_amount: 0, total_tax_amount: 0, central_tax_amount: 0, integrated_tax_rate: '0%', integrated_tax_amount: 0 },
+    { cess_tax_rate: '0%', taxable_value: '51.34', state_tax_rate: '2.5%', cess_tax_amount: '0.00', central_tax_rate: '2.5%', state_tax_amount: '1.28', total_tax_amount: '2.56', central_tax_amount: '1.28', integrated_tax_rate: '5%', integrated_tax_amount: '2.56' }
+  ]
+};

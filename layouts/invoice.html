@@ -281,53 +281,39 @@
             };
         }
 
+        // jsonData/pageSize are set by the caller (generateReport) before this runs, rather
+        // than decoded here - one invoice's payload can produce several copies (Original/
+        // Duplicate/etc, see jsonData.copies), all sharing the same underlying data, and a
+        // bulk print run calls this once per copy per invoice in the batch (see generateReport).
         function generateSingleCopy(copy) {
-            let searchParams = new URLSearchParams(window.location.search);
-            let message = searchParams.get('message');
+            try {
+                const container = document.querySelector('body');
+                container.classList.add(pageSize == 'a4' ? 'page-a4' : 'page-other');
 
-            if (message) {
-                try {
-                    var retrievedValue = sessionStorage.getItem('temp_inv_data');
-                    if (retrievedValue !== null) {
-                        let decodedString = base64ToUtf8(retrievedValue);
-                        jsonData = JSON.parse(decodedString);
-                    } else {
-                        let decodedString = base64ToUtf8(message);
-                        jsonData = JSON.parse(decodedString);
-                    }
+                // Record starting page index for this copy
+                let startPageIndex = document.querySelectorAll('.page').length;
 
-                    pageSize = (jsonData.others.page_size == "" || jsonData.others.page_size == undefined) ? 'a4' : jsonData.others.page_size;
+                let currentPage = createNewPage();
+                let localPageNumber = currentPageCount;
 
-                    const container = document.querySelector('body');
-                    container.classList.add(pageSize == 'a4' ? 'page-a4' : 'page-other');
+                addSectionToPage(currentPage, generateHeaderSection, jsonData, isFirstPage);
+                addSectionToPage(currentPage, generateInvoiceAttributeSection, jsonData);
 
-                    // Record starting page index for this copy
-                    let startPageIndex = document.querySelectorAll('.page').length;
+                const { headerAddHeight, headerEinvoiceHeight, invoiceAttributeHeight } = measureHeaderHeights(currentPage);
 
-                    let currentPage = createNewPage();
-                    let localPageNumber = currentPageCount;
+                const pageContentHeight = getPageContentHeightPx();
+                const footerReserve = getFooterReserveHeightPx();
+                const usedHeight = headerAddHeight + headerEinvoiceHeight + invoiceAttributeHeight + footerReserve;
+                maxHeight = pageContentHeight - usedHeight;
 
-                    addSectionToPage(currentPage, generateHeaderSection, jsonData, isFirstPage);
-                    addSectionToPage(currentPage, generateInvoiceAttributeSection, jsonData);
+                generateBodySectionWithPagination(currentPage, jsonData, jsonData.product_columns, jsonData.items, maxHeight);
 
-                    const { headerAddHeight, headerEinvoiceHeight, invoiceAttributeHeight } = measureHeaderHeights(currentPage);
+                // Record ending page index for this copy
+                let endPageIndex = document.querySelectorAll('.page').length;
+                copyPageIndices.push({ start: startPageIndex, end: endPageIndex });
 
-                    const pageContentHeight = getPageContentHeightPx();
-                    const footerReserve = getFooterReserveHeightPx();
-                    const usedHeight = headerAddHeight + headerEinvoiceHeight + invoiceAttributeHeight + footerReserve;
-                    maxHeight = pageContentHeight - usedHeight;
-
-                    generateBodySectionWithPagination(currentPage, jsonData, jsonData.product_columns, jsonData.items, maxHeight);
-
-                    // Record ending page index for this copy
-                    let endPageIndex = document.querySelectorAll('.page').length;
-                    copyPageIndices.push({ start: startPageIndex, end: endPageIndex });
-
-                } catch (error) {
-                    console.error('Error decoding or parsing JSON:', error);
-                }
-            } else {
-                console.error('No message found in the URL parameters.');
+            } catch (error) {
+                console.error('Error generating copy:', error);
             }
         }
 
@@ -2081,7 +2067,7 @@
             styleEl.textContent = '@page { size: ' + dimensions + '; margin: 0; }';
         }
 
-        // Defensive reset: generateAllCopies() re-runs whole on every resize/beforeprint (see
+        // Defensive reset: generateReport() re-runs whole on every resize/beforeprint (see
         // listeners below), reusing the same document - without clearing previously generated
         // pages first, old .page elements would stay in the DOM and the new run would just pile
         // up after them.
@@ -2090,7 +2076,14 @@
             document.body.classList.remove('page-a4', 'page-other');
         }
 
-        function generateAllCopies() {
+        // Renders one or more invoices onto the same document, back-to-back, so that a single
+        // window.print() call (fired once by the host page - see invoice-preview.component.ts)
+        // produces one continuous print job covering all of them, rather than a separate print
+        // dialog per invoice. A bulk print sends { invoices: [ ...one payload per selected
+        // invoice... ] }; a single invoice preview sends the invoice payload directly - both
+        // are normalized to an array here so the rest of the pipeline doesn't need to care
+        // which case it's in.
+        function generateReport() {
             let searchParams = new URLSearchParams(window.location.search);
             let message = searchParams.get('message');
 
@@ -2099,35 +2092,39 @@
                     resetGeneratedContent();
 
                     var retrievedValue = sessionStorage.getItem('temp_inv_data');
-                    if (retrievedValue !== null) {
-                        let decodedString = base64ToUtf8(retrievedValue);
-                        jsonData = JSON.parse(decodedString);
-                    } else {
-                        let decodedString = base64ToUtf8(message);
-                        jsonData = JSON.parse(decodedString);
-                    }
-
-                    pageSize = (jsonData.others.page_size == "" || jsonData.others.page_size == undefined) ? 'a4' : jsonData.others.page_size;
-                    const container = document.querySelector('body');
-                    container.classList.add(pageSize == 'a4' ? 'page-a4' : 'page-other');
-                    ensurePageSizeStyle(pageSize);
-
-                    if (!jsonData.copies || jsonData.copies.length === 0) {
-                        jsonData.copies = [{ type: "Original", typeOfCopy: 0 }];
-                    }
+                    let decodedString = retrievedValue !== null ? base64ToUtf8(retrievedValue) : base64ToUtf8(message);
+                    let payload = JSON.parse(decodedString);
+                    const invoiceList = Array.isArray(payload.invoices) ? payload.invoices : [payload];
 
                     copyPageIndices = [];
 
-                    for (let a = 0; a < jsonData.copies.length; a++) {
-                        typeOfCopy = jsonData.copies[a].typeOfCopy;
-                        currentPageCount = 1;
-                        isHSNSection = false;
-                        isTermandConditionSection = false;
-                        isFirstPage = true;
-                        _pxPerCm = null;
-                        _footerReserveHeight = null;
-                        generateSingleCopy(typeOfCopy);
-                    }
+                    invoiceList.forEach((invoiceData) => {
+                        jsonData = invoiceData;
+                        pageSize = (jsonData.others.page_size == "" || jsonData.others.page_size == undefined) ? 'a4' : jsonData.others.page_size;
+                        const container = document.querySelector('body');
+                        container.classList.add(pageSize == 'a4' ? 'page-a4' : 'page-other');
+                        // NOTE: with mixed A4/A5 invoices in one bulk batch, whichever invoice
+                        // renders last wins the @page size for the whole print job (same
+                        // limitation the on-screen preview already has - see
+                        // getPageDimensionsCm in invoice-preview.component.ts, which reads only
+                        // the first .page element). Not a concern for same-size batches.
+                        ensurePageSizeStyle(pageSize);
+
+                        if (!jsonData.copies || jsonData.copies.length === 0) {
+                            jsonData.copies = [{ type: "Original", typeOfCopy: 0 }];
+                        }
+
+                        for (let a = 0; a < jsonData.copies.length; a++) {
+                            typeOfCopy = jsonData.copies[a].typeOfCopy;
+                            currentPageCount = 1;
+                            isHSNSection = false;
+                            isTermandConditionSection = false;
+                            isFirstPage = true;
+                            _pxPerCm = null;
+                            _footerReserveHeight = null;
+                            generateSingleCopy(typeOfCopy);
+                        }
+                    });
 
                 } catch (error) {
                     console.error('Error decoding or parsing JSON:', error);
@@ -2144,23 +2141,23 @@
         // reflow slightly differently at the new size, growing a row past what was originally
         // budgeted for - and since later sections/footer sit at positions computed from the
         // old budget, that growth pushes content into/past them. Zoom changes fire a resize
-        // event (they change the effective CSS pixel viewport), so re-running generateAllCopies()
+        // event (they change the effective CSS pixel viewport), so re-running generateReport()
         // here re-paginates against the new, live measurements.
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(generateAllCopies, RESIZE_DEBOUNCE_MS);
+            resizeTimer = setTimeout(generateReport, RESIZE_DEBOUNCE_MS);
         });
 
         // Printing is a separate rendering pass that can differ from the on-screen zoom, so a
         // page grouping calibrated for the current screen doesn't necessarily match what
         // actually prints. Regenerating here calibrates pagination against print. This is only
-        // safe because generateAllCopies()/generateSingleCopy() are fully synchronous now - an
+        // safe because generateReport()/generateSingleCopy() are fully synchronous now - an
         // async handler here would risk the browser capturing print output mid-rebuild (right
         // after resetGeneratedContent() clears the page but before the new content is added),
         // producing a blank printed page.
-        window.addEventListener('beforeprint', generateAllCopies);
+        window.addEventListener('beforeprint', generateReport);
 
-        generateAllCopies();
+        generateReport();
     </script>
 
 </body>

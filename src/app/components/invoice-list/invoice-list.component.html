@@ -5,6 +5,17 @@
     <span class="header-title">Invoice - test - test1</span>
   </div>
 
+  <!-- Bulk Print Bar -->
+  @if (selectedInvoiceIds.size > 0) {
+    <div class="bulk-print-bar">
+      <span class="bulk-print-count">{{ selectedInvoiceIds.size }} selected</span>
+      <button class="bulk-print-btn" (click)="bulkPrint()" title="Print all selected invoices continuously">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Bulk Print
+      </button>
+    </div>
+  }
+
   <!-- Filter Bar -->
   <div class="filter-card">
     <div class="filters-row">
@@ -83,6 +94,9 @@
       <table class="invoices-table">
         <thead>
           <tr>
+            <th class="checkbox-th">
+              <input type="checkbox" [checked]="isAllSelected()" (change)="toggleSelectAll($event)" title="Select all" />
+            </th>
             <th>Date</th>
             <th>Bill Time</th>
             <th>Branch</th>
@@ -107,6 +121,9 @@
         <tbody>
           @for (inv of invoices; track inv) {
             <tr class="invoice-row" (click)="editInvoice(inv.id)">
+              <td class="checkbox-td" data-label="Select" (click)="$event.stopPropagation()">
+                <input type="checkbox" [checked]="isSelected(inv.id)" (change)="toggleSelect(inv.id, $event)" />
+              </td>
               <td class="date-td" data-label="Date">{{ inv.date | date:'dd-MMM-yyyy' }}</td>
               <td class="time-td" data-label="Bill Time">{{ inv.time }}</td>
               <td class="branch-td" data-label="Branch">{{ inv.branch }}</td>
@@ -157,7 +174,7 @@
 
           @if (invoices.length === 0) {
             <tr>
-              <td [attr.colspan]="viewMode === 'detailed' ? 13 : 11" class="no-data-row">
+              <td [attr.colspan]="viewMode === 'detailed' ? 14 : 12" class="no-data-row">
                 No invoices found.
               </td>
             </tr>
@@ -168,7 +185,7 @@
         @if (invoices.length > 0) {
           <tfoot>
             <tr class="summary-footer-row">
-              <td [attr.colspan]="viewMode === 'detailed' ? 7 : 5" class="total-label-td">Total Sales</td>
+              <td [attr.colspan]="viewMode === 'detailed' ? 8 : 6" class="total-label-td">Total Sales</td>
               <td class="total-val-td amount-col">{{ getTotalSales() | number:'1.2-2' }}</td>
               <td colspan="5" class="footer-filler-td"></td>
             </tr>

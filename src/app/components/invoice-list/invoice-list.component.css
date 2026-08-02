@@ -295,6 +295,50 @@ select.filter-input {
 .action-th { width: 34px; }
 .action-td { width: 34px; text-align: center; padding: 4px; }
 
+.checkbox-th, .checkbox-td { width: 30px; text-align: center; padding: 4px; }
+.checkbox-th input[type="checkbox"], .checkbox-td input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: #3dc6fc;
+}
+
+/* Bulk Print Bar */
+.bulk-print-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
+.bulk-print-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.bulk-print-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease-in-out;
+}
+
+.bulk-print-btn:hover {
+  background: #1d4ed8;
+}
+
 .share-td {
   width: 60px;
   white-space: nowrap;

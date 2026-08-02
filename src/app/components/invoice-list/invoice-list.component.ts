@@ -28,6 +28,9 @@ export class InvoiceListComponent implements OnInit {
   itemsPerPage = 50;
   currentPage = 1;
 
+  // Bulk print selection
+  selectedInvoiceIds = new Set<string>();
+
   constructor(
     private dataService: DataService,
     private router: Router,
@@ -47,6 +50,9 @@ export class InvoiceListComponent implements OnInit {
       partyName: this.selectedParty === 'All' ? undefined : this.selectedParty,
       search: this.searchQuery
     });
+    // Selection is scoped to what's currently on screen - a fresh filter/search result can
+    // drop rows the user had selected, so start clean rather than keep hold of stale ids.
+    this.selectedInvoiceIds.clear();
   }
 
   applyFilters(): void {
@@ -102,6 +108,36 @@ export class InvoiceListComponent implements OnInit {
   viewInvoicePreview(id: string, event: Event): void {
     event.stopPropagation();
     this.invoicePrintService.openInvoicePreview(id);
+  }
+
+  isSelected(id: string): boolean {
+    return this.selectedInvoiceIds.has(id);
+  }
+
+  toggleSelect(id: string, event: Event): void {
+    event.stopPropagation();
+    if (this.selectedInvoiceIds.has(id)) {
+      this.selectedInvoiceIds.delete(id);
+    } else {
+      this.selectedInvoiceIds.add(id);
+    }
+  }
+
+  isAllSelected(): boolean {
+    return this.invoices.length > 0 && this.invoices.every((inv) => this.selectedInvoiceIds.has(inv.id));
+  }
+
+  toggleSelectAll(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (checked) {
+      this.invoices.forEach((inv) => this.selectedInvoiceIds.add(inv.id));
+    } else {
+      this.selectedInvoiceIds.clear();
+    }
+  }
+
+  bulkPrint(): void {
+    this.invoicePrintService.openBulkInvoicePreview(Array.from(this.selectedInvoiceIds));
   }
 
   shareInvoiceLink(id: string, event: Event): void {
