@@ -76,35 +76,51 @@ export class InvoicePreviewComponent implements AfterViewInit, OnDestroy {
     styleEl.textContent = `@page { size: ${widthCm}cm ${heightCm}cm; margin: 0; }`;
   }
 
-  // The iframe is deliberately kept at a fixed 900x1400px box on screen (see the CSS comment
-  // on .invoice-frame) and only visually scaled up/down with a CSS transform to fit the
-  // screen - but printing the *outer* wrapper page captures only what's actually laid out in
-  // that fixed box. Expanding the iframe to its true natural size beforehand (no transform,
-  // no clipping) makes the entire report part of the wrapper page's actual layout, so
-  // printing the wrapper prints all of it rather than just the first screenful.
-  //
-  // Deliberately NOT scrollWidth/scrollHeight here (like getBoundingClientRect, these reflect
-  // whatever on-screen zoom is currently active - confirmed on the ledger preview that this
-  // caused the printed page count to vary by zoom level alone for identical data). Instead
-  // this counts .page elements (a plain DOM count, entirely unaffected by zoom) and
-  // multiplies by the report's own actual page size in cm (see getPageDimensionsCm),
-  // converted via the CSS specification's fixed 96px/2.54cm ratio.
+  // The report's true content size, immune to two separate ways naive DOM measurement lies
+  // here: (1) scrollWidth/scrollHeight reflect whatever on-screen zoom is currently active
+  // (confirmed on the ledger preview - this caused the printed page count to vary by zoom
+  // level alone for identical data), and (2) less obviously, an iframe's own document
+  // reports scrollHeight as *at least* the iframe element's own fixed CSS box size (900x1400,
+  // see .invoice-frame) even when the real content is shorter - a single-page invoice is only
+  // ~1122px tall, well under that 1400px floor, so scrollHeight silently reported the floor
+  // instead, inflating fitFrame()'s on-screen wrapper and leaving a dead gray gap below the
+  // page. Counting .page elements (a plain DOM count, unaffected by zoom or the iframe's own
+  // box size) and multiplying by the report's actual page size in cm (see
+  // getPageDimensionsCm), converted via the CSS specification's fixed 96px/2.54cm ratio,
+  // sidesteps both problems at once.
+  private getNaturalContentSizePx(doc: Document): { width: number; height: number } | null {
+    const pageCount = doc.querySelectorAll('.page').length;
+    const dimensions = this.getPageDimensionsCm(doc);
+    if (pageCount === 0 || !dimensions) {
+      return null;
+    }
+    const CM_TO_PX = 96 / 2.54;
+    return {
+      width: dimensions.widthCm * CM_TO_PX,
+      height: pageCount * dimensions.heightCm * CM_TO_PX
+    };
+  }
+
+  // Expanding the iframe to its true natural size beforehand (no transform, no clipping)
+  // makes the entire report part of the wrapper page's actual layout, so printing the wrapper
+  // prints all of it rather than just the first screenful (the iframe is otherwise kept at a
+  // fixed 900x1400px box on screen and only visually scaled with a CSS transform - see the
+  // CSS comment on .invoice-frame).
   private readonly onBeforePrint = (): void => {
     const iframe = this.invoiceFrame.nativeElement;
     const doc = iframe.contentDocument;
     if (!doc) {
       return;
     }
-    const pageCount = doc.querySelectorAll('.page').length;
     const dimensions = this.getPageDimensionsCm(doc);
-    if (pageCount === 0 || !dimensions) {
+    const size = this.getNaturalContentSizePx(doc);
+    if (!dimensions || !size) {
       return;
     }
     this.ensurePageSizeStyle(dimensions.widthCm, dimensions.heightCm);
-    const CM_TO_PX = 96 / 2.54;
     iframe.style.transform = 'none';
-    iframe.style.width = `${dimensions.widthCm * CM_TO_PX}px`;
-    iframe.style.height = `${pageCount * dimensions.heightCm * CM_TO_PX}px`;
+    iframe.style.width = `${size.width}px`;
+    iframe.style.height = `${size.height}px`;
   };
 
   private readonly onAfterPrint = (): void => {
@@ -159,13 +175,12 @@ export class InvoicePreviewComponent implements AfterViewInit, OnDestroy {
     // true natural size rather than compounding an already-applied scale.
     iframe.style.transform = 'none';
 
-    // Deliberately the content's total extent (scrollWidth), not just the .page element's
-    // own width - .page is centered inside the iframe (margin: 0 auto) with empty space on
-    // either side, and since the transform below scales the whole iframe, that offset
-    // scales too. Using only .page's own width would under-count how far the content
-    // actually reaches, clipping its right edge.
-    const naturalWidth = doc.documentElement.scrollWidth;
-    const naturalHeight = doc.documentElement.scrollHeight;
+    // getNaturalContentSizePx (page count x true cm size) rather than scrollWidth/Height -
+    // see the comment on that method. Falls back to scrollWidth/Height only in the brief
+    // window before the report has generated any .page elements yet.
+    const size = this.getNaturalContentSizePx(doc);
+    const naturalWidth = size ? size.width : doc.documentElement.scrollWidth;
+    const naturalHeight = size ? size.height : doc.documentElement.scrollHeight;
     if (naturalWidth === 0 || naturalHeight === 0) {
       return;
     }
