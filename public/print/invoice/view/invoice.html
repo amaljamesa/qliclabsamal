@@ -24,6 +24,15 @@
             padding: 0;
         }
 
+        /* box-sizing: border-box below matters more than it looks: without it, this
+           padding is added ON TOP OF the explicit width/height createNewPage() sets
+           (21cm/29.7cm), so a page's true rendered box ends up ~0.68cm taller than
+           that - invisible for a single page, but compounds across a bulk print's
+           several stacked pages until the outer iframe (sized in
+           invoice-preview.component.ts from pageCount * this same 29.7cm figure) falls
+           short of the real content height and shows its own internal scrollbar.
+           border-box makes the padding come out of the declared size instead of
+           adding to it, so 29.7cm means 29.7cm everywhere it's used. */
         .page {
             background: white;
             position: relative;
@@ -34,6 +43,7 @@
             flex-direction: column;
             page-break-after: always;
             overflow: hidden;
+            box-sizing: border-box;
         }
 
         @media print {
