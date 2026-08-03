@@ -1,0 +1,804 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Sales Register</title>
+
+    <style>
+        /* Sized to the true physical paper with zero margin. This report is LANDSCAPE A4
+           (29.7cm wide x 21cm tall), not portrait - without an explicit @page rule the
+           browser falls back to portrait Letter, which is both narrower and a different
+           shape, so its own print pagination slices every page in two and prints roughly
+           double the pages the preview showed. */
+        @page {
+            size: 29.7cm 21cm;
+            margin: 0;
+        }
+
+        .page {
+            background: white;
+            position: relative;
+            width: 29.7cm;
+            height: 21cm;
+            /* Keeps any padding inside the declared size rather than adding to it, so the
+               preview wrapper's sizing math (pageCount x 21cm) matches what really renders. */
+            box-sizing: border-box;
+            margin: 0 auto;
+            box-shadow: 0 0 0.2cm rgba(0, 0, 0, 0.1);
+            margin-bottom: 0.5cm;
+            display: block;
+            page-break-after: always;
+            overflow: hidden;
+        }
+
+        /* Without this the truly-last page also gets page-break-after: always with nothing
+           left to flow onto it - Chrome still honors that as a forced break and prints a
+           genuine blank trailing sheet. */
+        .page:last-child {
+            page-break-after: auto;
+        }
+
+        @media print {
+
+            body,
+            .Top {
+                height: auto;
+                margin: 0;
+                box-shadow: initial;
+                background: initial;
+            }
+
+            .page {
+                margin: 0;
+                box-shadow: none;
+                background: white;
+                page-break-after: always;
+            }
+
+            .page:last-child {
+                page-break-after: auto;
+            }
+
+            /* Without this, the print engine can slice a row's multi-line cell content
+               across a physical page boundary when the printed dimensions diverge slightly
+               from the JS's row-count budget. */
+            tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            .no-print {
+                display: none;
+            }
+        }
+
+
+        .Top {
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: normal;
+            position: relative;
+            height: 20cm;
+            margin: 0 auto;
+            margin-bottom: 0.5cm;
+            display: block;
+        }
+
+
+        #Top_header_elements {
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: normal;
+            margin-left: 1%;
+            margin-right: 1%;
+        }
+
+
+        table,
+        td,
+        th {
+            border: 1px solid;
+            border-collapse: collapse;
+            padding-top: 0%;
+        }
+
+        table td {
+            padding: 5px 5px 0 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- -----------------------------script------------------------------------------------->
+
+    <script>
+        // Physical page size, declared once and reused everywhere it matters: the @page rule,
+        // the .page CSS, and (read off the rendered element's data attributes) the preview
+        // wrapper that embeds this file. One source of truth keeps the wrapper's sizing math
+        // in step with the real rendered page. Landscape: wider than it is tall.
+        var PAGE_WIDTH_CM = 29.7;
+        var PAGE_HEIGHT_CM = 21;
+
+        var page_count = 0;
+        var page_count1 = 0;
+
+        var columns = "";
+        var heading = "";
+        var be_details = "";
+        var items = "";
+        var master_details = "";
+
+        function base64ToUtf8(base64) {
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array([...binaryString].map(char => char.charCodeAt(0)));
+            return new TextDecoder().decode(bytes);
+        }
+
+        function topdiv() {
+            page = document.createElement("page");
+            page.className = 'page';
+            // Read by the preview wrapper (report-preview.component.ts) to size the embedding
+            // iframe from a plain DOM read rather than a rendered measurement, which would be
+            // distorted by whatever on-screen zoom/scale is currently applied.
+            page.setAttribute('data-page-w-cm', String(PAGE_WIDTH_CM));
+            page.setAttribute('data-page-h-cm', String(PAGE_HEIGHT_CM));
+
+            Top_elements = document.createElement('div');
+            Top_elements.className = 'Top';
+            Top_elements.id = 'Top_elements';
+
+            Top_header_elements = document.createElement('div');
+            Top_header_elements.id = 'Top_header_elements';
+            Top_header_elements.style.height = '95%';
+            Top_header_elements.style.paddingTop = '1%';
+
+
+            let searchParams = new URLSearchParams(window.location.search)
+            var message = searchParams.get('message')
+            // Decode the String
+
+            var retrievedValue = localStorage.getItem('temp_tax_register');
+            if (retrievedValue !== null) {
+                var decodedString = base64ToUtf8(retrievedValue);
+                var myArray = JSON.parse(decodedString);
+            }
+            else {
+                var decodedString = base64ToUtf8(message);
+                var myArray = JSON.parse(decodedString);
+            }
+            columns = myArray.columns;
+            heading = myArray.heading;
+            be_details = myArray.be_details;
+            items = myArray.items;
+            master_details = myArray.master_details;
+
+
+            if (columns == undefined) {
+                columns = [];
+            }
+
+            if (heading == undefined) {
+                heading = {
+                    name: "",
+                }
+            }
+
+            if (master_details == undefined) {
+                master_details = {
+                    pmt_doc_date: "",
+                }
+            }
+
+            if (be_details == undefined) {
+                be_details = {
+                    beb_name: "",
+                    beb_addline1: "",
+                    beb_addline2: "",
+                    beb_addline3: "",
+                    pin: "",
+                    phone: "",
+                    beb_gstin: ""
+                }
+            }
+
+            if (items == undefined) {
+                items = [
+                    //TODO
+                ];
+            }
+        }
+
+
+        //  -----------------------------------------------header---------------------------------------------------------------
+        function header() {
+
+            topdiv();
+
+            //main div
+            var mainDiv = document.createElement('div');
+            mainDiv.id = 'main_div';
+            mainDiv.className = 'maindiv';
+            mainDiv.style.height = '10%';
+            mainDiv.style.width = '100%';
+            mainDiv.style.display = 'flex';
+            mainDiv.style.marginTop = '1%';
+
+            //creating bebDetaildiv
+            var bebDetaildiv = document.createElement('div');
+            bebDetaildiv.className = 'maintable';
+            bebDetaildiv.style.width = '50%';
+            bebDetaildiv.style.fontSize = '12';
+
+            if (be_details == undefined) {
+                be_details;
+            }
+            else {
+                if (be_details.beb_name == '' && be_details.beb_addline1 == '' && be_details.beb_addline2 == '' && be_details.beb_addline3 == '' && be_details.beb_pin == '' && be_details.beb_phone == '' && be_details.beb_gstin == '') {
+                    mainDiv.appendChild(bebDetaildiv);
+                }
+                else {
+                    var addressString = '<b>' + be_details.beb_name.toUpperCase() + '</b></br></br>';
+
+                    if (be_details.beb_addline1 != '') {
+                        addressString += '' + be_details.beb_addline1;
+                    }
+
+                    if (be_details.beb_addline2 != '') {
+                        addressString += ' ' + be_details.beb_addline2;
+                    }
+
+                    if (be_details.beb_addline3 != '') {
+                        addressString += ' ' + be_details.beb_addline3;
+                    }
+
+                    if (be_details.beb_addline1 == '' && be_details.beb_addline2 == '' && be_details.beb_addline3 == '') {
+                        if (be_details.beb_pin != '') {
+                            addressString += '<br>PIN: ' + be_details.beb_pin;
+                        }
+                    }
+                    else if (be_details.beb_pin != '') {
+                        addressString += ' - ' + be_details.beb_pin;
+                    }
+
+                    if (be_details.beb_phone != '') {
+                        addressString += '<br>Phone: ' + be_details.beb_phone;
+                    }
+
+                    if (be_details.beb_gstin != '') {
+                        addressString += '<br><b>GSTIN/UIN: ' + be_details.beb_gstin + '</b>';
+                    }
+
+                    bebDetaildiv.innerHTML = addressString;
+                    mainDiv.appendChild(bebDetaildiv)
+                }
+            }
+
+            //appending table to maindiv
+            mainDiv.appendChild(bebDetaildiv);
+
+
+            //creating bebDetaildiv
+            var datediv = document.createElement('div');
+            datediv.className = 'maintable';
+            datediv.style.width = '50%';
+            datediv.style.fontSize = '12';
+
+            var floatrightp = document.createElement("p");
+            floatrightp.className = 'floatrightp';
+            floatrightp.innerHTML = heading.name + "</br>" + master_details.tax_date;
+            floatrightp.style.textAlign = 'right';
+            datediv.appendChild(floatrightp);
+
+            //appending table to maindiv
+            mainDiv.appendChild(datediv);
+
+            Top_header_elements.appendChild(mainDiv);
+            page.appendChild(Top_header_elements);
+        }
+
+        //  ------------------------------------------------Body--------------------------------------------------------------
+        // Predefined list of keys and their display names for non-tax keys
+        var keyDisplayPairs = {
+            "reference": "Bill No",
+            "GSTIN": "Bill GSTIN",
+            "account_name": "Bill To",
+            "ExemptedBasic": "Exempted"
+        };
+
+        // Helper function to generate display names for tax keys
+        function generateTaxDisplayName(key) {
+            if (key.endsWith("Basic")) {
+                return `Tax @ ${key.match(/\d+/)[0]}%`;
+            } else if (key.endsWith("Tax")) {
+                return "GST";
+            }
+            return key;
+        }
+
+
+        function body() {
+            //creating div for  table
+            var tableDiv = document.createElement('div');
+            tableDiv.id = 'table_Div';
+            tableDiv.className = 'tableDiv';
+            tableDiv.style.borderBottom = '1px solid';
+
+            //creating table
+            var body_table = document.createElement('table');
+            body_table.className = 'body_table';
+            body_table.id = 'bodytable';
+            body_table.style.width = '100%';
+            body_table.style.fontSize = '11';
+            body_table.style.height = 'auto';
+
+
+            //creating table row
+            table_row_body = document.createElement('tr');
+            table_row_body.style.height = '10';
+
+            if (columns == undefined) {
+                columns;
+            }
+
+            if (columns == '') {
+                columns;
+            }
+
+
+            // Filter and map keys dynamically
+            var columns = Object.keys(items[0])
+                .filter(key => (keyDisplayPairs.hasOwnProperty(key) || key.startsWith("Tax") || key.startsWith("GST")) && !key.includes("TaxPaidIneligible"))
+                .map(key => {
+                    return {
+                        name: key,
+                        display_name: keyDisplayPairs[key] || generateTaxDisplayName(key)
+                    };
+                });
+
+            // Check if 'round_off' exists and then add it at the end
+            if (items[0].hasOwnProperty("round_off")) {
+                columns.push({
+                    name: "round_off",
+                    display_name: "R. Off"
+                });
+            }
+
+            columns.push({
+                name: "basic_tot",
+                display_name: "Cash"
+            }, {
+                name: "total_value",
+                display_name: "Credit"
+            });
+
+
+            //creating table header
+            for (var s = 0; s < columns.length; s++) {
+                var header_si = document.createElement('th');
+                header_si.style.textAlign = 'center';
+                header_si.style.border = '1px solid';
+                header_si.innerHTML = columns[s].display_name;
+                table_row_body.appendChild(header_si);
+            }
+
+            //creating table row for line
+
+            body_table.appendChild(table_row_body);
+            tableDiv.appendChild(body_table);
+            Top_header_elements.appendChild(tableDiv);
+
+            count = 0;
+            var table_row_body;
+            var table_row_bodydata;
+            var first_page_item = 20;
+
+            if (items == undefined) {
+                items;
+            }
+
+            var current_group = null;
+
+            for (var i = 0; i < items.length; i++) {
+
+                // Sort items by pmt_doc_date, gst_region, and B2BB2C
+                items.sort(function (a, b) {
+                    var dateCompare = new Date(a.pmt_doc_date) - new Date(b.pmt_doc_date);
+                    if (dateCompare !== 0) return dateCompare;
+                    var regionCompare = a.gst_region.localeCompare(b.gst_region);
+                    if (regionCompare !== 0) return regionCompare;
+                    return (a.B2BB2C || '').localeCompare(b.B2BB2C || '');
+                });
+
+
+                if (count > first_page_item) {
+
+                    updateTotalPages();
+                    body_table.appendChild(table_row_bodydata);
+                    tableDiv.appendChild(body_table);
+
+                    Top_header_elements.appendChild(tableDiv);
+                    Top_elements.appendChild(Top_header_elements);
+
+                    page.appendChild(Top_elements);
+                    document.body.appendChild(page);
+
+                    page_count++;
+                    foot();
+
+                    document.body.appendChild(page);
+
+                    //new page
+                    header();
+
+                    //creating div for table in next page
+                    var tableDiv = document.createElement('div');
+                    tableDiv.id = 'table_Div';
+                    tableDiv.className = 'tableDiv';
+                    tableDiv.style.borderBottom = '1px solid';
+
+                    //creating table
+                    var body_table = document.createElement('table');
+                    body_table.className = 'body_table';
+                    body_table.id = 'bodytable';
+                    body_table.style.width = '100%';
+                    body_table.style.fontSize = '11';
+                    body_table.style.height = 'auto';
+
+                    //creating table row
+                    table_row_body = document.createElement('tr');
+                    table_row_body.style.height = '10';
+
+                    // Filter and map keys dynamically
+                    var columns = Object.keys(items[0])
+                        .filter(key => (keyDisplayPairs.hasOwnProperty(key) || key.startsWith("Tax") || key.startsWith("GST")) && !key.includes("TaxPaidIneligible"))
+                        .map(key => {
+                            return {
+                                name: key,
+                                display_name: keyDisplayPairs[key] || generateTaxDisplayName(key)
+                            };
+                        });
+
+                    // Check if 'round_off' exists and then add it at the end
+                    if (items[0].hasOwnProperty("round_off")) {
+                        columns.push({
+                            name: "round_off",
+                            display_name: keyDisplayPairs["round_off"] || "R. Off"
+                        });
+                    }
+
+                    columns.push({
+                        name: "basic_tot",
+                        display_name: "Cash"
+                    }, {
+                        name: "total_value",
+                        display_name: "Credit"
+                    });
+
+
+                    for (var s = 0; s < columns.length; s++) {
+                        var header_si = document.createElement('th');
+                        header_si.style.borderBottom = '1px solid';
+                        header_si.style.textAlign = 'center';
+                        header_si.innerHTML = columns[s].display_name;
+                        table_row_body.appendChild(header_si);
+                    }
+
+                    body_table.appendChild(table_row_body);
+                    tableDiv.appendChild(body_table);
+                    Top_header_elements.appendChild(tableDiv);
+
+                    count = 0;
+                    i = i - 1;
+                }
+                else {
+
+                    // Generate the current group key with date and B2BB2C type
+                    var group_key = items[i].gst_region + '_' + items[i].pmt_doc_date + '_' + (items[i].B2BB2C || '');
+
+                    // Check if the current item's date is different from the last processed date
+                    if (current_group !== group_key) {
+                        current_group = group_key; // Update the current group key
+
+                        // Set the b2b_b2c_header based on the B2BB2C value
+                        var b2b_b2c_header = items[i].B2BB2C === 'B2B' ? '-RD' : (items[i].B2BB2C === 'B2C' ? '-URD' : '');
+
+
+                        // Insert a new row or divider to indicate a new group
+                        var group_row = document.createElement('tr');
+
+                        var date_cell = document.createElement('td');
+                        date_cell.className = 'date-header';
+                        date_cell.style.fontWeight = 'bold';
+                        date_cell.style.borderRight = 'hidden';
+                        date_cell.textContent = items[i].pmt_doc_date; // Change this text as needed
+                        group_row.appendChild(date_cell);
+
+                        var group_cell = document.createElement('td');
+                        group_cell.className = 'date-header';
+                        group_cell.style.fontWeight = 'bold';
+                        group_cell.style.borderRight = 'hidden';
+                        group_cell.textContent = items[i].gst_region + b2b_b2c_header;
+                        group_row.appendChild(group_cell);
+
+                        //creating table row empty
+                        var table_row_bodydata_empty = document.createElement('tr');
+                        table_row_bodydata_empty.className = 'table_row_bodydata_empty';
+
+
+                        outer: for (p = 0; p < columns.length; p++) {
+                            for (k = 0; k < item_length; k++) {
+
+                                if (columns[p].name == keys[k]) {
+                                    var table_data_emptysi = document.createElement('td');
+                                    table_row_bodydata_empty.appendChild(table_data_emptysi);
+                                }
+                            }
+                        }
+                        body_table.appendChild(table_row_bodydata_empty);
+                        body_table.appendChild(group_row); // Append the group row to the table
+
+                        count++;
+                    }
+
+
+                    //creating table row
+                    table_row_bodydata = document.createElement('tr');
+                    table_row_bodydata.className = 'table_row_bodydata';
+                    table_row_bodydata.style.height = '1%';
+                    table_row_bodydata.style.borderBottomStyle = 'hidden';
+
+                    var keys = Object.keys(items[0]);
+
+                    var item_length = Object.keys(items[0]).length;
+
+                    outer: for (p = 0; p < columns.length; p++) {
+
+                        var myJsonString = JSON.stringify(items[i]);
+                        var anotherObject = JSON.parse(myJsonString);
+
+
+                        var key_name = columns[p].name;
+
+                        if (key_name == "reference") {
+                            var table_data_si = document.createElement('td');
+                            table_data_si.style.verticalAlign = 'top';
+                            table_data_si.style.width = '7%';
+                            table_data_si.style.textAlign = 'left';
+                            table_data_si.innerHTML = anotherObject[key_name];
+                            table_row_bodydata.appendChild(table_data_si);
+                        }
+
+                        if (key_name == "GSTIN") {
+                            var table_data_si = document.createElement('td');
+                            table_data_si.style.verticalAlign = 'top';
+                            table_data_si.style.width = '10%';
+                            table_data_si.style.textAlign = 'left';
+                            table_data_si.innerHTML = anotherObject[key_name];
+                            table_row_bodydata.appendChild(table_data_si);
+                        }
+
+                        if (key_name == "account_name") {
+                            var table_data_si = document.createElement('td');
+                            table_data_si.style.verticalAlign = 'top';
+                            table_data_si.style.width = '15%';
+                            table_data_si.style.textAlign = 'left';
+                            table_data_si.innerHTML = anotherObject[key_name];
+                            table_row_bodydata.appendChild(table_data_si);
+                        }
+
+                        if (key_name == "ExemptedBasic") {
+                            var table_data_si = document.createElement('td');
+                            table_data_si.style.verticalAlign = 'top';
+                            table_data_si.style.width = '5%';
+                            table_data_si.style.textAlign = 'right';
+                            table_data_si.innerHTML = anotherObject[key_name];
+                            table_row_bodydata.appendChild(table_data_si);
+                        }
+
+                        if (key_name != "ExemptedBasic" && key_name != "basic_tot" && key_name != "total_value" && key_name != "account_name" && key_name != "GSTIN" && key_name != "reference") {
+                            var table_data_si = document.createElement('td');
+                            table_data_si.style.verticalAlign = 'top';
+                            table_data_si.style.width = '5%';
+                            table_data_si.style.textAlign = 'right';
+                            table_data_si.innerHTML = anotherObject[key_name];
+                            table_row_bodydata.appendChild(table_data_si);
+                        }
+
+                        if (key_name == "basic_tot") {
+                            var table_data_si = document.createElement('td');
+                            table_data_si.style.verticalAlign = 'top';
+                            table_data_si.style.width = '5%';
+                            table_data_si.style.textAlign = 'right';
+                            if (anotherObject["paidtopay"] == "Paid-Cash") {
+                                table_data_si.innerHTML = anotherObject["total_value"];
+                            }
+                            else {
+                                table_data_si.innerHTML = "";
+                            }
+                            table_row_bodydata.appendChild(table_data_si);
+                        }
+
+                        if (key_name == "total_value") {
+                            var table_data_si = document.createElement('td');
+                            table_data_si.style.verticalAlign = 'top';
+                            table_data_si.style.width = '5%';
+                            table_data_si.style.textAlign = 'right';
+                            if (anotherObject["paidtopay"] == "Credit") {
+                                table_data_si.innerHTML = anotherObject["total_value"];
+                            }
+                            else {
+                                table_data_si.innerHTML = "";
+                            }
+                            table_row_bodydata.appendChild(table_data_si);
+                        }
+
+                    }
+
+                    body_table.appendChild(table_row_bodydata);
+                }
+                count++;
+            }
+            page_count++
+
+
+            tableDiv.appendChild(body_table);
+            Top_header_elements.appendChild(tableDiv);
+
+            Top_elements.appendChild(Top_header_elements);
+            page.appendChild(Top_elements);
+            document.body.appendChild(page);
+        }
+
+        // --------------------------------------------------Footer-----------------------------------------------------------
+        function foot() {
+
+            updateTotalPages();
+
+            //footer div
+            var footDiv = document.createElement('div');
+            footDiv.id = 'foot_div';
+            footDiv.className = 'footDiv';
+            footDiv.style.width = '95%'
+            footDiv.style.display = 'flex'
+            footDiv.style.marginLeft = '2%'
+
+            //footer div
+            var footTimeDiv = document.createElement('div');
+            footTimeDiv.id = 'foot_div';
+            footTimeDiv.className = 'footDiv';
+            footTimeDiv.style.width = '50%'
+
+
+            //Footer Date&Time
+            if (inv_date == false) {
+                footTimeDiv.className = "footer1";
+                footTimeDiv.id = "foot1";
+                footTimeDiv.style.fontSize = '12';
+
+                var today = new Date();
+                var date = today.getDate() + '-' + (today.getMonth() + 1) + '-' + today.getFullYear();
+                var hours = today.getHours();
+                var minutes = today.getMinutes();
+                var seconds = today.getSeconds();
+                var amOrPm = 'AM';
+                if (hours > 12) {
+                    amOrPm = 'PM';
+                    hours = hours - 12;
+                }
+                if (minutes < 10) {
+                    minutes = "0" + minutes;
+                }
+
+
+                if (seconds < 10) {
+                    seconds = "0" + seconds;
+                }
+
+                var dateTime = date + ' ' + hours + ':' + minutes + ':' + seconds + ' ' + amOrPm;
+
+                footTimeDiv.innerHTML = dateTime;
+                footDiv.appendChild(footTimeDiv);
+
+            }
+
+            if (inv_date == true) {
+
+                footTimeDiv.id = 'lastModifyDate';
+                footTimeDiv.style.marginTop = '-4%'
+                footTimeDiv.style.fontSize = '12';
+
+                var Time = document.lastModified;
+                footTimeDiv.innerHTML = Time;
+
+                footDiv.appendChild(footTimeDiv);
+            }
+
+
+            var footPageDiv = document.createElement('div');
+            footPageDiv.id = 'foot_div';
+            footPageDiv.className = 'footDiv page-counter';
+            footPageDiv.style.width = '50%';
+            footPageDiv.style.fontSize = '12';
+            footPageDiv.style.textAlign = 'right';
+
+            footPageDiv.innerHTML = "Page : " + page_count + " of " + updateTotalPages();
+
+            footDiv.appendChild(footPageDiv);
+
+            Top_elements.appendChild(footDiv);
+        }
+
+        // Rewrites every footer's "Page : x of y" from the pages that actually got rendered.
+        // updateTotalPages() below only *estimates* the total from a fixed rows-per-page
+        // figure, which drifts from the real count as soon as group header rows shift where
+        // the breaks land - it was reporting 6 pages for a 5-page report. Counting the real
+        // .page elements after generation is exact by construction.
+        function updateAllFooters() {
+            var pages = document.querySelectorAll('.page');
+            pages.forEach(function (pg, idx) {
+                var counter = pg.querySelector('.page-counter');
+                if (counter) {
+                    counter.innerHTML = "Page : " + (idx + 1) + " of " + pages.length;
+                }
+            });
+        }
+
+
+        //--------------------------total pages of invoice-------------------------------------------------------------
+        function updateTotalPages() {
+            var itemsPerPage = 20; // max rows per page including items and extra rows
+            var currentRowCount = 0;
+            var totalPages = 0;
+            var current_group = null;
+
+            for (var i = 0; i < items.length; i++) {
+                if (currentRowCount === 0) { // new page
+                    totalPages++;
+                }
+
+                var group_key = items[i].gst_region + '_' + items[i].pmt_doc_date + '_' + (items[i].B2BB2C || '');
+                if (current_group !== group_key) {
+                    if (currentRowCount + 1 > itemsPerPage) { // check if adding this group row requires a new page
+                        totalPages++;
+                        currentRowCount = 1; // reset row count for new page, start with group row
+                    } else {
+                        currentRowCount++; // add group row to current page
+                    }
+                    current_group = group_key;
+                }
+
+                if (currentRowCount + 1 > itemsPerPage) { // check if adding this item row requires a new page
+                    totalPages++;
+                    currentRowCount = 1; // start new page with this item
+                } else {
+                    currentRowCount++; // add item to current page
+                }
+            }
+
+            return totalPages;
+        }
+
+    </script>
+    <script>
+        var inv_date = false;
+        try {
+            header();
+            body();
+            foot();
+            updateAllFooters();
+        } catch (error) {
+            console.error('Error decoding or parsing JSON:', error);
+        }
+
+        // The host preview page resizes THIS iframe's own box right before printing and back
+        // again after, which fires a resize event in here indistinguishable from a real one.
+        // This layout paginates by fixed row count (not live measurement) so nothing needs to
+        // re-run on resize - the flag is kept for parity with the other layouts and to make
+        // the print-cycle intent explicit.
+        var isPrinting = false;
+        window.addEventListener('beforeprint', function () { isPrinting = true; });
+        window.addEventListener('afterprint', function () {
+            setTimeout(function () { isPrinting = false; }, 300);
+        });
+    </script>
+</body>
+
+</html>

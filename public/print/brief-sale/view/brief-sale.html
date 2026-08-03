@@ -1,0 +1,519 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Transaction Wise Total Values</title>
+
+    <style>
+        body {
+            background: #f0f0f0;
+            margin: 0;
+        }
+
+        /* Sized to the true physical paper with zero margin. Without this, printing falls
+           back to whatever default paper size the browser assumes (commonly Letter), which
+           is shorter than this report's 29cm .page - the mismatch makes the browser's own
+           print pagination slice a single page in two, producing extra printed pages the
+           on-screen preview never showed. */
+        @page {
+            size: 21cm 29cm;
+            margin: 0;
+        }
+
+        .page {
+            background: white;
+            width: 21cm;
+            height: 29cm;
+            /* Keeps the 10px top padding set in JS inside the declared size rather than
+               adding to it, so the preview wrapper's sizing math (pageCount x 29cm) matches
+               what really renders. */
+            box-sizing: border-box;
+            margin: 0 auto;
+            box-shadow: 0 0 0.1cm rgba(0, 0, 0, 0.5);
+            margin-bottom: 0.5cm;
+            display: block;
+            page-break-after: always;
+            overflow: hidden;
+        }
+
+        /* Without this the truly-last page also gets page-break-after: always with nothing
+           left to flow onto it - Chrome still honors that as a forced break and prints a
+           genuine blank trailing sheet. */
+        .page:last-child {
+            page-break-after: auto;
+        }
+
+        @media print {
+
+            body {
+                height: auto;
+                margin: 0;
+                background: white;
+            }
+
+            .page {
+                margin: 0;
+                box-shadow: none;
+                background: white;
+                page-break-after: always;
+            }
+
+            .page:last-child {
+                page-break-after: auto;
+            }
+
+            .FloatNum {
+                width: 100%;
+            }
+
+            .Dfoot {
+                bottom: 0px;
+                width: 100%;
+            }
+
+            /* Without this, the print engine can slice a row's multi-line cell content
+               across a physical page boundary when the printed dimensions diverge slightly
+               from the JS's row-count budget. */
+            tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            .no-print {
+                display: none
+            }
+        }
+
+        /* header */
+        h5 {
+            text-align: left;
+            color: black;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 13px;
+            margin-right: 15px;
+            margin-left: 25px;
+            font-weight: normal;
+        }
+
+        .floatrightp {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 12px;
+            margin-right: 50px;
+        }
+
+        .footer2,
+        .footer1 {
+            font-weight: bold;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 13px;
+        }
+
+        /* Table */
+
+        table,
+        th {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 14px;
+            margin: 2%;
+            margin-top: 5%;
+        }
+
+        td {
+            font-size: 13px;
+        }
+
+        th {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        /* Footer */
+        .footer1 {
+            margin-left: 5%;
+        }
+
+        .sub-address {
+            font-size: 12px;
+        }
+
+        .d_footer_grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            justify-content: space-between;
+        }
+
+        .spacer {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- -----------------------------header----------------------------------------------- -->
+
+    <script>
+        // Physical page size, declared once and reused everywhere it matters: the @page rule,
+        // the .page CSS, and (read off the rendered element's data attributes) the preview
+        // wrapper that embeds this file. One source of truth keeps the wrapper's sizing math
+        // in step with the real rendered page.
+        var PAGE_WIDTH_CM = 21;
+        var PAGE_HEIGHT_CM = 29;
+
+        var page_count = 0;
+        var totalAmount = 0;
+        var totalPages = 1;
+
+        var other = "";
+        var company_details = "";
+        var loading_list_details = "";
+
+        function base64ToUtf8(base64) {
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array([...binaryString].map(char => char.charCodeAt(0)));
+            return new TextDecoder().decode(bytes);
+        }
+
+        function topdiv() {
+
+            page = document.createElement("page");
+            page.className = 'page';
+            page.style.paddingTop = '10px';
+            // Read by the preview wrapper (report-preview.component.ts) to size the embedding
+            // iframe from a plain DOM read rather than a rendered measurement, which would be
+            // distorted by whatever on-screen zoom/scale is currently applied.
+            page.setAttribute('data-page-w-cm', String(PAGE_WIDTH_CM));
+            page.setAttribute('data-page-h-cm', String(PAGE_HEIGHT_CM));
+
+            Top_elements = document.createElement('div');
+            Top_elements.className = 'Top';
+            Top_elements.id = 'Top_elements';
+
+            let searchParams = new URLSearchParams(window.location.search)
+            var message = searchParams.get('message')
+
+            var retrievedValue = localStorage.getItem('temp_sale_report');
+            if (retrievedValue !== null) {
+                var decodedString = base64ToUtf8(retrievedValue);
+                var myArray = JSON.parse(decodedString);
+            }
+            else {
+                var decodedString = base64ToUtf8(message);
+                var myArray = JSON.parse(decodedString);
+            }
+
+            other = myArray.other;
+            company_details = myArray.company_details;
+            loading_list_details = myArray.loading_list_details;
+        }
+
+        //  -----------------------------header--------------------------------------------------------------------------------
+        function header() {
+
+            topdiv();
+
+            //main div
+            var dfloatnum = document.createElement('div');
+            dfloatnum.id = 'Float_num';
+            dfloatnum.className = 'FloatNum';
+            dfloatnum.style.height = '8%';
+            dfloatnum.style.top = "0px";
+
+            // add div1
+            var dfloatleft = document.createElement('div');
+            dfloatleft.className = 'FloatLeft';
+
+            var floatLefth5 = document.createElement("h5");
+            floatLefth5.style.top = "0px";
+
+            var addressLine = company_details.be_addline1 + " " + company_details.be_addline2 + " " + company_details.be_addline3 + " " + company_details.be_state + " " + company_details.be_pin;
+            var phoneText = company_details.be_phone ? "<br>Phone Number: " + company_details.be_phone : "";
+            var gstinText = company_details.be_gstin ? "<br><b>GSTIN: " + company_details.be_gstin + "</b>" : "";
+            floatLefth5.innerHTML = "<b>" + company_details.be_name + "</b><br><p class='sub-address'>" + addressLine + phoneText + gstinText + "</p>";
+            dfloatleft.appendChild(floatLefth5);
+
+            //add div2
+            var dfloatright = document.createElement('div');
+            dfloatright.className = 'FloatRight';
+
+            var floatrightp = document.createElement("p");
+            floatrightp.className = 'floatrightp';
+            if (other.from_ref_no > "0" && other.to_ref_no > "0") {
+                floatrightp.innerHTML = "Brief " + other.transaction_type + " Report<span class='spacer'></span>From Bill / Ref # &nbsp;&nbsp;" + other.from_ref_no + " to " + other.to_ref_no;
+            }
+            else {
+                floatrightp.innerHTML = "Brief " + other.transaction_type + " Report<span class='spacer'></span><b>From " + other.from_date + " to " + other.to_date + "</b>";
+            }
+            floatrightp.style.marginTop = '-30px';
+            floatrightp.style.textAlign = 'right';
+            dfloatright.appendChild(floatrightp);
+
+            //appending it to main div
+            dfloatnum.appendChild(dfloatleft);
+            dfloatnum.appendChild(dfloatright);
+
+            //appending it to top div
+            Top_elements.appendChild(dfloatnum);
+            page.appendChild(Top_elements);
+        }
+
+        function buildTableHeader() {
+            var header_row = document.createElement('tr');
+            var headers = [
+                { text: 'Sl No', width: '8%', align: 'center' },
+                { text: 'Bill No', width: '10%', align: 'center' },
+                { text: 'Date', width: '10%', align: 'center' },
+                { text: 'Cash / Cr', width: '5%', align: 'left' },
+                { text: " Buyer's Name", width: '45%', align: 'left' },
+                { text: 'Amount', width: '10%', align: 'center' }
+            ];
+            headers.forEach(function (h) {
+                var th = document.createElement('th');
+                th.innerHTML = h.text;
+                th.style.width = h.width;
+                th.style.textAlign = h.align;
+                th.style.borderTop = '2px solid black';
+                th.style.borderBottom = '2px solid black';
+                header_row.appendChild(th);
+            });
+            return header_row;
+        }
+
+        function buildMainTable() {
+            var maintable = document.createElement('table');
+            maintable.id = 'maintable';
+            maintable.style.width = '90%';
+            maintable.style.marginTop = '-5px';
+            maintable.style.borderStyle = 'hidden';
+            maintable.appendChild(buildTableHeader());
+            return maintable;
+        }
+
+        //  -----------------------------Body---------------------------------------------------------------------------------
+        function body() {
+
+            var pageDiv = document.createElement('div');
+            pageDiv.className = 'pageDiv';
+            pageDiv.style.height = '87%';
+
+            //creating div for table
+            var mainTableDiv = document.createElement('div');
+            mainTableDiv.className = 'maintablediv';
+            mainTableDiv.style.marginTop = '-10px';
+
+            var maintable = buildMainTable();
+
+            mainTableDiv.appendChild(maintable);
+            pageDiv.appendChild(mainTableDiv);
+            Top_elements.appendChild(pageDiv);
+
+            count = 0;
+
+            var first_page_item = 47;
+
+            for (var i = 0; i < loading_list_details.length; i++) {
+
+                if (count > first_page_item) {
+
+                    page_count++;
+                    footer();
+
+                    page.appendChild(Top_elements);
+                    document.body.appendChild(page);
+
+                    header();
+
+                    pageDiv = document.createElement('div');
+                    pageDiv.className = 'pageDiv';
+                    pageDiv.style.height = '87%';
+
+                    mainTableDiv = document.createElement('div');
+                    mainTableDiv.className = 'maintablediv';
+                    mainTableDiv.style.marginTop = '-10px';
+
+                    maintable = buildMainTable();
+
+                    mainTableDiv.appendChild(maintable);
+                    pageDiv.appendChild(mainTableDiv);
+                    Top_elements.appendChild(pageDiv);
+
+                    count = 0;
+                    i = i - 1;
+                }
+                else {
+                    var item = loading_list_details[i];
+                    var table_row = document.createElement('tr');
+
+                    var cells = [
+                        { value: Math.floor(item.row_sl), align: 'center' },
+                        { value: item.reference, align: 'left' },
+                        { value: item.date, align: 'center' },
+                        { value: item.paid_topay, align: 'left' },
+                        { value: item['Account Name'] != null ? item['Account Name'] : item.account, align: 'left' },
+                        { value: item.value, align: 'right' }
+                    ];
+
+                    cells.forEach(function (c) {
+                        var td = document.createElement('td');
+                        td.innerHTML = (c.value == null) ? '' : c.value;
+                        td.style.textAlign = c.align;
+                        td.style.borderStyle = 'hidden';
+                        td.style.verticalAlign = 'top';
+                        table_row.appendChild(td);
+                    });
+
+                    maintable.appendChild(table_row);
+                }
+                count++;
+            }
+
+            sumNumbers();
+
+            var table_row_total = document.createElement('tr');
+
+            var td_total = document.createElement('td');
+            td_total.setAttribute('colspan', '6');
+            td_total.style.textAlign = 'right';
+            td_total.style.borderTop = '1px solid black';
+            td_total.style.width = '100%';
+            td_total.style.fontWeight = 'bold';
+            td_total.innerHTML = totalAmount;
+            table_row_total.appendChild(td_total);
+
+            page_count++;
+
+            maintable.appendChild(table_row_total);
+
+            Top_elements.appendChild(pageDiv);
+            page.appendChild(Top_elements);
+            document.body.appendChild(page);
+        }
+
+        // -------------------------------------------------------------Footer------------------------------------------------
+        function footer() {
+
+            updateTotalPages();
+
+            //footer main div
+            var d_footer = document.createElement('div');
+            d_footer.className = 'Dfoot';
+            d_footer.id = 'Dfooter';
+            d_footer.style.bottom = "9px";
+
+            //bottom line
+            var hrlinr1 = document.createElement("hr");
+            hrlinr1.style.width = "95%";
+            hrlinr1.style.bottom = "0px";
+            d_footer.appendChild(hrlinr1);
+
+            var d_footer_grid = document.createElement('div');
+            d_footer_grid.className = 'd_footer_grid';
+
+
+            //Footer Date&Time
+
+            var fdatetime = document.createElement("p");
+            fdatetime.className = "footer1";
+            fdatetime.id = "foot1";
+            fdatetime.style.width = '70%';
+            fdatetime.style.marginTop = '-1%';
+
+            var today = new Date();
+            var date = today.getDate() + '-' + (today.getMonth() + 1) + '-' + today.getFullYear();
+            var hours = today.getHours();
+            var minutes = today.getMinutes();
+            var seconds = today.getSeconds();
+            var amOrPm = 'AM';
+            if (hours >= 12) { amOrPm = 'PM'; if (hours > 12) hours -= 12; }
+            if (hours === 0) hours = 12;
+            if (minutes < 10) {
+                minutes = "0" + minutes;
+            }
+            if (seconds < 10) {
+                seconds = "0" + seconds;
+            }
+
+            var dateTime = date + ' ' + hours + ':' + minutes + ':' + seconds + ' ' + amOrPm;
+            fdatetime.innerHTML = dateTime;
+
+            d_footer_grid.appendChild(fdatetime);
+
+            //Footer pagecount
+            var fpagecount = document.createElement("p");
+            fpagecount.className = "footer2";
+            fpagecount.style.width = '95%';
+            fpagecount.style.textAlign = 'right';
+            fpagecount.style.marginTop = '-1%';
+
+            fpagecount.innerHTML = "Page : " + page_count + " of " + totalPages;
+            d_footer_grid.appendChild(fpagecount);
+
+            d_footer.appendChild(d_footer_grid)
+
+            Top_elements.appendChild(d_footer);
+        }
+
+        // Rewrites every page's "Page : x of y" once the real total is known. The total isn't
+        // knowable until the last page has been laid out, so the footers written during
+        // pagination would otherwise all show a stale placeholder total.
+        function updateAllFooters() {
+            var pages = document.querySelectorAll('.page');
+            pages.forEach(function (pg, idx) {
+                var grid = pg.querySelector('.d_footer_grid');
+                if (!grid) return;
+                var counter = grid.querySelectorAll('p')[1];
+                if (counter) {
+                    counter.innerHTML = "Page : " + (idx + 1) + " of " + pages.length;
+                }
+            });
+        }
+
+        //--------------------------total pages of invoice-------------------------------------------------------------
+        function updateTotalPages() {
+            var totalItems = loading_list_details.length;
+            var itemsPerPage = 48;
+            totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+            return totalPages;
+        }
+
+        //------------------------------------get total sum of dr and cr ---------------------------------------------
+        function sumNumbers() {
+            totalAmount = 0;
+            for (var i = 0; i < loading_list_details.length; i++) {
+                if (loading_list_details[i].value !== null && loading_list_details[i].value !== undefined) {
+                    var amount = Number(String(loading_list_details[i].value).replace(/,/g, ''));
+                    if (!isNaN(amount)) {
+                        totalAmount += amount;
+                    }
+                }
+            }
+            totalAmount = totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return totalAmount;
+        }
+
+    </script>
+
+    <script>
+        try {
+            header();
+            body();
+            footer();
+            updateAllFooters();
+        } catch (error) {
+            console.error('Error decoding or parsing JSON:', error);
+        }
+
+        // The host preview page resizes THIS iframe's own box right before printing and back
+        // again after, which fires a resize event in here indistinguishable from a real one.
+        // This layout paginates by fixed row count (not live measurement) so nothing needs to
+        // re-run on resize - the flag is kept for parity with the other layouts and to make
+        // the print-cycle intent explicit.
+        var isPrinting = false;
+        window.addEventListener('beforeprint', function () { isPrinting = true; });
+        window.addEventListener('afterprint', function () {
+            setTimeout(function () { isPrinting = false; }, 300);
+        });
+    </script>
+</body>
+
+</html>
