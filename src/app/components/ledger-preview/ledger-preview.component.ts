@@ -19,6 +19,8 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
 
   private resizeTimer: ReturnType<typeof setTimeout> | undefined;
   private previousBodyOverflowX = '';
+  private previousBodyOverflowY = '';
+  private previousHtmlOverflowY = '';
   // Browser zoom (Ctrl +/-) scales the *entire* tab uniformly, including everything inside
   // the iframe - so the outer viewport width and the report's measured natural width both
   // move by the same factor when the user zooms, and that factor cancels out of the
@@ -110,6 +112,17 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
     // any residual sub-pixel overflow.
     document.body.style.overflowX = 'hidden';
 
+    // The window itself should stay static - .frame-wrapper (sized to the viewport via CSS,
+    // see its max-height rule) is what scrolls internally to reveal a report taller than the
+    // screen, like an embedded PDF viewer rather than a normal scrolling page. Locking
+    // overflow on both html and body (some browsers put the scrollbar on one, some the other)
+    // is what actually stops the page itself from ever growing a second, outer scrollbar
+    // alongside the wrapper's own.
+    this.previousBodyOverflowY = document.body.style.overflowY;
+    this.previousHtmlOverflowY = document.documentElement.style.overflowY;
+    document.body.style.overflowY = 'hidden';
+    document.documentElement.style.overflowY = 'hidden';
+
     this.ledgerFrame.nativeElement.addEventListener('load', this.onIframeLoad);
     window.addEventListener('resize', this.onResize);
     // visualViewport is purpose-built to report zoom-driven viewport changes and fires more
@@ -126,6 +139,8 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     document.body.style.overflowX = this.previousBodyOverflowX;
+    document.body.style.overflowY = this.previousBodyOverflowY;
+    document.documentElement.style.overflowY = this.previousHtmlOverflowY;
     this.ledgerFrame.nativeElement.removeEventListener('load', this.onIframeLoad);
     window.removeEventListener('resize', this.onResize);
     window.visualViewport?.removeEventListener('resize', this.onResize);
