@@ -6,7 +6,12 @@
 :host {
   display: block;
   background: #eef1f4;
-  height: 100vh;
+  /* position:fixed + inset:0 pins this to exactly the viewport and takes it out of document
+     flow entirely, so the page itself has no tall content left to scroll - a hard guarantee
+     no page scrollbar can ever appear, regardless of global html/body styles. Neutralized
+     under @media print below, where the full natural layout is needed instead. */
+  position: fixed;
+  inset: 0;
   overflow: hidden;
 }
 
@@ -26,14 +31,11 @@
    its true (correct) size to whatever scrolls it, which is why the scrolling lives one level
    up here instead.
 
-   max-height, not height: a fixed height:100% would make this element always exactly
-   viewport-tall regardless of how tall the actual report is - fine for a report taller than
-   the screen (that's the whole point), but for a short one it leaves the container taller
-   than its own content, showing as dead gray space in the leftover gap at the bottom. This
-   only grows to fill the viewport when the report is actually tall enough to need it,
-   otherwise it just shrinks to fit like a normal block element. */
+   Fills the pinned host exactly, so this is the one and only thing that scrolls - the
+   report moves inside a window that never does, like a PDF viewer's content pane. A report
+   shorter than the screen simply produces no scrollbar at all (nothing to scroll to). */
 .preview-viewport {
-  max-height: 100%;
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -89,6 +91,15 @@
    expanded iframe right back down. !important guarantees this wins over those inline styles
    regardless of whatever the last on-screen fit happened to compute. */
 @media print {
+  /* Undo the viewport pinning - a position:fixed element prints only what fits on one
+     screenful and clips the rest, so printing needs the normal, full natural flow back. */
+  :host {
+    position: static !important;
+    inset: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
   .preview-viewport {
     height: auto !important;
     overflow: visible !important;

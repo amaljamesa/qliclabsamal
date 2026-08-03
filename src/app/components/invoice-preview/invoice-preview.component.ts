@@ -240,6 +240,17 @@ export class InvoicePreviewComponent implements AfterViewInit, OnDestroy {
 
     iframe.style.transform = `scale(${scale})`;
     iframe.style.transformOrigin = 'top left';
+    // Collapse the iframe's own box down to the true content height too, not just the
+    // wrapper's. The CSS gives .invoice-frame a fixed 1400px height (a floor deliberately
+    // taller than any real page, so the report always renders at natural size before being
+    // measured) - but once the real height IS known, leaving that floor in place means any
+    // moment the wrapper's clip isn't applied exactly (a fit that ran before the report
+    // finished generating, a stale inline height after a re-render) shows the leftover
+    // 1400px-minus-real-height as dead gray space below the report. Setting it here removes
+    // the floor entirely, so there is no oversized box left to leak through in the first
+    // place. Safe to shrink at this point specifically because measurement is already done:
+    // it only ever shrinks to the content's own height, which can't reflow the content.
+    iframe.style.height = `${naturalHeight}px`;
     wrapper.style.width = `${naturalWidth * scale}px`;
     wrapper.style.height = `${naturalHeight * scale}px`;
   }
