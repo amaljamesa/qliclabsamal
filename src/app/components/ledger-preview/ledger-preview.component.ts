@@ -139,12 +139,24 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
     // true natural size rather than compounding an already-applied scale.
     iframe.style.transform = 'none';
 
-    // getNaturalContentSizePx (page count x true cm size) rather than scrollWidth/Height -
-    // see the comment on that method. Falls back to scrollWidth/Height only in the brief
-    // window before the report has generated any .page elements yet.
-    const size = this.getNaturalContentSizePx(doc);
-    const naturalWidth = size ? size.width : doc.documentElement.scrollWidth;
-    const naturalHeight = size ? size.height : doc.documentElement.scrollHeight;
+    // Deliberately the content's total extent (scrollWidth), not just the .page element's
+    // own width - .page is centered inside the iframe (margin: 0 auto) with empty space on
+    // either side, and since the transform below scales the whole iframe, that offset
+    // scales too. Using only .page's own width would under-count how far the content
+    // actually reaches, clipping its right edge.
+    //
+    // getNaturalContentSizePx's page-count x cm-size calculation looked like a strictly
+    // better replacement for this (floor-immune, see that method's comment) and fixed a real
+    // dead-space bug below short reports - but it assumes the rendered page is *exactly* its
+    // declared cm size with zero tolerance, and real-world font rendering can differ by a
+    // handful of pixels across systems/fonts in ways scrollWidth/Height naturally absorbs by
+    // just measuring whatever actually rendered. That mismatch showed up as clipped content
+    // on other machines/the deployed site, not reproducible in local testing - reverted back
+    // to the on-screen measurement here for that reason. (onBeforePrint above still uses the
+    // cm-based calculation - it's unaffected, this only reverts the sizing used for the
+    // scaled-to-fit on-screen preview.)
+    const naturalWidth = doc.documentElement.scrollWidth;
+    const naturalHeight = doc.documentElement.scrollHeight;
     if (naturalWidth === 0 || naturalHeight === 0) {
       return;
     }
