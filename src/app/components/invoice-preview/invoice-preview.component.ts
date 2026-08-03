@@ -88,6 +88,15 @@ export class InvoicePreviewComponent implements AfterViewInit, OnDestroy {
   // box size) and multiplying by the report's actual page size in cm (see
   // getPageDimensionsCm), converted via the CSS specification's fixed 96px/2.54cm ratio,
   // sidesteps both problems at once.
+  //
+  // Only used for HEIGHT (see fitFrame() and its comment on naturalWidth) - the equivalent
+  // width calculation turned out to assume the rendered page is *exactly* its declared cm
+  // width with zero tolerance, which real-world font rendering doesn't always honor, and that
+  // showed up as clipped content on other machines/the deployed site. Height doesn't have
+  // that problem: each .page's height is hard-clipped to its declared cm value via
+  // `overflow: hidden` (see the .page rule in invoice.html), so unlike width there's no
+  // content-dependent variance to tolerate - the true height genuinely always is
+  // pageCount x heightCm, exactly.
   private getNaturalContentSizePx(doc: Document): { width: number; height: number } | null {
     const pageCount = doc.querySelectorAll('.page').length;
     const dimensions = this.getPageDimensionsCm(doc);
@@ -181,18 +190,20 @@ export class InvoicePreviewComponent implements AfterViewInit, OnDestroy {
     // scales too. Using only .page's own width would under-count how far the content
     // actually reaches, clipping its right edge.
     //
-    // getNaturalContentSizePx's page-count x cm-size calculation looked like a strictly
-    // better replacement for this (floor-immune, see that method's comment) and fixed a real
-    // dead-space bug below short reports - but it assumes the rendered page is *exactly* its
-    // declared cm size with zero tolerance, and real-world font rendering can differ by a
-    // handful of pixels across systems/fonts in ways scrollWidth/Height naturally absorbs by
-    // just measuring whatever actually rendered. That mismatch showed up as clipped content
-    // on other machines/the deployed site, not reproducible in local testing - reverted back
-    // to the on-screen measurement here for that reason. (onBeforePrint above still uses the
-    // cm-based calculation - it's unaffected, this only reverts the sizing used for the
-    // scaled-to-fit on-screen preview.)
+    // getNaturalContentSizePx's page-count x cm-size WIDTH calculation looked like a
+    // strictly better replacement for this (floor-immune, see that method's comment) but
+    // assumes the rendered page is *exactly* its declared cm width with zero tolerance, and
+    // real-world font rendering can differ by a handful of pixels across systems/fonts in
+    // ways scrollWidth naturally absorbs by just measuring whatever actually rendered. That
+    // mismatch showed up as clipped content on other machines/the deployed site - width stays
+    // on scrollWidth for that reason. HEIGHT below is different - see getNaturalContentSizePx.
     const naturalWidth = doc.documentElement.scrollWidth;
-    const naturalHeight = doc.documentElement.scrollHeight;
+    // The dead-gray-space-below-a-short-report bug getNaturalContentSizePx was built to fix
+    // (see its comment) - scrollHeight floors at the iframe's own fixed 900x1400px CSS box
+    // even when true content is shorter. Unlike width, height has no content-rendering
+    // variance to worry about (each .page's height is hard-clipped to its declared cm value),
+    // so it's safe to use the exact calculation here while width stays conservative above.
+    const naturalHeight = this.getNaturalContentSizePx(doc)?.height ?? doc.documentElement.scrollHeight;
     if (naturalWidth === 0 || naturalHeight === 0) {
       return;
     }
