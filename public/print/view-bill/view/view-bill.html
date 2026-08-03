@@ -1,0 +1,765 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>View Bills</title>
+
+    <style>
+        /* Sized to the true physical paper with zero margin. Without this, printing falls
+           back to whatever default paper size the browser assumes (commonly Letter), which
+           is shorter than this report's 29cm .page - the mismatch makes the browser's own
+           print pagination slice a single page in two, producing extra printed pages the
+           on-screen preview never showed. */
+        @page {
+            size: 21cm 29cm;
+            margin: 0;
+        }
+
+        .page {
+            background: white;
+            width: 21cm;
+            height: 29cm;
+            /* Keeps any padding inside the declared size rather than adding to it, so the
+               preview wrapper's sizing math (pageCount x 29cm) matches what really renders. */
+            box-sizing: border-box;
+            margin: 0 auto;
+            box-shadow: 0 0 0.1cm rgba(0, 0, 0, 0.5);
+            margin-bottom: 0.5cm;
+            display: block;
+            page-break-after: always;
+            overflow: hidden;
+        }
+
+        /* Without this the truly-last page also gets page-break-after: always with nothing
+           left to flow onto it - Chrome still honors that as a forced break and prints a
+           genuine blank trailing sheet. */
+        .page:last-child {
+            page-break-after: auto;
+        }
+
+        @media print {
+
+            body {
+                height: auto;
+                margin: 0;
+                background: initial;
+            }
+
+            .page {
+                margin: 0;
+                box-shadow: none;
+                background: white;
+                page-break-after: always;
+            }
+
+            .page:last-child {
+                page-break-after: auto;
+            }
+
+            /* Without this, the print engine can slice a row's multi-line cell content
+               across a physical page boundary when the printed dimensions diverge slightly
+               from the JS's row-count budget. */
+            tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            .no-print {
+                display: none
+            }
+        }
+
+
+        .Top {
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: normal;
+            position: relative;
+            width: 21cm;
+            height: 29cm;
+            margin: 0 auto;
+            margin-bottom: 0.5cm;
+            display: block;
+        }
+
+
+        #Top_header_elements {
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: normal;
+            margin-left: 1%;
+            margin-right: 1%;
+        }
+
+
+        table,
+        td,
+        th {
+            border-collapse: collapse;
+            padding-top: 0%;
+        }
+
+        .table_data_si,
+        .date-header {
+            padding: 5px 5px 0 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- -----------------------------script------------------------------------------------->
+
+    <script>
+        // Physical page size, declared once and reused everywhere it matters: the @page rule,
+        // the .page CSS, and (read off the rendered element's data attributes) the preview
+        // wrapper that embeds this file. One source of truth keeps the wrapper's sizing math
+        // in step with the real rendered page.
+        var PAGE_WIDTH_CM = 21;
+        var PAGE_HEIGHT_CM = 29;
+
+        var page_count = 0;
+        var page_count1 = 0;
+
+        var columns = "";
+        var be_details = "";
+        var items = "";
+        var master_details = "";
+
+        function base64ToUtf8(base64) {
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array([...binaryString].map(char => char.charCodeAt(0)));
+            return new TextDecoder().decode(bytes);
+        }
+
+        function topdiv() {
+            page = document.createElement("page");
+            page.className = 'page';
+            // Read by the preview wrapper (report-preview.component.ts) to size the embedding
+            // iframe from a plain DOM read rather than a rendered measurement, which would be
+            // distorted by whatever on-screen zoom/scale is currently applied.
+            page.setAttribute('data-page-w-cm', String(PAGE_WIDTH_CM));
+            page.setAttribute('data-page-h-cm', String(PAGE_HEIGHT_CM));
+
+            Top_elements = document.createElement('div');
+            Top_elements.className = 'Top';
+            Top_elements.id = 'Top_elements';
+
+            Top_header_elements = document.createElement('div');
+            Top_header_elements.id = 'Top_header_elements';
+            Top_header_elements.style.height = '95%';
+            Top_header_elements.style.paddingTop = '1%';
+
+            let searchParams = new URLSearchParams(window.location.search)
+            var message = searchParams.get('message')
+            // Decode the String
+
+            var retrievedValue = sessionStorage.getItem('loadingDataViewBills');
+            if (retrievedValue !== null) {
+                var decodedString = base64ToUtf8(retrievedValue);
+                var myArray = JSON.parse(decodedString);
+            }
+            else {
+                var decodedString = base64ToUtf8(message);
+                var myArray = JSON.parse(decodedString);
+            }
+
+
+            columns = myArray.columns;
+            heading = myArray.heading;
+            be_details = myArray.be_details;
+            items = myArray.items;
+            master_details = myArray.master_details;
+
+
+            if (columns == undefined) {
+                columns = [];
+            }
+
+            if (heading == undefined) {
+                heading = {
+                    name: "",
+                }
+            }
+
+            if (master_details == undefined) {
+                master_details = {
+                    pmt_doc_date: "",
+                }
+            }
+
+            if (be_details == undefined) {
+                be_details = {
+                    beb_name: "",
+                    beb_addline1: "",
+                    beb_addline2: "",
+                    beb_addline3: "",
+                    pin: "",
+                    phone: "",
+                    beb_gstin: ""
+                }
+            }
+
+            if (items == undefined) {
+                items = [];
+            }
+        }
+
+
+        //  -----------------------------------------------header---------------------------------------------------------------
+        function header() {
+
+            topdiv();
+
+            //main div
+            var mainDiv = document.createElement('div');
+            mainDiv.id = 'main_div';
+            mainDiv.className = 'maindiv';
+            mainDiv.style.height = '5%';
+            mainDiv.style.width = '100%';
+            mainDiv.style.display = 'flex';
+            mainDiv.style.marginTop = '1%';
+
+            //creating bebDetaildiv
+            var bebDetaildiv = document.createElement('div');
+            bebDetaildiv.className = 'maintable';
+            bebDetaildiv.style.width = '50%';
+            bebDetaildiv.style.fontSize = '12';
+
+            if (be_details == undefined) {
+                be_details;
+            }
+            else {
+                if (be_details.beb_name == '' && be_details.beb_addline1 == '' && be_details.beb_addline2 == '' && be_details.beb_addline3 == '' && be_details.beb_pin == '' && be_details.beb_phone == '' && be_details.beb_gstin == '') {
+                    mainDiv.appendChild(bebDetaildiv);
+                }
+                else {
+                    var addressString = '<b>' + be_details.beb_name.toUpperCase() + '</b></br></br>';
+
+                    if (be_details.beb_addline1 != '') {
+                        addressString += '' + be_details.beb_addline1;
+                    }
+
+                    if (be_details.beb_addline2 != '') {
+                        addressString += ' ' + be_details.beb_addline2;
+                    }
+
+                    if (be_details.beb_addline3 != '') {
+                        addressString += ' ' + be_details.beb_addline3;
+                    }
+
+                    if (be_details.beb_addline1 == '' && be_details.beb_addline2 == '' && be_details.beb_addline3 == '') {
+                        if (be_details.beb_pin != '') {
+                            addressString += '<br>PIN: ' + be_details.beb_pin;
+                        }
+                    }
+                    else if (be_details.beb_pin != '') {
+                        addressString += ' - ' + be_details.beb_pin;
+                    }
+
+                    if (be_details.beb_phone != '') {
+                        addressString += '<br>Phone: ' + be_details.beb_phone;
+                    }
+
+                    if (be_details.beb_gstin != '') {
+                        addressString += '<br><b>GSTIN/UIN: ' + be_details.beb_gstin + '</b>';
+                    }
+
+                    bebDetaildiv.innerHTML = addressString;
+                    mainDiv.appendChild(bebDetaildiv)
+                }
+            }
+
+            //appending table to maindiv
+            mainDiv.appendChild(bebDetaildiv);
+
+            //creating bebDetaildiv
+            var datediv = document.createElement('div');
+            datediv.className = 'maintable';
+            datediv.style.width = '50%';
+            datediv.style.fontSize = '13';
+
+            var floatrightp = document.createElement("p");
+            floatrightp.className = 'floatrightp';
+            floatrightp.innerHTML = '<b>From ' + (be_details.from_date || '') + ' To ' + (be_details.to_date || '') + '</b>';
+
+            floatrightp.style.textAlign = 'right';
+            datediv.appendChild(floatrightp);
+
+            //appending table to maindiv
+            mainDiv.appendChild(datediv);
+
+            Top_header_elements.appendChild(mainDiv);
+            page.appendChild(Top_header_elements);
+        }
+
+        //  ------------------------------------------------Body--------------------------------------------------------------
+
+        function body() {
+            // Predefined list of keys and their display names for non-tax keys
+            var keyDisplayPairs = {
+                "products": "Item",
+                "mrp": "MRP",
+                "qty": "Qty",
+                "rate": "Rate",
+                "disc1": "Disc 1%",
+                "disc1_amt": 'Amt',
+                "disc2": "Disc2 %",
+                "disc2_amt": 'Amt',
+                "basic": 'Net',
+                "tax_per": 'Tax %',
+                "taxes": 'Tax',
+                "total": 'Total',
+            }
+
+            // Helper function to generate display names for tax keys
+            function generateTaxDisplayName(key) {
+                if (key.endsWith("Basic")) {
+                    return `Tax @ ${key.match(/\d+/)[0]}%`;
+                } else if (key.endsWith("Tax")) {
+                    return "GST";
+                }
+                return key;
+            }
+
+
+            //creating div for  table
+            var tableDiv = document.createElement('div');
+            tableDiv.id = 'table_Div';
+            tableDiv.className = 'tableDiv';
+
+            //creating table
+            var body_table = document.createElement('table');
+            body_table.className = 'body_table';
+            body_table.id = 'bodytable';
+            body_table.style.width = '100%';
+            body_table.style.fontSize = '11';
+            body_table.style.height = 'auto';
+
+
+            //creating table row
+            table_row_body = document.createElement('tr');
+            table_row_body.style.height = '10';
+
+            // Filter and map keys dynamically
+            var columns = Object.keys(items[0])
+                .filter(key => (keyDisplayPairs.hasOwnProperty(key)))
+                .map(key => {
+                    return {
+                        name: key,
+                        display_name: keyDisplayPairs[key] || generateTaxDisplayName(key)
+                    };
+                });
+
+
+            //creating table header
+            for (var s = 0; s < columns.length; s++) {
+                var header_si = document.createElement('th');
+                header_si.style.textAlign = 'center';
+                header_si.style.borderBottom = '1px solid';
+                header_si.innerHTML = columns[s].display_name;
+                table_row_body.appendChild(header_si);
+
+            }
+
+            //creating table row for line
+
+            body_table.appendChild(table_row_body);
+            tableDiv.appendChild(body_table);
+            Top_header_elements.appendChild(tableDiv);
+
+            count = 0;
+            var table_row_body;
+            var table_row_bodydata;
+            if (master_details.consolidate_check == 1) {
+                var first_page_item = 33;
+            }
+            else {
+                first_page_item = 31;
+            }
+
+            var current_group = "";
+
+            for (var i = 0; i < items.length; i++) {
+
+                if (count > first_page_item) {
+
+                    updateTotalPages();
+                    body_table.appendChild(table_row_bodydata);
+                    tableDiv.appendChild(body_table);
+
+                    Top_header_elements.appendChild(tableDiv);
+                    Top_elements.appendChild(Top_header_elements);
+
+                    page.appendChild(Top_elements);
+                    document.body.appendChild(page);
+
+                    page_count++;
+                    foot();
+
+                    document.body.appendChild(page);
+
+                    //new page
+                    header();
+
+                    //creating div for  table
+                    var tableDiv = document.createElement('div');
+                    tableDiv.id = 'table_Div';
+                    tableDiv.className = 'tableDiv';
+
+                    //creating table
+                    var body_table = document.createElement('table');
+                    body_table.className = 'body_table';
+                    body_table.id = 'bodytable';
+                    body_table.style.width = '100%';
+                    body_table.style.fontSize = '11px';
+                    body_table.style.height = 'auto';
+
+
+                    //creating table row
+                    table_row_body = document.createElement('tr');
+                    table_row_body.style.height = '10';
+
+                    // Filter and map keys dynamically
+                    var columns = Object.keys(items[0])
+                        .filter(key => (keyDisplayPairs.hasOwnProperty(key) || key.startsWith("Tax") || key.startsWith("GST")) && !key.includes("TaxPaidIneligible"))
+                        .map(key => {
+                            return {
+                                name: key,
+                                display_name: keyDisplayPairs[key] || generateTaxDisplayName(key)
+                            };
+                        });
+
+                    //creating table header
+                    for (var s = 0; s < columns.length; s++) {
+                        var header_si = document.createElement('th');
+                        header_si.style.textAlign = 'center';
+                        header_si.style.borderBottom = '1px solid';
+                        header_si.innerHTML = columns[s].display_name;
+                        table_row_body.appendChild(header_si);
+                    }
+
+                    //creating table row for line
+
+                    body_table.appendChild(table_row_body);
+                    tableDiv.appendChild(body_table);
+                    Top_header_elements.appendChild(tableDiv);
+
+                    count = 0;
+                    i = i - 1;
+                }
+                else {
+                    var keys = Object.keys(items[0]);
+                    var item_length = Object.keys(items[0]).length;
+
+                    if (items[i].reference != "") {
+                        // Generate the current group key
+                        var group_key = items[i].reference;
+
+                        // Check if the current item's group is different from the last one
+                        if (current_group != group_key) {
+                            current_group = group_key; // Update the current group key
+
+                            // Insert a new row or divider to indicate a new group
+                            var group_row = document.createElement('tr');
+
+                            var date_cell = document.createElement('td');
+                            date_cell.className = 'date-header';
+                            date_cell.style.borderRight = 'hidden';
+                            date_cell.style.fontWeight = '900';
+
+                            if (items[i].account_name == "") {
+                                date_cell.style.borderBottom = 'hidden';
+                            }
+                            else {
+                                date_cell.style.borderBottom = '1px solid';
+                            }
+                            date_cell.textContent = items[i].date;
+                            group_row.appendChild(date_cell);
+
+                            var group_cell_empty = document.createElement('td');
+                            group_cell_empty.className = 'date-header';
+                            group_cell_empty.style.borderRight = 'hidden';
+                            group_cell_empty.style.fontWeight = '900';
+                            if (items[i].account_name == "") {
+                                group_cell_empty.style.borderBottom = 'hidden';
+                            }
+                            else {
+                                group_cell_empty.style.borderBottom = '1px solid';
+                            }
+                            group_cell_empty.textContent = items[i].reference;
+                            group_row.appendChild(group_cell_empty);
+
+
+                            var group_cell = document.createElement('td');
+                            group_cell.className = 'date-header';
+                            group_cell.style.borderRight = 'hidden';
+                            group_cell.style.fontWeight = '900';
+
+                            group_cell.colSpan = 15;
+                            if (items[i].account_name == "") {
+                                group_cell.style.borderBottom = 'hidden';
+                            }
+                            else {
+                                group_cell.style.borderBottom = '1px solid';
+                            }
+                            group_cell.textContent = items[i].type + '->' + items[i].account;
+                            group_row.appendChild(group_cell);
+
+                            body_table.appendChild(group_row); // Append the group row to the table
+                            count++;
+                        }
+                    }
+                    else if (master_details.consolidate_check == 1) {
+                        var group_key = items[i].account;
+                        if (current_group != group_key) {
+                            current_group = group_key; // Update the current group key
+
+                            var group_row = document.createElement('tr');
+
+                            var group_cell = document.createElement('td');
+                            group_cell.className = 'date-header';
+                            group_cell.style.borderRight = 'hidden';
+                            group_cell.style.fontWeight = '900';
+                            group_cell.colSpan = 15;
+                            group_cell.textContent = items[i].account;
+                            group_row.appendChild(group_cell);
+
+                            body_table.appendChild(group_row); // Append the group row to the table
+
+                            count++;
+                        }
+                    }
+
+                    //creating table row
+                    table_row_bodydata = document.createElement('tr');
+                    table_row_bodydata.className = 'table_row_bodydata';
+                    table_row_bodydata.style.height = '1%';
+
+                    outer: for (p = 0; p < columns.length; p++) {
+
+                        var myJsonString = JSON.stringify(items[i]);
+                        var anotherObject = JSON.parse(myJsonString);
+
+                        var key_name = columns[p].name;
+
+                        if (key_name == "products") {
+                            var table_data_si = document.createElement('td');
+                            table_data_si.className = 'table_data_si';
+                            table_data_si.style.verticalAlign = 'top';
+                            table_data_si.style.width = '30%';
+                            table_data_si.style.textAlign = 'left';
+
+                            if (master_details.consolidate_check == 2) {
+
+                                table_data_si.innerHTML = anotherObject[key_name];
+                            } else {
+                                if (anotherObject["account"] == "") {
+                                    table_data_si.style.border = 'none';
+                                    table_data_si.style.marginTop = '2px';
+                                    table_data_si.style.fontWeight = 'bold';
+                                    table_data_si.style.marginBottom = '2px';
+                                    table_data_si.innerHTML = "Total";
+                                    table_data_si.style.fontSize = '14px';
+                                } else {
+
+                                    if (anotherObject["pmt_mid"] == 0) {
+                                        table_data_si.style.borderTop = '1px solid';
+                                        table_data_si.style.borderBottom = '1px solid';
+                                        table_data_si.style.fontSize = '13px';
+                                        table_data_si.style.fontWeight = 'bold';
+                                    }
+                                    table_data_si.innerHTML = anotherObject[key_name];
+                                }
+                            }
+
+                            table_row_bodydata.appendChild(table_data_si);
+                        }
+
+                        var numericColumns = {
+                            mrp: '10%', qty: '10%', rate: '10%', disc1: '10%', disc1_amt: '10%',
+                            disc2: '10%', disc2_amt: '10%', basic: '15%', tax_per: '15%',
+                            taxes: '5%', total: '15%'
+                        };
+
+                        if (numericColumns.hasOwnProperty(key_name)) {
+                            var table_data_si = document.createElement('td');
+                            table_data_si.className = 'table_data_si';
+                            table_data_si.style.verticalAlign = 'top';
+                            table_data_si.style.width = numericColumns[key_name];
+                            table_data_si.style.textAlign = 'right';
+                            if (anotherObject["account"] == "") {
+                                table_data_si.style.marginTop = '2px';
+                                table_data_si.style.fontWeight = 'bold';
+                                table_data_si.style.marginBottom = '2px';
+                            }
+
+                            if (anotherObject["pmt_mid"] == 0) {
+                                table_data_si.style.borderTop = '1px solid';
+                                table_data_si.style.borderBottom = '1px solid';
+                                table_data_si.style.fontSize = '13px';
+                                table_data_si.style.fontWeight = 'bold';
+                            }
+
+                            // The tax-percentage column is blanked on total rows - a percentage
+                            // has no meaning once amounts from different rates are summed.
+                            if (key_name == 'tax_per' && anotherObject["pmt_mid"] == 0) {
+                                table_data_si.innerHTML = "";
+                            } else {
+                                table_data_si.innerHTML = anotherObject[key_name];
+                            }
+                            table_row_bodydata.appendChild(table_data_si);
+                        }
+                    }
+
+                    body_table.appendChild(table_row_bodydata);
+                }
+                count++;
+            }
+            page_count++
+
+
+            tableDiv.appendChild(body_table);
+            Top_header_elements.appendChild(tableDiv);
+
+            Top_elements.appendChild(Top_header_elements);
+            page.appendChild(Top_elements);
+            document.body.appendChild(page);
+        }
+
+        // --------------------------------------------------Footer-----------------------------------------------------------
+        function foot() {
+
+            updateTotalPages();
+
+            //footer div
+            var footDiv = document.createElement('div');
+            footDiv.id = 'foot_div';
+            footDiv.className = 'footDiv';
+            footDiv.style.width = '95%'
+            footDiv.style.display = 'flex'
+            footDiv.style.marginLeft = '2%'
+
+            //footer div
+            var footTimeDiv = document.createElement('div');
+            footTimeDiv.id = 'foot_div';
+            footTimeDiv.className = 'footDiv';
+            footTimeDiv.style.width = '50%'
+
+
+            //Footer Date&Time
+            footTimeDiv.className = "footer1";
+            footTimeDiv.id = "foot1";
+            footTimeDiv.style.fontSize = '12';
+
+            var today = new Date();
+            var date = today.getDate() + '-' + (today.getMonth() + 1) + '-' + today.getFullYear();
+            var hours = today.getHours();
+            var minutes = today.getMinutes();
+            var seconds = today.getSeconds();
+            var amOrPm = 'AM';
+            if (hours >= 12) { amOrPm = 'PM'; if (hours > 12) hours -= 12; }
+            if (hours === 0) hours = 12;
+            if (minutes < 10) {
+                minutes = "0" + minutes;
+            }
+            if (seconds < 10) {
+                seconds = "0" + seconds;
+            }
+
+            var dateTime = date + ' ' + hours + ':' + minutes + ':' + seconds + ' ' + amOrPm;
+
+            footTimeDiv.innerHTML = dateTime;
+            footDiv.appendChild(footTimeDiv);
+
+            var footPageDiv = document.createElement('div');
+            footPageDiv.id = 'foot_div';
+            footPageDiv.className = 'footDiv page-counter';
+            footPageDiv.style.width = '50%';
+            footPageDiv.style.fontSize = '12';
+            footPageDiv.style.textAlign = 'right';
+
+            footPageDiv.innerHTML = "Page : " + page_count;
+
+            footDiv.appendChild(footPageDiv);
+
+            Top_elements.appendChild(footDiv);
+        }
+
+        // Rewrites every footer's page number from the pages that actually got rendered, and
+        // adds the "of y" total the original footer never showed at all. updateTotalPages()
+        // below only *estimates* the total from a fixed rows-per-page figure, which drifts
+        // from the real count as soon as group header rows shift where the breaks land -
+        // counting the real .page elements after generation is exact by construction.
+        function updateAllFooters() {
+            var pages = document.querySelectorAll('.page');
+            pages.forEach(function (pg, idx) {
+                var counter = pg.querySelector('.page-counter');
+                if (counter) {
+                    counter.innerHTML = "Page : " + (idx + 1) + " of " + pages.length;
+                }
+            });
+        }
+
+
+        //--------------------------total pages of invoice-------------------------------------------------------------
+        function updateTotalPages() {
+            var itemsPerPage = 30; // max rows per page including items and extra rows
+            var currentRowCount = 0;
+            var totalPages = 0;
+            var current_group = null;
+
+            for (var i = 0; i < items.length; i++) {
+                if (currentRowCount === 0) { // new page
+                    totalPages++;
+                }
+
+                if (items[i].reference != "") {
+
+                    var group_key = items[i].reference;
+
+                    if (current_group !== group_key) {
+                        if (currentRowCount + 1 > itemsPerPage) { // check if adding this group row requires a new page
+                            totalPages++;
+                            currentRowCount = 1; // reset row count for new page, start with group row
+                        } else {
+                            currentRowCount++; // add group row to current page
+                        }
+                        current_group = group_key;
+                    }
+                }
+
+                if (currentRowCount + 1 > itemsPerPage) { // check if adding this item row requires a new page
+                    totalPages++;
+                    currentRowCount = 1; // start new page with this item
+                } else {
+                    currentRowCount++; // add item to current page
+                }
+
+            }
+
+            return totalPages;
+        }
+
+    </script>
+    <script>
+        try {
+            header();
+            body();
+            foot();
+            updateAllFooters();
+        } catch (error) {
+            console.error('Error decoding or parsing JSON:', error);
+        }
+
+        // The host preview page resizes THIS iframe's own box right before printing and back
+        // again after, which fires a resize event in here indistinguishable from a real one.
+        // This layout paginates by fixed row count (not live measurement) so nothing needs to
+        // re-run on resize - the flag is kept for parity with the other layouts and to make
+        // the print-cycle intent explicit.
+        var isPrinting = false;
+        window.addEventListener('beforeprint', function () { isPrinting = true; });
+        window.addEventListener('afterprint', function () {
+            setTimeout(function () { isPrinting = false; }, 300);
+        });
+    </script>
+</body>
+
+</html>

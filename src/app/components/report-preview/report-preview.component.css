@@ -1,0 +1,111 @@
+/* Pinned to exactly the viewport and taken out of document flow entirely, so the page
+   itself has no tall content left to scroll - a hard guarantee that no page scrollbar can
+   ever appear, regardless of global html/body styles. .preview-viewport below is what
+   scrolls internally instead, like an embedded PDF viewer rather than a normal page (the JS
+   in ngAfterViewInit/ngOnDestroy locks html/body's own overflow to match, since some
+   browsers put the scrollbar there instead of on this host). Neutralized under @media print
+   below, where the full natural layout is needed instead. */
+:host {
+  display: block;
+  background: #eef1f4;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* The one and only thing that scrolls. Deliberately a *separate* element from
+   .frame-wrapper below, not overflow-y on .frame-wrapper itself - .frame-wrapper's only
+   child is the iframe, and an iframe's own CSS box (see .report-frame) is its layout
+   contribution to a scrollable ancestor regardless of any transform scaling applied to it
+   (transform is paint-only, it doesn't shrink the box for layout/scroll purposes) - so
+   overflow-y directly on .frame-wrapper would scroll based on that fixed floor, not the
+   true (possibly much shorter) content height, showing dead scroll space as an unnecessary
+   scrollbar. A plain div's own explicit height, like .frame-wrapper's JS-set style.height,
+   doesn't have that problem - it genuinely reports its true size to whatever scrolls it,
+   which is why the scrolling lives one level up here instead.
+
+   A report shorter than the screen simply produces no scrollbar at all (nothing to scroll
+   to), and the report never moves the window itself. */
+.preview-viewport {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+#printButton {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
+  padding: 0.6rem 1.2rem;
+  font-size: 14px;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+#printButton:hover {
+  background: #1d4ed8;
+}
+
+/* Reports its own scaled (visual) size, since a CSS transform doesn't change the iframe's
+   own layout box - without this, the wrapper would still occupy the report's full, unscaled
+   width/height even when the iframe is shrunk to fit. margin: auto centers it horizontally
+   once it's narrower than the viewport (i.e. whenever fitFrame's scale is capped at 1 on a
+   wide screen) instead of sitting flush against the left edge. */
+.frame-wrapper {
+  overflow: hidden;
+  margin: 1rem auto;
+}
+
+/* Width is a fixed floor comfortably larger than any real report page - including the
+   landscape one (gst-sale is 29.7cm ~ 1123px wide, the widest of these layouts). This must
+   never shrink below the report's own natural size: doing so would change the iframe's
+   *internal* viewport and fire the report's own internal responsive scaling (each layout
+   has its own, for when it's opened directly rather than via this wrapper), shrinking its
+   content before this component ever measures the true natural size. Only a CSS transform
+   is used to fit it to the screen from the outside. Height starts at a similar floor and is
+   then collapsed to the true content height by fitFrame() once that's known. */
+.report-frame {
+  border: none;
+  display: block;
+  width: 1200px;
+  height: 1400px;
+}
+
+@media print {
+  /* Undo the viewport pinning - a position:fixed element prints only what fits on one
+     screenful and clips the rest, so printing needs the normal, full natural flow back. */
+  :host {
+    position: static !important;
+    inset: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .preview-viewport {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* onBeforePrint expands the iframe to its true natural size (see the component) so the
+     entire multi-page report becomes part of this page's actual layout instead of just
+     whatever fit in the fixed on-screen box - but the wrapper's own JS-set width/height
+     (matching the small *scaled* on-screen size) and overflow:hidden would otherwise clip
+     that expanded iframe right back down. !important guarantees this wins over those inline
+     styles regardless of whatever the last on-screen fit happened to compute. */
+  .frame-wrapper {
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+  }
+
+  #printButton {
+    display: none !important;
+  }
+}

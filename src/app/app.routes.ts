@@ -10,6 +10,8 @@ import { PartyFormComponent } from './components/party-form/party-form.component
 import { LedgerReportComponent } from './components/ledger-report/ledger-report.component';
 import { LedgerPreviewComponent } from './components/ledger-preview/ledger-preview.component';
 import { InvoicePreviewComponent } from './components/invoice-preview/invoice-preview.component';
+import { ReportPreviewComponent } from './components/report-preview/report-preview.component';
+import { ReportListComponent } from './components/report-list/report-list.component';
 
 export const routes: Routes = [
   { path: 'dashboard', component: DashboardComponent },
@@ -30,6 +32,11 @@ export const routes: Routes = [
   // Invoice layout (A4/A5) - the report itself is a static file (public/print/invoice/view/),
   // this route is only the responsive scaled-iframe wrapper around it, same pattern as above.
   { path: 'print/invoice-preview', component: InvoicePreviewComponent },
+  // Every other report layout (loading list, view bills, journal voucher, GST sales
+  // register, brief sale) shares one responsive preview wrapper - the :report segment picks
+  // which static layout it embeds, see REPORT_SOURCES in the component.
+  { path: 'print/report/:report', component: ReportPreviewComponent },
+  { path: 'reports', component: ReportListComponent },
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
   { path: '**', redirectTo: '/dashboard' }
 ];
