@@ -1,6 +1,30 @@
+/* Capped to exactly the viewport so this component's own page never grows a scrollbar of
+   its own - .preview-viewport below is what scrolls internally to reveal a report taller
+   than the screen, like an embedded PDF viewer rather than a normal page (the JS in
+   ngAfterViewInit/ngOnDestroy locks html/body's own overflow to match, since some browsers
+   put the scrollbar there instead of on this host). */
 :host {
   display: block;
   background: #eef1f4;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* The thing that actually scrolls. Deliberately a *separate* element from .frame-wrapper
+   below, not overflow-y on .frame-wrapper itself - .frame-wrapper's only child is the
+   iframe, and an iframe's own CSS box (900x1400, see .ledger-frame) is its layout
+   contribution to a scrollable ancestor regardless of any transform scaling applied to it
+   (transform is paint-only, it doesn't shrink the box for layout/scroll purposes) - so
+   overflow-y directly on .frame-wrapper scrolled based on that fixed 1400px floor, not the
+   true (possibly much shorter) content height, reintroducing dead scroll space as an
+   unnecessary scrollbar instead of visible gray. A plain div's own explicit height, like
+   .frame-wrapper's JS-set style.height, doesn't have that problem - it genuinely does report
+   its true (correct) size to whatever scrolls it, which is why the scrolling lives one level
+   up here instead. */
+.preview-viewport {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* The report inside the iframe assumes A4 physical pages for its own internal
@@ -65,6 +89,11 @@
    expanded iframe right back down. !important guarantees this wins over those inline styles
    regardless of whatever the last on-screen fit happened to compute. */
 @media print {
+  .preview-viewport {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
   .frame-wrapper {
     width: auto !important;
     height: auto !important;
