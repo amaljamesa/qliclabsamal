@@ -26,7 +26,19 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
   private jsonData!: LedgerData;
   private pageCount = 1;
   private resizeTimer: ReturnType<typeof setTimeout> | undefined;
+  // The host page (ledger-preview.component.ts) resizes THIS iframe's own width/height to
+  // its true full size right before printing, then back to '' right after - and because
+  // that's a genuine size change to the iframe's own box, it fires a 'resize' event in here
+  // too, indistinguishable from a real user resize/zoom. Without this flag, that
+  // self-inflicted resize would schedule a second, redundant generateReport() rebuild
+  // ~200ms after onBeforePrint's own (correct, synchronous) rebuild already ran - racing
+  // against the host's own fitFrame() call, which measures this document's size *before*
+  // that late rebuild fires.
+  private isPrinting = false;
   private readonly onResize = (): void => {
+    if (this.isPrinting) {
+      return;
+    }
     clearTimeout(this.resizeTimer);
     this.resizeTimer = setTimeout(() => {
       this.generateReport();
@@ -34,7 +46,21 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
     }, RESIZE_DEBOUNCE_MS);
   };
   private readonly onBeforePrint = (): void => {
+    this.isPrinting = true;
     this.generateReport();
+  };
+  // NOT cleared synchronously on afterprint - onAfterPrint's iframe.style.width/height
+  // reset (on the host page) fires its own native 'resize' event on this window, but that
+  // event arrives asynchronously (a task or more later), after this handler's own
+  // synchronous code already finished. Clearing the flag here immediately would very likely
+  // already be false again by the time that trailing resize event shows up, defeating the
+  // guard above entirely (confirmed empirically against the same pattern in invoice.html -
+  // the naive "clear synchronously on afterprint" version still let the redundant rebuild
+  // through every time). Outlasting the resize debounce window comfortably covers it instead.
+  private readonly onAfterPrint = (): void => {
+    setTimeout(() => {
+      this.isPrinting = false;
+    }, RESIZE_DEBOUNCE_MS + 100);
   };
 
   constructor(private route: ActivatedRoute) {}
@@ -59,11 +85,13 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
     // specific layout, so regenerating here calibrates pagination against what will
     // actually be printed, not whatever the screen happened to be showing beforehand.
     window.addEventListener('beforeprint', this.onBeforePrint);
+    window.addEventListener('afterprint', this.onAfterPrint);
   }
 
   ngOnDestroy(): void {
     window.removeEventListener('resize', this.onResize);
     window.removeEventListener('beforeprint', this.onBeforePrint);
+    window.removeEventListener('afterprint', this.onAfterPrint);
     clearTimeout(this.resizeTimer);
   }
 

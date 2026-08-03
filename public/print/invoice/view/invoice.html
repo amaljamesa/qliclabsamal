@@ -2146,6 +2146,18 @@
 
         const RESIZE_DEBOUNCE_MS = 200;
         let resizeTimer;
+        // The host page (invoice-preview.component.ts) resizes THIS iframe's own width/height
+        // to its true full size right before printing, then back to '' right after - and
+        // because that's a genuine size change to the iframe's own box, it fires a 'resize'
+        // event in here too, indistinguishable from a real user resize/zoom. Without this
+        // flag, that self-inflicted resize would schedule a second, redundant
+        // resetGeneratedContent()+rebuild ~200ms after beforeprint's own (correct, synchronous)
+        // rebuild already ran - racing against onAfterPrint's fitFrame() call on the outside,
+        // which measures this document's size *before* that late rebuild fires. Deterministic
+        // data makes the rebuild's result identical either way, but the DOM briefly goes
+        // through resetGeneratedContent()'s empty state while it reruns - exactly the kind of
+        // window a screenshot (or a slower real print dialog) could catch mid-flight.
+        let isPrinting = false;
         // Pagination is otherwise a one-time calculation done at load. If the user zooms
         // in/out (or resizes the window) after the report is already rendered, text can
         // reflow slightly differently at the new size, growing a row past what was originally
@@ -2154,6 +2166,9 @@
         // event (they change the effective CSS pixel viewport), so re-running generateReport()
         // here re-paginates against the new, live measurements.
         window.addEventListener('resize', () => {
+            if (isPrinting) {
+                return;
+            }
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(generateReport, RESIZE_DEBOUNCE_MS);
         });
@@ -2165,7 +2180,23 @@
         // async handler here would risk the browser capturing print output mid-rebuild (right
         // after resetGeneratedContent() clears the page but before the new content is added),
         // producing a blank printed page.
-        window.addEventListener('beforeprint', generateReport);
+        window.addEventListener('beforeprint', () => {
+            isPrinting = true;
+            generateReport();
+        });
+        // NOT cleared synchronously on afterprint - onAfterPrint's iframe.style.width/height
+        // reset (on the host page) fires its own native 'resize' event on this window, but
+        // that event arrives asynchronously (a task or more later), after this handler's own
+        // synchronous code already finished. Clearing the flag here immediately would very
+        // likely already be false again by the time that trailing resize event shows up,
+        // defeating the guard above entirely (confirmed empirically - the naive
+        // "clear synchronously on afterprint" version still let the redundant rebuild through
+        // every time). Outlasting the resize debounce window comfortably covers it instead.
+        window.addEventListener('afterprint', () => {
+            setTimeout(() => {
+                isPrinting = false;
+            }, RESIZE_DEBOUNCE_MS + 100);
+        });
 
         generateReport();
     </script>
