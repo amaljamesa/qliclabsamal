@@ -20,9 +20,16 @@
    unnecessary scrollbar instead of visible gray. A plain div's own explicit height, like
    .frame-wrapper's JS-set style.height, doesn't have that problem - it genuinely does report
    its true (correct) size to whatever scrolls it, which is why the scrolling lives one level
-   up here instead. */
+   up here instead.
+
+   max-height, not height: a fixed height:100% would make this element always exactly
+   viewport-tall regardless of how tall the actual report is - fine for a report taller than
+   the screen (that's the whole point), but for a short one it leaves the container taller
+   than its own content, showing as dead gray space in the leftover gap at the bottom. This
+   only grows to fill the viewport when the report is actually tall enough to need it,
+   otherwise it just shrinks to fit like a normal block element. */
 .preview-viewport {
-  height: 100%;
+  max-height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
 }
