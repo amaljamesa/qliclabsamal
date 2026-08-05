@@ -1,4 +1,9 @@
 import { Injectable } from '@angular/core';
+import { HARDCODED_BULK_TEST_INVOICE, PaperSize, withPaperSize } from './invoice-print.service';
+
+// Re-exported so the report preview keeps importing everything it needs from one place; the
+// type lives with the payload helpers in invoice-print.service.
+export type { PaperSize };
 
 // UTF-8 safe base64 encode - mirrors the base64ToUtf8 decode every report layout expects.
 // Plain btoa() throws on any multi-byte character (₹, accented names), so this must stay in
@@ -6,6 +11,7 @@ import { Injectable } from '@angular/core';
 function utf8ToBase64(str: string): string {
   return btoa(unescape(encodeURIComponent(str)));
 }
+
 
 // Which storage key each layout reads its payload from. These are the keys the layouts
 // themselves already look up (they predate this app), so they're dictated by the layouts,
@@ -16,6 +22,10 @@ interface ReportTarget {
   key: string;
   storage: StorageKind;
   label: string;
+  // Only the invoice designs render at more than one paper size (from the same HTML - the
+  // size is a field in the payload). Listing them here is what puts the A4/A5 switch on
+  // their preview; the layouts without it never show one.
+  paperSizes?: PaperSize[];
 }
 
 const REPORT_TARGETS: Record<string, ReportTarget> = {
@@ -23,7 +33,12 @@ const REPORT_TARGETS: Record<string, ReportTarget> = {
   'view-bill': { key: 'loadingDataViewBills', storage: 'session', label: 'View Bills' },
   'journal-voucher': { key: 'journalVoucherData', storage: 'local', label: 'Journal Voucher' },
   'gst-sale': { key: 'temp_tax_register', storage: 'local', label: 'GST Sales Register' },
-  'brief-sale': { key: 'temp_sale_report', storage: 'local', label: 'Brief Sale Report' }
+  'brief-sale': { key: 'temp_sale_report', storage: 'local', label: 'Brief Sale Report' },
+  // Alternative invoice designs. Same payload and same storage key as the main invoice
+  // layout - only the HTML design differs between them.
+  'invoice-d2': { key: 'temp_inv_data', storage: 'session', label: 'Invoice Design 2', paperSizes: ['a4', 'a5'] },
+  'invoice-d3': { key: 'temp_inv_data', storage: 'session', label: 'Invoice Design 3', paperSizes: ['a4', 'a5'] },
+  'invoice-d4': { key: 'temp_inv_data', storage: 'session', label: 'Invoice Design 4', paperSizes: ['a4', 'a5'] }
 };
 
 export const REPORT_LAYOUTS = Object.entries(REPORT_TARGETS).map(([id, target]) => ({
@@ -50,17 +65,78 @@ export class ReportPrintService {
   }
 
   // Opens a layout preloaded with the sample payload below. Mirrors the bulk-print
-  // stand-in already in InvoicePrintService: these five layouts have no real data source
+  // stand-in already in InvoicePrintService: these layouts have no real data source
   // wired up in this app yet, so the samples are what make the previews testable now and
   // are the single place to swap for a real API call later.
-  openSampleReportPreview(reportId: string): void {
-    const sample = SAMPLE_REPORT_DATA[reportId];
+  // Which paper sizes a layout can render, if it can render more than one. The preview uses
+  // this to decide whether to offer a size switch at all.
+  getPaperSizes(reportId: string): PaperSize[] | undefined {
+    return REPORT_TARGETS[reportId]?.paperSizes;
+  }
+
+  // Re-stamps the payload already in storage with a different paper size. These layouts
+  // render A4 and A5 from the same HTML - the size lives in the payload, not in the file -
+  // so switching is a matter of rewriting one field and reloading, with no need to go back
+  // to wherever the data originally came from. Deliberately edits the stored payload rather
+  // than rebuilding the sample, so this keeps working once real invoice data is wired up.
+  setStoredPaperSize(reportId: string, pageSize: PaperSize): boolean {
+    const target = REPORT_TARGETS[reportId];
+    if (!target) {
+      return false;
+    }
+    const store = target.storage === 'session' ? sessionStorage : localStorage;
+    const stored = store.getItem(target.key);
+    if (!stored) {
+      return false;
+    }
+    const updated = withPaperSize(stored, pageSize);
+    if (!updated) {
+      return false;
+    }
+    store.setItem(target.key, updated);
+    return true;
+  }
+
+  openSampleReportPreview(reportId: string, pageSize: PaperSize = 'a4'): void {
+    const sample = INVOICE_DESIGN_IDS.includes(reportId)
+      ? buildInvoiceDesignSample(pageSize)
+      : SAMPLE_REPORT_DATA[reportId];
     if (!sample) {
       console.error('No sample data for report layout:', reportId);
       return;
     }
     this.openReportPreview(reportId, sample);
   }
+}
+
+const INVOICE_DESIGN_IDS = ['invoice-d2', 'invoice-d3', 'invoice-d4'];
+
+// The invoice designs read the same JSON schema as the main invoice layout, so their sample
+// is that layout's payload rather than a second copy that would drift from it. Two changes
+// on top: the item list is stretched well past a single page (the original 11 rows fit on
+// one A4 sheet, which would never exercise pagination), and the bank/UPI fields are filled
+// in so the footer block these designs put under the totals is actually rendered.
+function buildInvoiceDesignSample(pageSize: PaperSize): unknown {
+  const source = HARDCODED_BULK_TEST_INVOICE;
+  const items = Array.from({ length: 26 }, (_, index) => ({
+    ...source.items[index % source.items.length],
+    sl_no: index + 1
+  }));
+
+  return {
+    ...source,
+    items,
+    footer: [
+      { value: 'HDFC Bank A/c 50200012345678, IFSC HDFC0001234' },
+      { value: 'GSTIN 29AABXG0724Q8Z9' },
+      { value: '5th Floor Bejai, Bangalore 560026' }
+    ],
+    others: {
+      ...source.others,
+      page_size: pageSize,
+      upi_id: 'upi://pay?pa=sunshine@hdfcbank&pn=Sunshine%20Limited'
+    }
+  };
 }
 
 const COMPANY_DETAILS = {

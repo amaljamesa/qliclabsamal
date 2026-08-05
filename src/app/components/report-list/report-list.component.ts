@@ -17,6 +17,7 @@ export class ReportListComponent {
 
   constructor(private reportPrintService: ReportPrintService) {}
 
+  // Opens at A4; the layouts that also do A5 offer the switch inside the preview itself.
   openPreview(reportId: string): void {
     this.reportPrintService.openSampleReportPreview(reportId);
   }

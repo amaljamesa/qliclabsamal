@@ -24,6 +24,90 @@ export interface InvoiceItem {
   amount: number;
 }
 
+// A deliberately long line-item list, for the 'Multipage Demo' invoice below. The print
+// layouts paginate by measuring each rendered row, so the only way to exercise - or show
+// anyone - multi-page output end to end is real data with enough lines to overflow a sheet.
+// 34 lines comes out at 2 pages on A4 and 3 on A5 across the designs. The mix is deliberate:
+// several deliberately long product names (they wrap to two lines, which is what makes a
+// fixed rows-per-page assumption break) and three different tax rates, so the tax summary
+// and CGST/SGST split have more than one group to report.
+const MULTIPAGE_DEMO_PRODUCTS: Array<[string, number, number, string]> = [
+  ['JABSON P NUT KARI SING NARIYAL 200GM', 12, 78.50, 'GST @ 5%'],
+  ['MDH GARAM MASALA 100GM', 24, 92.00, 'GST @ 5%'],
+  ['R-PURE YELLOW CHILLI POWDER 500GM POUCH', 6, 235.00, 'GST @ 5%'],
+  ['SNAPIN CHILLI FLAKES 35GM', 36, 45.00, 'GST @ 12%'],
+  ['JABSONS KHAKRA GOLGAPPA 180GM', 18, 60.00, 'GST @ 12%'],
+  ['MUKUNDA CASHEW SALTED 100GM', 10, 180.00, 'GST @ 12%'],
+  ['MDH KASOORI METHI 500GM CANISTER', 4, 410.00, 'GST @ 5%'],
+  ['JABSONS SOYA STICKS TANGY TOMATO 200GM', 20, 55.00, 'GST @ 12%'],
+  ['MDH DEGGI MIRCH CHILLY POWDER 100GM', 15, 105.00, 'GST @ 5%'],
+  ['SNAPIN ONION POWDER 40GM', 30, 38.00, 'GST @ 12%'],
+  ['BASMATI RICE PREMIUM LONG GRAIN 5KG BAG', 8, 640.00, 'GST @ 0%'],
+  ['SUNFLOWER REFINED OIL 1LTR POUCH', 24, 145.00, 'GST @ 5%'],
+  ['TOOR DAL UNPOLISHED 1KG', 20, 130.00, 'GST @ 0%'],
+  ['SUGAR CRYSTAL FINE GRAIN 1KG', 25, 46.00, 'GST @ 0%'],
+  ['TEA DUST STRONG BLEND 500GM', 12, 210.00, 'GST @ 5%'],
+  ['FILTER COFFEE POWDER 80:20 500GM', 9, 320.00, 'GST @ 5%'],
+  ['COCONUT OIL COLD PRESSED 500ML BOTTLE', 14, 175.00, 'GST @ 5%'],
+  ['MUSTARD SEEDS SMALL 200GM', 22, 42.00, 'GST @ 5%'],
+  ['CUMIN SEEDS JEERA WHOLE 200GM', 18, 88.00, 'GST @ 5%'],
+  ['TURMERIC POWDER ORGANIC 200GM', 26, 64.00, 'GST @ 5%'],
+  ['CORIANDER POWDER 500GM POUCH', 16, 118.00, 'GST @ 5%'],
+  ['ASAFOETIDA HING COMPOUNDED 50GM', 11, 96.00, 'GST @ 12%'],
+  ['CARDAMOM GREEN BOLD 50GM', 7, 385.00, 'GST @ 5%'],
+  ['CLOVES WHOLE SELECT GRADE 50GM', 9, 165.00, 'GST @ 5%'],
+  ['CINNAMON STICKS FLAT 100GM', 13, 142.00, 'GST @ 5%'],
+  ['BLACK PEPPER WHOLE MALABAR 100GM', 15, 198.00, 'GST @ 5%'],
+  ['DRY RED CHILLI BYADGI STEMLESS 250GM', 10, 225.00, 'GST @ 5%'],
+  ['TAMARIND SEEDLESS PRESSED 500GM', 12, 158.00, 'GST @ 0%'],
+  ['JAGGERY ORGANIC BLOCK 1KG', 14, 92.00, 'GST @ 0%'],
+  ['POHA THICK VARIETY 1KG', 18, 68.00, 'GST @ 0%'],
+  ['RAVA BOMBAY SOOJI 1KG', 20, 54.00, 'GST @ 0%'],
+  ['BESAN GRAM FLOUR FINE 1KG', 16, 86.00, 'GST @ 0%'],
+  ['PAPAD UDAD SPECIAL PACK OF 12', 28, 72.00, 'GST @ 12%'],
+  ['GARBAGE BAGS BIODEGRADABLE 19x21 30PC', 22, 73.00, 'GST @ 18%']
+];
+
+// `repeats` walks the list again for the longer invoice, varying the quantity so the two
+// passes aren't identical rows - enough to push past a second sheet without another hundred
+// lines of hand-written seed data.
+function buildDemoItems(repeats: number): InvoiceItem[] {
+  const items: InvoiceItem[] = [];
+  for (let pass = 0; pass < repeats; pass++) {
+    MULTIPAGE_DEMO_PRODUCTS.forEach(([productName, qty, rate, taxRate]) => {
+      const passQty = qty + pass * 3;
+      items.push({
+        id: items.length + 1,
+        productName,
+        qty: passQty,
+        rate,
+        taxRate,
+        amount: Math.round(passQty * rate * 100) / 100
+      });
+    });
+  }
+  return items;
+}
+
+function taxPercentOf(item: InvoiceItem): number {
+  const match = item.taxRate.match(/(\d+(?:\.\d+)?)\s*%/);
+  return match ? parseFloat(match[1]) : 0;
+}
+
+function sumAmount(items: InvoiceItem[]): number {
+  return Math.round(items.reduce((sum, item) => sum + item.amount, 0) * 100) / 100;
+}
+
+function sumTax(items: InvoiceItem[]): number {
+  return Math.round(items.reduce((sum, item) => sum + item.amount * taxPercentOf(item) / 100, 0) * 100) / 100;
+}
+
+// 34 lines: two pages on A4, two on A5.
+const MULTIPAGE_DEMO_ITEMS = buildDemoItems(1);
+// 68 lines: three pages on A4, four on A5 - the case where a middle page carries neither the
+// header block nor the totals, which is the one worth showing.
+const LONG_DEMO_ITEMS = buildDemoItems(2);
+
 export interface Invoice {
   id: string;
   invoiceNo: string;
@@ -987,6 +1071,42 @@ export class DataService {
       tcs: 0,
       discount: 0,
       totalAmount: 24.69
+    },
+    // The 34-line invoice (see MULTIPAGE_DEMO_PRODUCTS). Dated latest on purpose so it sorts
+    // to the top of the invoice list - this is the one to open when showing that a layout
+    // paginates, since every other seeded invoice is a single line and fits on one page.
+    {
+      id: 'S-26-00141',
+      invoiceNo: 'S-26-00141',
+      date: '2026-06-20',
+      time: '11:42:10 AM',
+      branch: 'SMB',
+      partyName: 'Multipage Demo',
+      paymentMode: 'Paid',
+      paymentType: 'Credit',
+      items: MULTIPAGE_DEMO_ITEMS,
+      subtotal: sumAmount(MULTIPAGE_DEMO_ITEMS),
+      taxAmount: sumTax(MULTIPAGE_DEMO_ITEMS),
+      tcs: 0,
+      discount: 0,
+      totalAmount: Math.round((sumAmount(MULTIPAGE_DEMO_ITEMS) + sumTax(MULTIPAGE_DEMO_ITEMS)) * 100) / 100
+    },
+    // The 68-line invoice, for the three-page case.
+    {
+      id: 'S-26-00142',
+      invoiceNo: 'S-26-00142',
+      date: '2026-06-21',
+      time: '10:05:33 AM',
+      branch: 'SMB',
+      partyName: 'Multipage Demo',
+      paymentMode: 'Paid',
+      paymentType: 'Credit',
+      items: LONG_DEMO_ITEMS,
+      subtotal: sumAmount(LONG_DEMO_ITEMS),
+      taxAmount: sumTax(LONG_DEMO_ITEMS),
+      tcs: 0,
+      discount: 0,
+      totalAmount: Math.round((sumAmount(LONG_DEMO_ITEMS) + sumTax(LONG_DEMO_ITEMS)) * 100) / 100
     }
   ];
 

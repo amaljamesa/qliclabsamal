@@ -1,5 +1,7 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
+import { PaperSize, ReportPrintService } from '../../services/report-print.service';
 
 const RESIZE_DEBOUNCE_MS = 200;
 const PRINT_STYLE_ID = 'report-preview-page-size-style';
@@ -15,7 +17,12 @@ const REPORT_SOURCES: Record<string, string> = {
   'view-bill': '/print/view-bill/view/view-bill.html?message=1',
   'journal-voucher': '/print/journal-voucher/view/journal-voucher.html?message=1',
   'gst-sale': '/print/gst-sale/view/gst-sale.html?message=1',
-  'brief-sale': '/print/brief-sale/view/brief-sale.html?message=1'
+  'brief-sale': '/print/brief-sale/view/brief-sale.html?message=1',
+  // Alternative invoice designs. These render A4 or A5 from the same file depending on the
+  // payload's others.page_size, which is exactly why nothing about the size is stated here.
+  'invoice-d2': '/print/invoice-d2/view/invoice-d2.html?message=1',
+  'invoice-d3': '/print/invoice-d3/view/invoice-d3.html?message=1',
+  'invoice-d4': '/print/invoice-d4/view/invoice-d4.html?message=1'
 };
 
 // Generic responsive preview wrapper, shared by every report layout listed above. Embeds a
@@ -33,6 +40,7 @@ const REPORT_SOURCES: Record<string, string> = {
 @Component({
   selector: 'app-report-preview',
   standalone: true,
+  imports: [CommonModule],
   templateUrl: './report-preview.component.html',
   styleUrls: ['./report-preview.component.css']
 })
@@ -42,6 +50,12 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
 
   frameSrc = '';
   reportTitle = 'Report';
+  // Empty for the layouts that only render one paper size, which is what hides the switch.
+  paperSizes: PaperSize[] = [];
+  // Not a stored preference: set from the size the embedded report actually rendered at (see
+  // fitFrame), so the highlighted button always reflects what is on screen rather than what
+  // was last clicked.
+  activeSize: PaperSize | '' = '';
 
   private resizeTimer: ReturnType<typeof setTimeout> | undefined;
   private previousBodyOverflowX = '';
@@ -57,7 +71,9 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
   // just zoom - only *changes* from this baseline matter.
   private readonly baselinePixelRatio = window.devicePixelRatio;
 
-  constructor(private route: ActivatedRoute) {}
+  private reportKey = '';
+
+  constructor(private route: ActivatedRoute, private reportPrintService: ReportPrintService) {}
 
   private readonly onResize = (): void => {
     clearTimeout(this.resizeTimer);
@@ -160,8 +176,23 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
     window.print();
   }
 
+  // Switching paper size rewrites the payload's page_size and reloads the frame - the layout
+  // renders either size from the same HTML, so there is no second file to point at. The
+  // reload fires the existing load handler, which re-fits and re-reads the active size.
+  setPaperSize(size: PaperSize): void {
+    if (size === this.activeSize) {
+      return;
+    }
+    if (!this.reportPrintService.setStoredPaperSize(this.reportKey, size)) {
+      return;
+    }
+    this.reportFrame.nativeElement.src = this.frameSrc;
+  }
+
   ngAfterViewInit(): void {
     const reportKey = this.route.snapshot.paramMap.get('report') ?? '';
+    this.reportKey = reportKey;
+    this.paperSizes = this.reportPrintService.getPaperSizes(reportKey) ?? [];
     this.frameSrc = REPORT_SOURCES[reportKey] ?? '';
     this.reportTitle = reportKey
       .split('-')
@@ -226,6 +257,16 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
     // .report-frame) before measuring, so repeated calls always measure the report's true
     // natural size rather than compounding an already-applied scale.
     iframe.style.transform = 'none';
+
+    // Read back what the report actually rendered at, rather than trusting the last button
+    // press - matched against the real dimensions rather than a width threshold, since one
+    // of these layouts is landscape and would read as "wide" either way.
+    const rendered = this.getPageDimensionsCm(doc);
+    if (rendered) {
+      const match = (widthCm: number, heightCm: number) =>
+        Math.abs(rendered.widthCm - widthCm) < 0.1 && Math.abs(rendered.heightCm - heightCm) < 0.1;
+      this.activeSize = match(14.8, 21) ? 'a5' : match(21, 29.7) ? 'a4' : '';
+    }
 
     // Deliberately the content's total extent (scrollWidth), not the declared cm width -
     // the cm calculation assumes the rendered page is exactly its declared width with zero

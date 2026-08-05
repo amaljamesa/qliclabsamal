@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Invoice</title>
+
+    <script type="text/javascript">
+        function getQueryParam(param) {
+            let searchParams = new URLSearchParams(window.location.search);
+            return searchParams.get(param);
+        }
+
+        var deviceType = getQueryParam('device_type');
+        var supportedDeviceTypes = ['1', '2', '6', '8'];
+
+        document.write('<script type="text/javascript" src="../../../assets/js/qrcode.min.js"><\/script>');
+        document.write('<script type="text/javascript" src="../../../assets/js/qrious.js"><\/script>');
+    </script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* One .page div per physical sheet, sized in cm by the script (see createPage) rather
+           than by a fixed CSS rule, so the same markup serves both A4 and A5.
+
+           box-sizing: border-box matters more than it looks: without it the padding below is
+           added ON TOP OF the explicit cm height, so a page's true rendered box ends up
+           taller than the size everything else (pagination budget, the preview wrapper's
+           pageCount x heightCm calculation) assumes - invisible on one page, compounding
+           across a multi-page report until the wrapper falls short of the real content and
+           grows its own internal scrollbar. */
+        .page {
+            position: relative;
+            margin: 0 auto;
+            padding: var(--pad);
+            background: #fff;
+            box-shadow: 0 0 0.5cm rgba(0, 0, 0, 0.5);
+            box-sizing: border-box;
+            overflow: hidden;
+            page-break-after: always;
+        }
+
+        /* Everything that differs between the two paper sizes is a custom property, so the
+           HTML and every rule below are shared - an A5 invoice is the same layout, not a
+           second copy of it. */
+        .page.size-a4 {
+            --pad: 1.4cm;
+            --fs: 13px;
+            --fs-sm: 11px;
+            --fs-lead: 16px;
+            --fs-title: 30px;
+            --fs-subtitle: 12px;
+            --fs-be-name: 24px;
+            --fs-total: 18px;
+            --logo: 2.4cm;
+            --qr: 3cm;
+            --gap: 0.5cm;
+            --cell-pad: 6px;
+        }
+
+        .page.size-a5 {
+            --pad: 0.8cm;
+            --fs: 9.5px;
+            --fs-sm: 8px;
+            --fs-lead: 11px;
+            --fs-title: 20px;
+            --fs-subtitle: 9px;
+            --fs-be-name: 16px;
+            --fs-total: 13px;
+            --logo: 1.6cm;
+            --qr: 2.2cm;
+            --gap: 0.3cm;
+            --cell-pad: 3px;
+        }
+
+        /* height:100% of the padded content box, so the script can measure the space a page
+           actually has (see startPage) instead of recomputing it from cm arithmetic. */
+        .page-inner {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            font-size: var(--fs);
+        }
+
+        /* flex-shrink:0 throughout is what keeps those measurements honest: without it, rows
+           overflowing the body would silently squeeze the header/totals/page number instead
+           of overflowing, so every height measured before the overflow would go stale. */
+        .doc-head,
+        .doc-body,
+        .doc-tail,
+        .doc-pagenum {
+            flex-shrink: 0;
+        }
+
+        /* Absorbs a page's unused height. It sits BELOW the totals, not above them:
+           anchoring the totals to the foot of the sheet left a large hole between the last
+           item row and the totals whenever a final page carried only a few rows (reported
+           on a 68-line invoice, whose last page held ten). Totals now follow the items and
+           the leftover space falls at the foot of the page, where it reads as margin - only
+           the page number stays pinned to the bottom. */
+        .doc-spacer {
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        .doc-pagenum {
+            text-align: right;
+            font-size: var(--fs-sm);
+            color: #666;
+            padding-top: 4px;
+        }
+
+        .logo-header img {
+            width: var(--logo);
+            height: var(--logo);
+            object-fit: contain;
+        }
+
+        .invoice-header,
+        .billing-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: var(--gap);
+        }
+
+        .billing-info {
+            margin: var(--gap) 0;
+        }
+
+        .be-details,
+        .invoice-to,
+        .invoice-title,
+        .invoice-info {
+            width: 48%;
+            box-sizing: border-box;
+        }
+
+        .be-details p,
+        .invoice-to p,
+        .invoice-info p {
+            margin: 4px 0;
+            line-height: 1.25;
+        }
+
+        .be-details .be-name {
+            font-size: var(--fs-be-name);
+            font-weight: bold;
+        }
+
+        .invoice-to .section-label {
+            font-size: var(--fs-lead);
+            font-weight: bold;
+        }
+
+        .invoice-title,
+        .invoice-info {
+            text-align: right;
+        }
+
+        .invoice-title h1 {
+            margin: 0;
+            font-size: var(--fs-title);
+            color: #1a73e8;
+            text-transform: uppercase;
+        }
+
+        .invoice-title h5 {
+            margin: 0;
+            font-size: var(--fs-subtitle);
+            font-weight: normal;
+            color: #333;
+        }
+
+        .invoice-title .copy-type {
+            margin: 5px 0 0 0;
+            font-size: var(--fs);
+            font-style: italic;
+            color: gray;
+        }
+
+        .invoice-title .copy-type::before {
+            content: "(";
+        }
+
+        .invoice-title .copy-type::after {
+            content: ")";
+        }
+
+        /* table-layout:fixed locks the column widths to the header row's percentages. With the
+           browser default (auto) the table re-derives its column widths from ALL rows
+           collectively as they are added, so a row's height - measured right after it was
+           appended, to decide where the page breaks - goes stale the moment a later row's
+           long product name forces a retroactive width change in an earlier row's column. */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .items-table th,
+        .items-table td {
+            border: 1px solid #ddd;
+            padding: var(--cell-pad);
+            font-size: var(--fs);
+            vertical-align: top;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .items-table th {
+            background-color: #1a73e8;
+            color: #fff;
+            text-transform: uppercase;
+        }
+
+        .items-table td {
+            background-color: #f9f9f9;
+        }
+
+        /* Striping is per page, not continuous across the report - each page's table starts
+           its own count, so the first data row always reads the same on every sheet. */
+        .items-table tbody tr:nth-child(even) td {
+            background-color: #e6f7ff;
+        }
+
+        .items-table .item-desc {
+            display: block;
+            font-size: var(--fs-sm);
+            color: #444;
+        }
+
+        .invoice-totals-container {
+            display: flex;
+            justify-content: space-between;
+            gap: var(--gap);
+            margin-top: var(--gap);
+        }
+
+        .invoice-totals-left {
+            width: 60%;
+            align-self: flex-end;
+        }
+
+        .invoice-totals-right {
+            width: 40%;
+            text-align: right;
+        }
+
+        .invoice-totals-left p,
+        .invoice-totals-right p {
+            margin: 5px 0;
+        }
+
+        .invoice-totals-right .grand-total {
+            font-size: var(--fs-total);
+        }
+
+        .payment-section {
+            display: flex;
+            align-items: center;
+            margin-top: var(--gap);
+        }
+
+        .qr-code {
+            text-align: center;
+            margin-right: var(--gap);
+        }
+
+        /* Fixed box (rather than sizing to the canvas the script injects) so the totals block
+           measures at its true height even before the QR code is drawn - that measurement is
+           what reserves room for this whole block on the last page. */
+        .qr-box {
+            width: var(--qr);
+            height: var(--qr);
+        }
+
+        .qr-box canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .qr-caption {
+            margin: 2px 0 0 0;
+            font-size: var(--fs-sm);
+        }
+
+        .payment-method {
+            flex: 1;
+        }
+
+        .payment-method p {
+            margin: 0;
+        }
+
+        .payment-section.has-qr .payment-method p {
+            padding-left: var(--gap);
+            border-left: 1px solid #000;
+        }
+
+        .invoice-footer-above {
+            text-align: center;
+        }
+
+        .invoice-footer-above .thanks {
+            margin: var(--gap) 0 0 0;
+            font-size: var(--fs);
+        }
+
+        .authorized-sign {
+            width: 4cm;
+            margin-left: auto;
+            margin-top: 1cm;
+            text-align: right;
+            color: #666;
+            font-weight: bold;
+        }
+
+        .authorized-sign p {
+            margin: 0;
+        }
+
+        .watermark {
+            opacity: 0.25;
+            position: absolute;
+            top: 40%;
+            left: 20%;
+            font-size: 100px;
+            transform: rotate(-30deg);
+            pointer-events: none;
+        }
+
+        @media print {
+            .page {
+                margin: 0;
+                box-shadow: initial;
+                page-break-after: always;
+            }
+
+            /* Without this the print engine can slice a row's multi-line cell across a sheet
+               boundary whenever the printed page's true dimensions diverge even slightly from
+               the height budget the pagination below worked to. */
+            tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            /* The blue table header and striped rows are part of the design, not decoration
+               the print pass should quietly drop. */
+            .items-table th,
+            .items-table td {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+
+        /* No trailing blank sheet after the last page. */
+        .page:last-child {
+            page-break-after: auto;
+        }
+    </style>
+</head>
+
+<body>
+
+    <script>
+        // Physical paper. The layout itself is size-agnostic (see the custom properties in the
+        // stylesheet); this is the only place the actual dimensions live.
+        var PAGE_DIMS = { a4: { w: 21, h: 29.7 }, a5: { w: 14.8, h: 21 } };
+
+        var RIGHT_ALIGNED = ['qty', 'free_qty', 'rate', 'amount'];
+
+        // Relative column proportions, normalised to sum to 100% across whichever subset an
+        // invoice actually shows (product_columns is configurable per business). Needed
+        // because table-layout:fixed - required for stable row-height measurement, see the
+        // .items-table rule - distributes columns evenly unless widths are given.
+        var COLUMN_BASE_WIDTH = {
+            sl_no: 6, marks_nos_container: 6, no_pkgs: 6, pro_code: 10, pro_barcode: 10,
+            pro_name: 34, bra_name: 10, batch: 8, mfg_date: 8, exp_date: 8, hsn: 7,
+            tax_rate: 6, alt_qty: 9, qty: 6, free_qty: 6, unit: 6, mrp: 8, rate: 9,
+            rate_post_tax: 9, rate_pre_tax: 9, per: 5, disc1_per: 6, disc1_amt: 8,
+            disc2_per: 6, disc2_amt: 8, amount: 10
+        };
+
+        var jsonData = null;
+        var pageSize = 'a4';
+
+        var _pxPerCm = null;
+        function getPxPerCm() {
+            if (_pxPerCm === null) {
+                var ref = document.createElement('div');
+                ref.style.cssText = 'position:absolute;left:-9999px;top:-9999px;visibility:hidden;width:10cm;height:10cm';
+                document.body.appendChild(ref);
+                _pxPerCm = ref.getBoundingClientRect().height / 10;
+                document.body.removeChild(ref);
+            }
+            return _pxPerCm;
+        }
+
+        function cmToPx(cm) {
+            return cm * getPxPerCm();
+        }
+
+        // getBoundingClientRect() forces a synchronous layout flush, so an element appended
+        // immediately above is already accurately measurable here - no waiting on frames.
+        function elHeight(el) {
+            return el ? el.getBoundingClientRect().height : 0;
+        }
+
+        // Plain atob() mangles multi-byte characters (the rupee sign, accented party names):
+        // it yields one byte per code unit, and those bytes are UTF-8 that still needs
+        // decoding. Mirrors the utf8ToBase64 encode on the sending side.
+        function base64ToUtf8(value) {
+            // ' ' -> '+': a space is never valid base64, but reading the payload straight out of
+            // a query string turns every '+' into one (that is what '+' means in a query string),
+            // which would otherwise corrupt the decode.
+            var base64 = String(value).replace(/ /g, '+').replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4) {
+                base64 += '=';
+            }
+            var binary = atob(base64);
+            var bytes = new Uint8Array(binary.length);
+            for (var i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return new TextDecoder().decode(bytes);
+        }
+
+        function formatText(text) {
+            if (!text) return '';
+            return String(text).replace(/\r?\n/g, '<br />');
+        }
+
+        function value(input) {
+            return (input === undefined || input === null) ? '' : input;
+        }
+
+        // Every optional block goes through this, so a field the payload simply doesn't carry
+        // leaves no empty line behind.
+        function line(html, content) {
+            return (content === '' || content === undefined || content === null) ? '' : html;
+        }
+
+        function footerValue(index) {
+            var footer = jsonData.footer || [];
+            return footer[index] ? value(footer[index].value) : '';
+        }
+
+        function pageDims() {
+            return PAGE_DIMS[pageSize] || PAGE_DIMS.a4;
+        }
+
+        function columnWidthPercent(columns, name) {
+            var base = function (columnName) {
+                return COLUMN_BASE_WIDTH[columnName] !== undefined ? COLUMN_BASE_WIDTH[columnName] : 8;
+            };
+            var total = columns.reduce(function (sum, column) { return sum + base(column.name); }, 0);
+            return total ? (base(name) / total * 100) + '%' : (100 / columns.length) + '%';
+        }
+
+        function columnAlign(name) {
+            return RIGHT_ALIGNED.indexOf(name) !== -1 ? 'right' : 'left';
+        }
+
+        function addCancelWatermark(page) {
+            var watermark = document.createElement('div');
+            watermark.className = 'watermark';
+            watermark.style.fontFamily = 'Arial, Helvetica, sans-serif';
+            watermark.innerHTML = 'Cancelled';
+            page.appendChild(watermark);
+        }
+
+        function createPage() {
+            var dims = pageDims();
+            var page = document.createElement('div');
+            page.className = 'page size-' + (PAGE_DIMS[pageSize] ? pageSize : 'a4');
+            page.style.width = dims.w + 'cm';
+            page.style.height = dims.h + 'cm';
+            // The responsive preview wrapper (report-preview.component.ts) reads the paper size
+            // off these attributes rather than assuming A4 - which is what lets one wrapper
+            // serve both sizes, and what keeps the printed page count matching the preview.
+            page.setAttribute('data-page-w-cm', String(dims.w));
+            page.setAttribute('data-page-h-cm', String(dims.h));
+            page.innerHTML =
+                '<div class="page-inner">' +
+                '<div class="doc-head"></div>' +
+                '<div class="doc-body"><table class="items-table"><thead></thead><tbody></tbody></table></div>' +
+                '<div class="doc-tail"></div>' +
+                '<div class="doc-spacer"></div>' +
+                '<div class="doc-pagenum"></div>' +
+                '</div>';
+
+            if (jsonData.config && jsonData.config.is_canceled === true) {
+                addCancelWatermark(page);
+            }
+            document.body.appendChild(page);
+            return page;
+        }
+
+        // ---------------------------------------------------------------------------------
+        // Layout-specific markup. Everything above and below this block is the shared
+        // pagination engine; only these two functions and the stylesheet make this design
+        // look the way it does.
+        // ---------------------------------------------------------------------------------
+
+        function headHtml(copy) {
+            var beDetails = jsonData.be_details || {};
+            var billTo = jsonData.bill_to || {};
+            var master = jsonData.master_details || {};
+            var heading = jsonData.heading || {};
+            var logoSrc = (jsonData.design && jsonData.design.logo) || '';
+
+            var beAddress = [
+                formatText(beDetails.beb_addline1), value(beDetails.beb_addline2), value(beDetails.beb_addline3)
+            ].filter(Boolean).join(' ');
+            if (beDetails.pin) {
+                beAddress = beAddress ? beAddress + ', ' + beDetails.pin : String(beDetails.pin);
+            }
+
+            return '' +
+                (logoSrc ? '<div class="logo-header"><img src="' + logoSrc + '" alt="Logo"></div>' : '') +
+
+                '<div class="invoice-header">' +
+                '<div class="be-details">' +
+                '<p class="be-name">' + value(beDetails.beb_name) + '</p>' +
+                line('<p>' + beAddress + '</p>', beAddress) +
+                line('<p>' + value(beDetails.phone) + '</p>', value(beDetails.phone)) +
+                line('<p>' + value(beDetails.beb_gstin) + '</p>', value(beDetails.beb_gstin)) +
+                '</div>' +
+                '<div class="invoice-title">' +
+                '<h1>' + value(heading.name) + '</h1>' +
+                line('<h5>' + value(heading.sub_name) + '</h5>', value(heading.sub_name)) +
+                '<p class="copy-type">' + value(copy.type) + '</p>' +
+                '</div>' +
+                '</div>' +
+
+                '<div class="billing-info">' +
+                '<div class="invoice-to">' +
+                '<p class="section-label">Invoice to :</p>' +
+                '<p>' + value(billTo.party_name) + '</p>' +
+                line('<p>' + value(billTo.party_phone) + '</p>', value(billTo.party_phone)) +
+                line('<p>' + value(billTo.party_add1) + '</p>', value(billTo.party_add1)) +
+                line('<p>' + value(billTo.party_gstin) + '</p>', value(billTo.party_gstin)) +
+                '</div>' +
+                '<div class="invoice-info">' +
+                '<p><strong>Invoice no : </strong> <span>' + value(master.inv_no) + '</span></p>' +
+                '<p><strong>Date : </strong> <span>' + value(master.pmt_doc_date) + '</span></p>' +
+                line('<p><strong>Place of Supply : </strong><span>' + value(master.place_supply) + '</span></p>', value(master.place_supply)) +
+                line('<p><strong>Mode/Terms of Payment : </strong><span>' + value(master.paid_topay) + '</span></p>', value(master.paid_topay)) +
+                '</div>' +
+                '</div>';
+        }
+
+        function tailHtml() {
+            var others = jsonData.others || {};
+            var config = jsonData.config || {};
+            var taxTotals = jsonData.tax_details_total || {};
+            var taxSplitUp = jsonData.tax_split_up_total || [];
+            var showAmtInWords = config.show_amt_in_words !== undefined ? config.show_amt_in_words : true;
+            var showTaxInWords = config.tax_in_words !== undefined ? config.tax_in_words : true;
+            var totalWords = value(others.amt_in_words);
+            var taxWords = value(others.tax_amt_in_words);
+            var hasQr = !!others.upi_id;
+
+            var bankName = footerValue(0);
+            var gstNo = footerValue(1);
+            var address = footerValue(2);
+
+            return '' +
+                '<div class="invoice-totals-container">' +
+                '<div class="invoice-totals-left">' +
+                (showAmtInWords ? line('<p><strong>TOTAL AMT IN WORDS :</strong> <span>' + totalWords + '</span></p>', totalWords) : '') +
+                (showTaxInWords && taxWords !== ' Rupees Only' ? line('<p><strong>TOTAL TAX IN WORDS :</strong> <span>' + taxWords + '</span></p>', taxWords) : '') +
+                '</div>' +
+                '<div class="invoice-totals-right">' +
+                line('<p>Subtotal: <span>' + value(taxTotals.total_taxable_value) + '</span></p>', value(taxTotals.total_taxable_value)) +
+                taxSplitUp.map(function (tax) {
+                    return '<p>' + value(tax.name) + (tax.rate ? ' (' + tax.rate + ')' : '') + ': <span>' + value(tax.amount) + '</span></p>';
+                }).join('') +
+                '<p class="grand-total"><strong>Total:</strong> <b><span>' + value(others.total_amount) + '</span></b></p>' +
+                '</div>' +
+                '</div>' +
+
+                '<div class="payment-section' + (hasQr ? ' has-qr' : '') + '">' +
+                (hasQr ? '<div class="qr-code"><div class="qr-box"></div><p class="qr-caption">Scan to Pay</p></div>' : '') +
+                '<div class="payment-method">' +
+                line('<p>' + bankName + '</p>', bankName) +
+                line('<p>' + gstNo + '</p>', gstNo) +
+                line('<p>' + address + '</p>', address) +
+                '</div>' +
+                '</div>' +
+
+                '<div class="invoice-footer-above">' +
+                '<div class="authorized-sign"><p>Authorized Signature</p></div>' +
+                '<p class="thanks">Thank you for business with us!</p>' +
+                '</div>';
+        }
+
+        // ---------------------------------------------------------------------------------
+        // Pagination
+        // ---------------------------------------------------------------------------------
+
+        function buildRow(item, columns) {
+            var row = document.createElement('tr');
+            columns.forEach(function (column) {
+                var cell = document.createElement('td');
+                cell.style.width = columnWidthPercent(columns, column.name);
+                cell.style.textAlign = columnAlign(column.name);
+
+                if (column.name === 'pro_name') {
+                    var description = formatText(item.desc);
+                    cell.innerHTML = value(item[column.name]) +
+                        (description ? '<span class="item-desc">' + description + '</span>' : '');
+                } else {
+                    cell.innerHTML = (item[column.name] === 0 || item[column.name] === null || item[column.name] === undefined)
+                        ? '' : item[column.name];
+                }
+                row.appendChild(cell);
+            });
+            return row;
+        }
+
+        // A page plus the measurements pagination needs from it. The row budget is measured off
+        // the real rendered boxes (rather than recomputed from cm arithmetic) so it stays
+        // correct however tall this invoice's header happens to be - a long company address or
+        // a logo changes it, and A5 changes it again.
+        function startPage(copy, columns) {
+            var page = createPage();
+            var head = page.querySelector('.doc-head');
+            var thead = page.querySelector('.items-table thead');
+            var pagenum = page.querySelector('.doc-pagenum');
+
+            head.innerHTML = headHtml(copy);
+            thead.innerHTML = '<tr>' + columns.map(function (column) {
+                return '<th style="width:' + columnWidthPercent(columns, column.name) +
+                    ';text-align:' + columnAlign(column.name) + '">' + value(column.display_name) + '</th>';
+            }).join('') + '</tr>';
+            // Placeholder text of a realistic length, so this line is measured at the height it
+            // will actually occupy before the real numbers are known (see numberPages).
+            pagenum.innerHTML = '<span>Page 1 of 1</span>';
+
+            var budget = elHeight(page.querySelector('.page-inner')) -
+                elHeight(head) - elHeight(thead) - elHeight(pagenum) - cmToPx(0.15);
+
+            return {
+                el: page,
+                tbody: page.querySelector('tbody'),
+                tail: page.querySelector('.doc-tail'),
+                pagenum: pagenum,
+                budget: budget
+            };
+        }
+
+        // The totals/QR/signature block only appears once, on the last page - so its height
+        // has to be known before pagination can tell whether the final rows still fit above
+        // it. Measured off a real (off-screen) page rather than guessed at in cm, since it
+        // grows and shrinks with the payload: a QR code, bank lines and amount-in-words text
+        // are all optional.
+        function measureTailHeight(copy) {
+            var probe = createPage();
+            probe.style.position = 'absolute';
+            probe.style.left = '-9999px';
+            probe.style.top = '-9999px';
+            probe.style.visibility = 'hidden';
+            probe.querySelector('.doc-head').innerHTML = headHtml(copy);
+            var tail = probe.querySelector('.doc-tail');
+            tail.innerHTML = tailHtml();
+            var height = elHeight(tail);
+            probe.remove();
+            return height + cmToPx(0.2);
+        }
+
+        function numberPages(pages) {
+            pages.forEach(function (page, index) {
+                page.pagenum.innerHTML = '<span>Page ' + (index + 1) + ' of ' + pages.length + '</span>';
+            });
+        }
+
+        function generateQRCode(page) {
+            var others = jsonData.others || {};
+            var container = page.el.querySelector('.qr-box');
+            if (!others.upi_id || !container || typeof QRious === 'undefined') {
+                return;
+            }
+            var canvas = document.createElement('canvas');
+            container.appendChild(canvas);
+            new QRious({
+                element: canvas,
+                value: others.upi_id,
+                level: 'H',
+                size: Math.round(cmToPx(pageSize === 'a4' ? 3 : 2.2))
+            });
+        }
+
+        // Renders one copy (Original/Duplicate/...) across as many pages as its items need.
+        // Rows are appended one at a time and measured as they land, rather than assumed to be
+        // a fixed height: a wrapped product name or a description line makes a row two or three
+        // times taller than its neighbours, which a fixed rows-per-page figure would either
+        // overflow past the bottom of the sheet or leave a large gap above it.
+        function renderCopy(copy) {
+            var columns = (jsonData.product_columns || []).slice().sort(function (a, b) {
+                return ((Number(a.sequence) || 0) - (Number(b.sequence) || 0)) ||
+                    ((Number(a.id) || 0) - (Number(b.id) || 0));
+            });
+            var items = jsonData.items || [];
+            var tailHeight = measureTailHeight(copy);
+
+            var pages = [];
+            var page = startPage(copy, columns);
+            pages.push(page);
+            var used = 0;
+
+            items.forEach(function (item, index) {
+                var row = buildRow(item, columns);
+                page.tbody.appendChild(row);
+                used += elHeight(row);
+
+                // The last row is budgeted against the totals block as well, so a final row and
+                // the totals that must sit under it move to the next page together - which is
+                // what stops the totals ever landing alone on a page of their own.
+                var budget = page.budget - (index === items.length - 1 ? tailHeight : 0);
+
+                // The length check keeps a single row taller than a whole page from bouncing to
+                // a fresh page forever; it stays put and is clipped instead.
+                if (used > budget && page.tbody.children.length > 1) {
+                    page.tbody.removeChild(row);
+                    page = startPage(copy, columns);
+                    pages.push(page);
+                    page.tbody.appendChild(row);
+                    used = elHeight(row);
+                }
+            });
+
+            var lastPage = pages[pages.length - 1];
+            lastPage.tail.innerHTML = tailHtml();
+            numberPages(pages);
+            generateQRCode(lastPage);
+        }
+
+        // Sized to the true physical paper with zero margin. Without this, printing falls back
+        // to whatever the browser assumes (commonly Letter), which is shorter than a 29.7cm A4
+        // page div - so the print engine paginates the layout a second time, slicing each page
+        // in two and printing twice the sheets the preview showed.
+        function ensurePageSizeStyle() {
+            var styleEl = document.getElementById('dynamic-page-size-style');
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.id = 'dynamic-page-size-style';
+                document.head.appendChild(styleEl);
+            }
+            var dims = pageDims();
+            styleEl.textContent = '@page { size: ' + dims.w + 'cm ' + dims.h + 'cm; margin: 0; }';
+        }
+
+        function renderInvoice(data) {
+            jsonData = data;
+            var others = data.others || {};
+            pageSize = (others.page_size === 'a5' || others.page_size === 'A5') ? 'a5' : 'a4';
+            ensurePageSizeStyle();
+
+            var copies = (data.copies && data.copies.length) ? data.copies : [{ type: 'Original' }];
+            copies.forEach(renderCopy);
+        }
+
+        // generateReport() re-runs in full on every resize/beforeprint (see the listeners
+        // below), reusing the same document - without clearing first, each run would pile its
+        // pages up after the previous run's.
+        function resetGeneratedContent() {
+            document.querySelectorAll('.page').forEach(function (page) { page.remove(); });
+        }
+
+        // A bulk print sends { invoices: [ ...one payload per selected invoice... ] } and a
+        // single preview sends one payload directly; both are normalised to an array here so
+        // one window.print() covers the whole batch as a single continuous job.
+        function generateReport() {
+            var searchParams = new URLSearchParams(window.location.search);
+            var message = searchParams.get('message');
+            if (!message) {
+                console.error('No message found in the URL parameters.');
+                return;
+            }
+
+            try {
+                resetGeneratedContent();
+                // Re-measured every run: a browser zoom changes how many device pixels a cm is,
+                // and every height budget below is derived from it.
+                _pxPerCm = null;
+
+                var storedValue = sessionStorage.getItem('temp_inv_data');
+                var payload = JSON.parse(base64ToUtf8(storedValue !== null ? storedValue : message));
+                var invoices = Array.isArray(payload.invoices) ? payload.invoices : [payload];
+                invoices.forEach(renderInvoice);
+            } catch (error) {
+                console.error('Error generating invoice copies:', error);
+            }
+        }
+
+        var RESIZE_DEBOUNCE_MS = 200;
+        var resizeTimer;
+        // The host page resizes this iframe to its full natural size right before printing and
+        // back again afterwards, and that fires a resize event in here too - indistinguishable
+        // from a real one. Without this flag it would schedule a second, redundant rebuild
+        // ~200ms after beforeprint's own (correct, synchronous) one, racing the host's
+        // measurement of this document while the DOM briefly sits in its emptied state.
+        var isPrinting = false;
+
+        // Pagination is otherwise calculated once, at load. Zooming afterwards reflows text
+        // slightly, growing rows past what was budgeted for them, so it is re-run against the
+        // new measurements here (a zoom change fires resize - it changes the CSS pixel
+        // viewport).
+        window.addEventListener('resize', function () {
+            if (isPrinting) {
+                return;
+            }
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(generateReport, RESIZE_DEBOUNCE_MS);
+        });
+
+        // Printing is a separate rendering pass that can differ from the on-screen zoom, so
+        // page grouping calibrated for the screen doesn't necessarily match what prints.
+        // Safe only because generateReport() is fully synchronous - an async rebuild here
+        // would risk the print capturing the document mid-reset, printing a blank page.
+        window.addEventListener('beforeprint', function () {
+            isPrinting = true;
+            generateReport();
+        });
+
+        // Deliberately not cleared synchronously: the host's own iframe size reset fires a
+        // trailing resize event a task or more later, which would sail straight through a flag
+        // already set back to false. Outlasting the debounce window covers it.
+        window.addEventListener('afterprint', function () {
+            setTimeout(function () { isPrinting = false; }, RESIZE_DEBOUNCE_MS + 100);
+        });
+
+        generateReport();
+    </script>
+</body>
+
+</html>

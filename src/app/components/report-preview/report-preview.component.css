@@ -6,7 +6,10 @@
    browsers put the scrollbar there instead of on this host). Neutralized under @media print
    below, where the full natural layout is needed instead. */
 :host {
-  display: block;
+  /* A column of two rows: the toolbar, then the scrollable report area filling the rest -
+     the toolbar sits above the report rather than floating over its top-right corner. */
+  display: flex;
+  flex-direction: column;
   background: #eef1f4;
   position: fixed;
   inset: 0;
@@ -27,16 +30,61 @@
    A report shorter than the screen simply produces no scrollbar at all (nothing to scroll
    to), and the report never moves the window itself. */
 .preview-viewport {
-  height: 100%;
+  /* Takes whatever height the toolbar leaves. min-height:0 is what actually allows it to
+     shrink and scroll inside a flex column - without it a flex item's floor is its content
+     height, so a tall report would push the whole host past the viewport instead. */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
 }
 
+.preview-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: #fff;
+  border-bottom: 1px solid #dfe4ea;
+}
+
+.size-switch {
+  display: flex;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.size-button {
+  padding: 0.6rem 1rem;
+  font-size: 14px;
+  font-family: Arial, Helvetica, sans-serif;
+  background: transparent;
+  color: #334155;
+  border: none;
+  border-right: 1px solid #e2e8f0;
+  cursor: pointer;
+}
+
+.size-button:last-child {
+  border-right: none;
+}
+
+.size-button:hover {
+  background: #f1f5f9;
+}
+
+.size-button.active {
+  background: #2563eb;
+  color: #fff;
+}
+
 #printButton {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 10;
   padding: 0.6rem 1.2rem;
   font-size: 14px;
   font-family: Arial, Helvetica, sans-serif;
@@ -88,6 +136,7 @@
   }
 
   .preview-viewport {
+    flex: none !important;
     height: auto !important;
     overflow: visible !important;
   }
@@ -105,7 +154,7 @@
     margin: 0 !important;
   }
 
-  #printButton {
+  .preview-toolbar {
     display: none !important;
   }
 }

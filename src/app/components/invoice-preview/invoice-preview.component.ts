@@ -1,4 +1,6 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { INVOICE_LAYOUTS, InvoicePrintService, PaperSize } from '../../services/invoice-print.service';
 
 const RESIZE_DEBOUNCE_MS = 200;
 const PRINT_STYLE_ID = 'invoice-preview-page-size-style';
@@ -15,12 +17,24 @@ const PRINT_STYLE_ID = 'invoice-preview-page-size-style';
 @Component({
   selector: 'app-invoice-preview',
   standalone: true,
+  imports: [CommonModule],
   templateUrl: './invoice-preview.component.html',
   styleUrls: ['./invoice-preview.component.css']
 })
 export class InvoicePreviewComponent implements AfterViewInit, OnDestroy {
   @ViewChild('frameWrapper', { static: true }) frameWrapper!: ElementRef<HTMLDivElement>;
   @ViewChild('invoiceFrame', { static: true }) invoiceFrame!: ElementRef<HTMLIFrameElement>;
+
+  // Which HTML design renders the invoice. Every layout reads the same payload from the same
+  // storage key, so switching is only a matter of pointing the frame at a different file -
+  // the data, the paper size and the print handling below are all unaffected.
+  readonly layouts = INVOICE_LAYOUTS;
+  activeLayoutId = INVOICE_LAYOUTS[0].id;
+
+  readonly paperSizes: PaperSize[] = ['a4', 'a5'];
+  // Not a stored preference: read back from the size the report actually rendered at (see
+  // fitFrame), so the highlighted button always reflects what is on screen.
+  activeSize: PaperSize | '' = '';
 
   private resizeTimer: ReturnType<typeof setTimeout> | undefined;
   private previousBodyOverflowX = '';
@@ -35,6 +49,8 @@ export class InvoicePreviewComponent implements AfterViewInit, OnDestroy {
   // also reflects real monitor DPI, not just zoom - only *changes* from this baseline matter.
   private readonly baselinePixelRatio = window.devicePixelRatio;
 
+  constructor(private invoicePrintService: InvoicePrintService) {}
+
   private readonly onResize = (): void => {
     clearTimeout(this.resizeTimer);
     this.resizeTimer = setTimeout(() => this.fitFrame(), RESIZE_DEBOUNCE_MS);
@@ -43,8 +59,23 @@ export class InvoicePreviewComponent implements AfterViewInit, OnDestroy {
   private readonly onIframeLoad = (): void => {
     // A short delay so the report (which generates its own content on load) has finished
     // rendering before the first fit measures it.
-    setTimeout(() => this.fitFrame(), 50);
+    setTimeout(() => {
+      this.fitFrame();
+      // Revealed only once it has been measured and scaled - see loadLayout().
+      this.invoiceFrame.nativeElement.style.opacity = '1';
+    }, 50);
   };
+
+  // Swapping the frame's source blanks it while the new document loads, then shows it at full
+  // size for a frame or two before fitFrame() scales it down - a white flash followed by a
+  // jump, every time the design or paper size changes. Hiding it until the load handler above
+  // has fitted it turns that into a brief dim against the page background instead. The
+  // wrapper keeps its previous size meanwhile, so nothing below it moves either.
+  private loadLayout(src: string): void {
+    const iframe = this.invoiceFrame.nativeElement;
+    iframe.style.opacity = '0';
+    iframe.src = src;
+  }
 
   // Reads the actual physical page size (in cm) straight from the rendered .page element's
   // own inline style - e.g. "21cm" / "29.7cm" for A4, "14.8cm" / "21cm" for A5 - rather than
@@ -145,7 +176,33 @@ export class InvoicePreviewComponent implements AfterViewInit, OnDestroy {
     window.print();
   }
 
+  setLayout(layoutId: string): void {
+    const layout = this.layouts.find((candidate) => candidate.id === layoutId);
+    if (!layout || layoutId === this.activeLayoutId) {
+      return;
+    }
+    this.activeLayoutId = layoutId;
+    // The reload fires the existing load handler, which re-fits and re-reads the paper size -
+    // a design can legitimately paginate the same invoice into a different number of pages.
+    this.loadLayout(layout.src);
+  }
+
+  setPaperSize(size: PaperSize): void {
+    if (size === this.activeSize) {
+      return;
+    }
+    if (!this.invoicePrintService.setStoredPaperSize(size)) {
+      return;
+    }
+    const layout = this.layouts.find((candidate) => candidate.id === this.activeLayoutId);
+    this.loadLayout(layout ? layout.src : this.layouts[0].src);
+  }
+
   ngAfterViewInit(): void {
+    // Set here rather than in the template so the frame's source and activeLayoutId can never
+    // disagree about which design is on screen.
+    this.loadLayout(this.layouts[0].src);
+
     this.previousBodyOverflowX = document.body.style.overflowX;
     // The report is a fixed width - on a narrow screen that would normally force a
     // horizontal scrollbar. The responsive scaling below shrinks the *visual* size to fit
@@ -198,6 +255,15 @@ export class InvoicePreviewComponent implements AfterViewInit, OnDestroy {
     // on .invoice-frame) before measuring, so repeated calls always measure the report's
     // true natural size rather than compounding an already-applied scale.
     iframe.style.transform = 'none';
+
+    // Read back what the invoice actually rendered at, rather than trusting the last button
+    // press - matched against the real dimensions rather than a width threshold.
+    const rendered = this.getPageDimensionsCm(doc);
+    if (rendered) {
+      const match = (widthCm: number, heightCm: number) =>
+        Math.abs(rendered.widthCm - widthCm) < 0.1 && Math.abs(rendered.heightCm - heightCm) < 0.1;
+      this.activeSize = match(14.8, 21) ? 'a5' : match(21, 29.7) ? 'a4' : '';
+    }
 
     // Deliberately the content's total extent (scrollWidth), not just the .page element's
     // own width - .page is centered inside the iframe (margin: 0 auto) with empty space on
