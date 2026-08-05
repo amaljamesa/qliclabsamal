@@ -107,9 +107,15 @@
         .header-title { text-align: center; font-size: 14px; }
         .header-subtitle { text-align: center; font-size: 12px; }
 
+        /* Deliberately NOT a flex column. Its children are tables stacked vertically, which
+           block layout already does - but as flex items those tables get a flex base size
+           computed independently of how their rows finally lay out, and the rows can end up
+           taller than the box the table was given. The overflow then spills past .body and
+           paints over the footer that follows it: the HSN summary's "Total" row was sliced in
+           half by the footer on both A4 and A5 (most visible on A5, where the block sits
+           closer to the footer). Block layout sizes the table to its rows, so the two agree. */
         .body {
-            display: flex;
-            flex-direction: column;
+            display: block;
         }
 
         .body-table { width: 100%; }
@@ -259,6 +265,9 @@
             let footerWrapper = probe.querySelector('.footer-wrapper');
             let measured = footerWrapper ? footerWrapper.getBoundingClientRect().height : null;
             document.body.removeChild(probe);
+            // The measured height already includes the footer's own 0.15cm top padding (the
+            // gap above it - see generateFooterSection), so only the long-standing 0.3cm of
+            // slack is added here.
             _footerReserveHeight = (measured !== null ? measured : cmToPx(pageSize == 'a4' ? 3.1 : 2.3)) + cmToPx(0.3);
             return _footerReserveHeight;
         }
@@ -1877,6 +1886,15 @@
             let footerWrapper = document.createElement('div');
             footerWrapper.className = 'footer-wrapper';
             footerWrapper.style.marginTop = 'auto';
+            // Breathing room above the footer, so the block that ends the body (usually the
+            // HSN summary) can't finish flush against the footer's top border - the two
+            // hairlines merge into one and it reads as an overlap. Deliberately padding on
+            // the footer rather than a margin below .body: everything that measures this
+            // layout measures element HEIGHTS (the reserve probe in getFooterReserveHeightPx,
+            // and the shrink-to-fit pass that sums the page's children), and heights exclude
+            // margins - a margin here is invisible to both, which put the footer 6-9px past
+            // the bottom of the sheet where overflow:hidden clipped it.
+            footerWrapper.style.paddingTop = '0.15cm';
 
             let footerSection = document.createElement('div');
             footerSection.className = 'footer-section';

@@ -1,6 +1,32 @@
-<button id="printButton" type="button" (click)="print()">Print</button>
+<div class="preview-toolbar">
+  <!-- Design and paper size are both properties of how this invoice is rendered, not of the
+       invoice itself, so they live here rather than on the screen that opened the preview. -->
+  <!-- A dropdown rather than a button per design: there are ten of them, which no toolbar
+       row fits, and the list is expected to keep growing. -->
+  <label class="design-picker">
+    <span class="design-label">Design</span>
+    <select [value]="activeLayoutId" (change)="setLayout($any($event.target).value)">
+      @for (layout of layouts; track layout.id) {
+        <option [value]="layout.id">{{ layout.label }}</option>
+      }
+    </select>
+  </label>
+  <span class="switch" role="group" aria-label="Paper size">
+    @for (size of paperSizes; track size) {
+      <button
+        type="button"
+        class="switch-button"
+        [class.active]="size === activeSize"
+        [attr.aria-pressed]="size === activeSize"
+        (click)="setPaperSize(size)">
+        {{ size | uppercase }}
+      </button>
+    }
+  </span>
+  <button id="printButton" type="button" (click)="print()">Print</button>
+</div>
 <div class="preview-viewport">
   <div #frameWrapper class="frame-wrapper">
-    <iframe #invoiceFrame class="invoice-frame" src="/print/invoice/view/invoice.html?message=1"></iframe>
+    <iframe #invoiceFrame class="invoice-frame" title="Invoice preview"></iframe>
   </div>
 </div>
