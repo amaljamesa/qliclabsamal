@@ -1,4 +1,22 @@
-<button id="printButton" type="button" (click)="print()">Print</button>
+<div class="preview-toolbar">
+  <!-- Only the layouts that render more than one paper size get this; the size is a field in
+       the payload, not a different file, so switching re-renders the same layout. -->
+  @if (paperSizes.length) {
+    <span class="size-switch" role="group" aria-label="Paper size">
+      @for (size of paperSizes; track size) {
+        <button
+          type="button"
+          class="size-button"
+          [class.active]="size === activeSize"
+          [attr.aria-pressed]="size === activeSize"
+          (click)="setPaperSize(size)">
+          {{ size | uppercase }}
+        </button>
+      }
+    </span>
+  }
+  <button id="printButton" type="button" (click)="print()">Print</button>
+</div>
 <div class="preview-viewport">
   <div #frameWrapper class="frame-wrapper">
     <iframe #reportFrame class="report-frame" [title]="reportTitle"></iframe>

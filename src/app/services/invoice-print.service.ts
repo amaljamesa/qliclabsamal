@@ -7,6 +7,55 @@ function utf8ToBase64(str: string): string {
   return btoa(unescape(encodeURIComponent(str)));
 }
 
+function base64ToUtf8(value: string): string {
+  return decodeURIComponent(escape(atob(value)));
+}
+
+export type PaperSize = 'a4' | 'a5';
+
+// The invoice layouts, all reading the same payload from the same storage key - only the
+// HTML design differs between them, which is what lets the preview switch designs by
+// pointing its frame at a different file, with nothing else to change.
+export interface InvoiceLayoutOption {
+  id: string;
+  label: string;
+  src: string;
+}
+
+export const INVOICE_LAYOUTS: InvoiceLayoutOption[] = [
+  { id: 'default', label: 'Default (classic grid)', src: '/print/invoice/view/invoice.html?message=1' },
+  { id: 'd2', label: 'Design 2 - Centred title', src: '/print/invoice-d2/view/invoice-d2.html?message=1' },
+  { id: 'd3', label: 'Design 3 - Blue table', src: '/print/invoice-d3/view/invoice-d3.html?message=1' },
+  { id: 'd4', label: 'Design 4 - Blue rules', src: '/print/invoice-d4/view/invoice-d4.html?message=1' },
+  { id: 'd5', label: 'Design 5 - Minimal mono', src: '/print/invoice-d5/view/invoice-d5.html?message=1' },
+  { id: 'd6', label: 'Design 6 - Colour band', src: '/print/invoice-d6/view/invoice-d6.html?message=1' },
+  { id: 'd7', label: 'Design 7 - Corporate grid', src: '/print/invoice-d7/view/invoice-d7.html?message=1' },
+  { id: 'd8', label: 'Design 8 - Accent rail', src: '/print/invoice-d8/view/invoice-d8.html?message=1' },
+  { id: 'd9', label: 'Design 9 - Elegant serif', src: '/print/invoice-d9/view/invoice-d9.html?message=1' },
+  { id: 'd10', label: 'Design 10 - Dark header', src: '/print/invoice-d10/view/invoice-d10.html?message=1' }
+];
+
+// Re-stamps an already-encoded payload with a different paper size. The layouts render A4
+// and A5 from the same HTML - the size is a field in the payload, not a property of the file
+// - so a size switch is this one rewrite plus a reload. Shared with ReportPrintService so
+// both previews change size by exactly the same route. Returns null if the payload can't be
+// read, leaving the caller to keep whatever is already stored.
+export function withPaperSize(encoded: string, pageSize: PaperSize): string | null {
+  try {
+    const payload = JSON.parse(base64ToUtf8(encoded));
+    // A bulk print payload carries one entry per invoice; a single preview is the invoice
+    // itself. Both are normalised here so the whole batch changes size together.
+    const invoices = Array.isArray(payload.invoices) ? payload.invoices : [payload];
+    for (const invoice of invoices) {
+      invoice.others = { ...(invoice.others ?? {}), page_size: pageSize };
+    }
+    return utf8ToBase64(JSON.stringify(payload));
+  } catch (error) {
+    console.error('Could not change paper size on the stored payload:', error);
+    return null;
+  }
+}
+
 function formatInvoiceDate(isoDate: string): string {
   const date = new Date(`${isoDate}T00:00:00`);
   const day = String(date.getDate()).padStart(2, '0');
@@ -91,7 +140,7 @@ export class InvoicePrintService {
   // rather than faked, same approach ledger.service.ts already takes for the ledger's
   // company_details. Fields that genuinely exist on the Invoice/InvoiceItem models (party
   // name, item name/qty/rate/amount, totals, tax rate) map through directly.
-  buildInvoiceData(invoice: Invoice, pageSize: 'a4' | 'a5' = 'a4'): unknown {
+  buildInvoiceData(invoice: Invoice, pageSize: PaperSize = 'a4'): unknown {
     const taxGroups = this.buildTaxGroups(invoice.items);
     const totalCentralTax = round2(taxGroups.reduce((sum, g) => sum + g.centralTaxAmount, 0));
     const totalStateTax = round2(taxGroups.reduce((sum, g) => sum + g.stateTaxAmount, 0));
@@ -266,7 +315,23 @@ export class InvoicePrintService {
     return result;
   }
 
-  openInvoicePreview(invoiceId: string, pageSize: 'a4' | 'a5' = 'a4'): void {
+  // Changes the paper size of the invoice already loaded in the preview. Deliberately edits
+  // the stored payload rather than rebuilding it from the invoice record, so this works the
+  // same for a single preview, a bulk batch, and (later) any payload that arrives from an API.
+  setStoredPaperSize(pageSize: PaperSize): boolean {
+    const stored = sessionStorage.getItem('temp_inv_data');
+    if (!stored) {
+      return false;
+    }
+    const updated = withPaperSize(stored, pageSize);
+    if (!updated) {
+      return false;
+    }
+    sessionStorage.setItem('temp_inv_data', updated);
+    return true;
+  }
+
+  openInvoicePreview(invoiceId: string, pageSize: PaperSize = 'a4'): void {
     const invoice = this.dataService.getInvoice(invoiceId);
     if (!invoice) {
       console.error('Invoice not found:', invoiceId);
@@ -303,8 +368,10 @@ export class InvoicePrintService {
 }
 
 // Test data for openBulkInvoicePreview() above - the actual JSON Priyanka shared (Slack,
-// Interns Research 2026, 2026-08-01) for this task, pasted in verbatim.
-const HARDCODED_BULK_TEST_INVOICE = {
+// Interns Research 2026, 2026-08-01) for this task, pasted in verbatim. Exported because the
+// alternative invoice designs (invoice-d2/d3/d4) read this exact same schema, so their
+// previews reuse it rather than inventing a second, drifting copy - see report-print.service.
+export const HARDCODED_BULK_TEST_INVOICE = {
   items: [
     {
       hsn: '', key: '', mrp: '1500.00', per: 'PCS', qty: '1.00', desc: '', rate: '1500.00',
