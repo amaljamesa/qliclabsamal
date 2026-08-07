@@ -183,6 +183,17 @@
         var totalAmount = 0;
         var totalPages = 1;
 
+        // Breathing room left between the last row and the footer.
+        //
+        // Pagination measures the report as it stands when generated, which is exact at that
+        // moment - but a line box's height is rounded to whole device pixels, and that rounding
+        // changes with the browser's zoom level. Over ~50 rows those fractions accumulate into
+        // a few pixels, which is enough for a page that fitted exactly at one zoom level to
+        // collide at another (a report generated at 80% and then viewed at 100% printed its
+        // last two rows through the footer). The gap absorbs that drift. It costs at most one
+        // row per page, and only on pages that were about to fill exactly.
+        var FOOTER_SAFETY_PX = 8;
+
         var other = "";
         var company_details = "";
         var loading_list_details = "";
@@ -357,7 +368,7 @@
         // to keep in sync by hand.
         function bodyOverflows(context) {
             return context.maintable.getBoundingClientRect().bottom >
-                context.pageDiv.getBoundingClientRect().bottom;
+                context.pageDiv.getBoundingClientRect().bottom - FOOTER_SAFETY_PX;
         }
 
         function buildDataRow(item) {
