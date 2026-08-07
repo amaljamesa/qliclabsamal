@@ -1,6 +1,7 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { INVOICE_LAYOUTS, InvoicePrintService, PaperSize } from '../../services/invoice-print.service';
+import { InvoiceExcelService } from '../../services/invoice-excel.service';
 
 const RESIZE_DEBOUNCE_MS = 200;
 const PRINT_STYLE_ID = 'invoice-preview-page-size-style';
@@ -49,7 +50,10 @@ export class InvoicePreviewComponent implements AfterViewInit, OnDestroy {
   // also reflects real monitor DPI, not just zoom - only *changes* from this baseline matter.
   private readonly baselinePixelRatio = window.devicePixelRatio;
 
-  constructor(private invoicePrintService: InvoicePrintService) {}
+  constructor(
+    private invoicePrintService: InvoicePrintService,
+    private invoiceExcelService: InvoiceExcelService
+  ) {}
 
   private readonly onResize = (): void => {
     clearTimeout(this.resizeTimer);
@@ -174,6 +178,13 @@ export class InvoicePreviewComponent implements AfterViewInit, OnDestroy {
 
   print(): void {
     window.print();
+  }
+
+  // Downloads the invoice as a spreadsheet. Built from the stored payload rather than from
+  // the design on screen (see InvoiceExcelService for why), so it is deliberately independent
+  // of activeLayoutId - every design exports the same workbook.
+  exportExcel(): void {
+    this.invoiceExcelService.exportStoredInvoice();
   }
 
   setLayout(layoutId: string): void {
