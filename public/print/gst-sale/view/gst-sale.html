@@ -103,6 +103,18 @@
         table td {
             padding: 5px 5px 0 5px;
         }
+
+        /* A single long unbroken account name (no spaces to wrap at) would otherwise force its
+           column wider than the declared 15% and push the tax columns off the sheet. Breaking
+           mid-word keeps the column at its intended width - the row just gets taller, which the
+           measured pagination in body() now accounts for.
+
+           Scoped to the account name rather than every td: the reference, GSTIN and amount
+           columns are fixed-format and need the opposite treatment. */
+        td.account-name {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
     </style>
 </head>
 
@@ -116,6 +128,17 @@
         // in step with the real rendered page. Landscape: wider than it is tall.
         var PAGE_WIDTH_CM = 29.7;
         var PAGE_HEIGHT_CM = 21;
+
+        // Breathing room left between the last row and the footer.
+        //
+        // Pagination measures the report as it stands when generated, which is exact at that
+        // moment - but a line box's height is rounded to whole device pixels, and that rounding
+        // changes with the browser's zoom level. Over dozens of rows those fractions accumulate
+        // into a few pixels, which is enough for a page that fitted exactly at one zoom level
+        // to collide at another (the brief sale report, generated at 80% and then viewed at
+        // 100%, printed its last two rows through the footer). The gap absorbs that drift, at a
+        // cost of at most one row per page and only on pages about to fill exactly.
+        var FOOTER_SAFETY_PX = 8;
 
         var page_count = 0;
         var page_count1 = 0;
@@ -314,7 +337,54 @@
         }
 
 
-        function body() {
+        // Builds the column list from the shape of the data. Extracted from body(), where it
+        // was duplicated verbatim - once for the first page and again for every page after it -
+        // and the two copies had already drifted apart (one bordered the header cells on all
+        // four sides, the other only underneath).
+        //
+        // Takes the sample row as an argument rather than reaching for items[0], because
+        // header() re-reads and re-parses the payload on every page (see topdiv), which
+        // replaces the `items` array mid-report.
+        function buildColumns(sampleItem) {
+            var columns = Object.keys(sampleItem)
+                .filter(key => (keyDisplayPairs.hasOwnProperty(key) || key.startsWith("Tax") || key.startsWith("GST")) && !key.includes("TaxPaidIneligible"))
+                .map(key => {
+                    return {
+                        name: key,
+                        display_name: keyDisplayPairs[key] || generateTaxDisplayName(key)
+                    };
+                });
+
+            // Check if 'round_off' exists and then add it at the end
+            if (sampleItem.hasOwnProperty("round_off")) {
+                columns.push({
+                    name: "round_off",
+                    display_name: keyDisplayPairs["round_off"] || "R. Off"
+                });
+            }
+
+            columns.push({
+                name: "basic_tot",
+                display_name: "Cash"
+            }, {
+                name: "total_value",
+                display_name: "Credit"
+            });
+
+            return columns;
+        }
+
+        // Opens the table on the page header() has just created, and puts that page into the
+        // document straight away.
+        //
+        // Appending up front (rather than only once the page is full, as this used to) is what
+        // makes the measured pagination below possible at all: an element that isn't in the
+        // document has no layout, so getBoundingClientRect() reports zero for it. The footer
+        // goes on now for the same reason - it is the edge the row budget is measured against.
+        // Its "Page : x of y" text is a placeholder at this point; the real numbers can't be
+        // known until the last page exists, and updateAllFooters() rewrites all of them at the
+        // end.
+        function openPageBody(columns) {
             //creating div for  table
             var tableDiv = document.createElement('div');
             tableDiv.id = 'table_Div';
@@ -329,48 +399,10 @@
             body_table.style.fontSize = '11';
             body_table.style.height = 'auto';
 
-
-            //creating table row
-            table_row_body = document.createElement('tr');
+            //creating table header row
+            var table_row_body = document.createElement('tr');
             table_row_body.style.height = '10';
 
-            if (columns == undefined) {
-                columns;
-            }
-
-            if (columns == '') {
-                columns;
-            }
-
-
-            // Filter and map keys dynamically
-            var columns = Object.keys(items[0])
-                .filter(key => (keyDisplayPairs.hasOwnProperty(key) || key.startsWith("Tax") || key.startsWith("GST")) && !key.includes("TaxPaidIneligible"))
-                .map(key => {
-                    return {
-                        name: key,
-                        display_name: keyDisplayPairs[key] || generateTaxDisplayName(key)
-                    };
-                });
-
-            // Check if 'round_off' exists and then add it at the end
-            if (items[0].hasOwnProperty("round_off")) {
-                columns.push({
-                    name: "round_off",
-                    display_name: "R. Off"
-                });
-            }
-
-            columns.push({
-                name: "basic_tot",
-                display_name: "Cash"
-            }, {
-                name: "total_value",
-                display_name: "Credit"
-            });
-
-
-            //creating table header
             for (var s = 0; s < columns.length; s++) {
                 var header_si = document.createElement('th');
                 header_si.style.textAlign = 'center';
@@ -379,272 +411,183 @@
                 table_row_body.appendChild(header_si);
             }
 
-            //creating table row for line
-
             body_table.appendChild(table_row_body);
             tableDiv.appendChild(body_table);
             Top_header_elements.appendChild(tableDiv);
-
-            count = 0;
-            var table_row_body;
-            var table_row_bodydata;
-            var first_page_item = 20;
-
-            if (items == undefined) {
-                items;
-            }
-
-            var current_group = null;
-
-            for (var i = 0; i < items.length; i++) {
-
-                // Sort items by pmt_doc_date, gst_region, and B2BB2C
-                items.sort(function (a, b) {
-                    var dateCompare = new Date(a.pmt_doc_date) - new Date(b.pmt_doc_date);
-                    if (dateCompare !== 0) return dateCompare;
-                    var regionCompare = a.gst_region.localeCompare(b.gst_region);
-                    if (regionCompare !== 0) return regionCompare;
-                    return (a.B2BB2C || '').localeCompare(b.B2BB2C || '');
-                });
-
-
-                if (count > first_page_item) {
-
-                    updateTotalPages();
-                    body_table.appendChild(table_row_bodydata);
-                    tableDiv.appendChild(body_table);
-
-                    Top_header_elements.appendChild(tableDiv);
-                    Top_elements.appendChild(Top_header_elements);
-
-                    page.appendChild(Top_elements);
-                    document.body.appendChild(page);
-
-                    page_count++;
-                    foot();
-
-                    document.body.appendChild(page);
-
-                    //new page
-                    header();
-
-                    //creating div for table in next page
-                    var tableDiv = document.createElement('div');
-                    tableDiv.id = 'table_Div';
-                    tableDiv.className = 'tableDiv';
-                    tableDiv.style.borderBottom = '1px solid';
-
-                    //creating table
-                    var body_table = document.createElement('table');
-                    body_table.className = 'body_table';
-                    body_table.id = 'bodytable';
-                    body_table.style.width = '100%';
-                    body_table.style.fontSize = '11';
-                    body_table.style.height = 'auto';
-
-                    //creating table row
-                    table_row_body = document.createElement('tr');
-                    table_row_body.style.height = '10';
-
-                    // Filter and map keys dynamically
-                    var columns = Object.keys(items[0])
-                        .filter(key => (keyDisplayPairs.hasOwnProperty(key) || key.startsWith("Tax") || key.startsWith("GST")) && !key.includes("TaxPaidIneligible"))
-                        .map(key => {
-                            return {
-                                name: key,
-                                display_name: keyDisplayPairs[key] || generateTaxDisplayName(key)
-                            };
-                        });
-
-                    // Check if 'round_off' exists and then add it at the end
-                    if (items[0].hasOwnProperty("round_off")) {
-                        columns.push({
-                            name: "round_off",
-                            display_name: keyDisplayPairs["round_off"] || "R. Off"
-                        });
-                    }
-
-                    columns.push({
-                        name: "basic_tot",
-                        display_name: "Cash"
-                    }, {
-                        name: "total_value",
-                        display_name: "Credit"
-                    });
-
-
-                    for (var s = 0; s < columns.length; s++) {
-                        var header_si = document.createElement('th');
-                        header_si.style.borderBottom = '1px solid';
-                        header_si.style.textAlign = 'center';
-                        header_si.innerHTML = columns[s].display_name;
-                        table_row_body.appendChild(header_si);
-                    }
-
-                    body_table.appendChild(table_row_body);
-                    tableDiv.appendChild(body_table);
-                    Top_header_elements.appendChild(tableDiv);
-
-                    count = 0;
-                    i = i - 1;
-                }
-                else {
-
-                    // Generate the current group key with date and B2BB2C type
-                    var group_key = items[i].gst_region + '_' + items[i].pmt_doc_date + '_' + (items[i].B2BB2C || '');
-
-                    // Check if the current item's date is different from the last processed date
-                    if (current_group !== group_key) {
-                        current_group = group_key; // Update the current group key
-
-                        // Set the b2b_b2c_header based on the B2BB2C value
-                        var b2b_b2c_header = items[i].B2BB2C === 'B2B' ? '-RD' : (items[i].B2BB2C === 'B2C' ? '-URD' : '');
-
-
-                        // Insert a new row or divider to indicate a new group
-                        var group_row = document.createElement('tr');
-
-                        var date_cell = document.createElement('td');
-                        date_cell.className = 'date-header';
-                        date_cell.style.fontWeight = 'bold';
-                        date_cell.style.borderRight = 'hidden';
-                        date_cell.textContent = items[i].pmt_doc_date; // Change this text as needed
-                        group_row.appendChild(date_cell);
-
-                        var group_cell = document.createElement('td');
-                        group_cell.className = 'date-header';
-                        group_cell.style.fontWeight = 'bold';
-                        group_cell.style.borderRight = 'hidden';
-                        group_cell.textContent = items[i].gst_region + b2b_b2c_header;
-                        group_row.appendChild(group_cell);
-
-                        //creating table row empty
-                        var table_row_bodydata_empty = document.createElement('tr');
-                        table_row_bodydata_empty.className = 'table_row_bodydata_empty';
-
-
-                        outer: for (p = 0; p < columns.length; p++) {
-                            for (k = 0; k < item_length; k++) {
-
-                                if (columns[p].name == keys[k]) {
-                                    var table_data_emptysi = document.createElement('td');
-                                    table_row_bodydata_empty.appendChild(table_data_emptysi);
-                                }
-                            }
-                        }
-                        body_table.appendChild(table_row_bodydata_empty);
-                        body_table.appendChild(group_row); // Append the group row to the table
-
-                        count++;
-                    }
-
-
-                    //creating table row
-                    table_row_bodydata = document.createElement('tr');
-                    table_row_bodydata.className = 'table_row_bodydata';
-                    table_row_bodydata.style.height = '1%';
-                    table_row_bodydata.style.borderBottomStyle = 'hidden';
-
-                    var keys = Object.keys(items[0]);
-
-                    var item_length = Object.keys(items[0]).length;
-
-                    outer: for (p = 0; p < columns.length; p++) {
-
-                        var myJsonString = JSON.stringify(items[i]);
-                        var anotherObject = JSON.parse(myJsonString);
-
-
-                        var key_name = columns[p].name;
-
-                        if (key_name == "reference") {
-                            var table_data_si = document.createElement('td');
-                            table_data_si.style.verticalAlign = 'top';
-                            table_data_si.style.width = '7%';
-                            table_data_si.style.textAlign = 'left';
-                            table_data_si.innerHTML = anotherObject[key_name];
-                            table_row_bodydata.appendChild(table_data_si);
-                        }
-
-                        if (key_name == "GSTIN") {
-                            var table_data_si = document.createElement('td');
-                            table_data_si.style.verticalAlign = 'top';
-                            table_data_si.style.width = '10%';
-                            table_data_si.style.textAlign = 'left';
-                            table_data_si.innerHTML = anotherObject[key_name];
-                            table_row_bodydata.appendChild(table_data_si);
-                        }
-
-                        if (key_name == "account_name") {
-                            var table_data_si = document.createElement('td');
-                            table_data_si.style.verticalAlign = 'top';
-                            table_data_si.style.width = '15%';
-                            table_data_si.style.textAlign = 'left';
-                            table_data_si.innerHTML = anotherObject[key_name];
-                            table_row_bodydata.appendChild(table_data_si);
-                        }
-
-                        if (key_name == "ExemptedBasic") {
-                            var table_data_si = document.createElement('td');
-                            table_data_si.style.verticalAlign = 'top';
-                            table_data_si.style.width = '5%';
-                            table_data_si.style.textAlign = 'right';
-                            table_data_si.innerHTML = anotherObject[key_name];
-                            table_row_bodydata.appendChild(table_data_si);
-                        }
-
-                        if (key_name != "ExemptedBasic" && key_name != "basic_tot" && key_name != "total_value" && key_name != "account_name" && key_name != "GSTIN" && key_name != "reference") {
-                            var table_data_si = document.createElement('td');
-                            table_data_si.style.verticalAlign = 'top';
-                            table_data_si.style.width = '5%';
-                            table_data_si.style.textAlign = 'right';
-                            table_data_si.innerHTML = anotherObject[key_name];
-                            table_row_bodydata.appendChild(table_data_si);
-                        }
-
-                        if (key_name == "basic_tot") {
-                            var table_data_si = document.createElement('td');
-                            table_data_si.style.verticalAlign = 'top';
-                            table_data_si.style.width = '5%';
-                            table_data_si.style.textAlign = 'right';
-                            if (anotherObject["paidtopay"] == "Paid-Cash") {
-                                table_data_si.innerHTML = anotherObject["total_value"];
-                            }
-                            else {
-                                table_data_si.innerHTML = "";
-                            }
-                            table_row_bodydata.appendChild(table_data_si);
-                        }
-
-                        if (key_name == "total_value") {
-                            var table_data_si = document.createElement('td');
-                            table_data_si.style.verticalAlign = 'top';
-                            table_data_si.style.width = '5%';
-                            table_data_si.style.textAlign = 'right';
-                            if (anotherObject["paidtopay"] == "Credit") {
-                                table_data_si.innerHTML = anotherObject["total_value"];
-                            }
-                            else {
-                                table_data_si.innerHTML = "";
-                            }
-                            table_row_bodydata.appendChild(table_data_si);
-                        }
-
-                    }
-
-                    body_table.appendChild(table_row_bodydata);
-                }
-                count++;
-            }
-            page_count++
-
-
-            tableDiv.appendChild(body_table);
-            Top_header_elements.appendChild(tableDiv);
-
             Top_elements.appendChild(Top_header_elements);
             page.appendChild(Top_elements);
             document.body.appendChild(page);
+
+            page_count++;
+            var footer = foot();
+
+            return { table: body_table, footer: footer };
+        }
+
+        // True once the table has grown past the footer sitting below it - i.e. the point at
+        // which its rows start printing on top of the date and page number.
+        //
+        // Compares real rendered edges rather than counting rows, which is the whole fix: a
+        // row's height depends on how many lines its account name wraps to, so no fixed
+        // rows-per-page number can be right for every page. The footer's own top edge is a
+        // fixed point on the sheet (Top_header_elements above it has a declared height), so it
+        // is a stable budget to measure against rather than something that moves with content.
+        function bodyOverflows(context) {
+            return context.table.getBoundingClientRect().bottom >
+                context.footer.getBoundingClientRect().top - FOOTER_SAFETY_PX;
+        }
+
+        // The date / region heading that introduces each group, plus the blank spacer row above
+        // it. Returned rather than appended so the caller can move the pair onto the next page
+        // when the row it introduces doesn't fit.
+        function buildGroupRows(item, columns, keys) {
+            // Set the b2b_b2c_header based on the B2BB2C value
+            var b2b_b2c_header = item.B2BB2C === 'B2B' ? '-RD' : (item.B2BB2C === 'B2C' ? '-URD' : '');
+
+            var group_row = document.createElement('tr');
+
+            var date_cell = document.createElement('td');
+            date_cell.className = 'date-header';
+            date_cell.style.fontWeight = 'bold';
+            date_cell.style.borderRight = 'hidden';
+            date_cell.textContent = item.pmt_doc_date;
+            group_row.appendChild(date_cell);
+
+            var group_cell = document.createElement('td');
+            group_cell.className = 'date-header';
+            group_cell.style.fontWeight = 'bold';
+            group_cell.style.borderRight = 'hidden';
+            group_cell.textContent = item.gst_region + b2b_b2c_header;
+            group_row.appendChild(group_cell);
+
+            //creating table row empty
+            var spacer_row = document.createElement('tr');
+            spacer_row.className = 'table_row_bodydata_empty';
+            for (var p = 0; p < columns.length; p++) {
+                if (keys.indexOf(columns[p].name) !== -1) {
+                    spacer_row.appendChild(document.createElement('td'));
+                }
+            }
+
+            return [spacer_row, group_row];
+        }
+
+        function buildDataRow(item, columns) {
+            //creating table row
+            var table_row_bodydata = document.createElement('tr');
+            table_row_bodydata.className = 'table_row_bodydata';
+            table_row_bodydata.style.height = '1%';
+            table_row_bodydata.style.borderBottomStyle = 'hidden';
+
+            for (var p = 0; p < columns.length; p++) {
+                var key_name = columns[p].name;
+
+                var table_data_si = document.createElement('td');
+                table_data_si.style.verticalAlign = 'top';
+
+                if (key_name == "reference") {
+                    table_data_si.style.width = '7%';
+                    table_data_si.style.textAlign = 'left';
+                    table_data_si.innerHTML = item[key_name];
+                }
+                else if (key_name == "GSTIN") {
+                    table_data_si.style.width = '10%';
+                    table_data_si.style.textAlign = 'left';
+                    table_data_si.innerHTML = item[key_name];
+                }
+                else if (key_name == "account_name") {
+                    table_data_si.className = 'account-name';
+                    table_data_si.style.width = '15%';
+                    table_data_si.style.textAlign = 'left';
+                    table_data_si.innerHTML = item[key_name];
+                }
+                else if (key_name == "basic_tot") {
+                    table_data_si.style.width = '5%';
+                    table_data_si.style.textAlign = 'right';
+                    table_data_si.innerHTML = (item["paidtopay"] == "Paid-Cash") ? item["total_value"] : "";
+                }
+                else if (key_name == "total_value") {
+                    table_data_si.style.width = '5%';
+                    table_data_si.style.textAlign = 'right';
+                    table_data_si.innerHTML = (item["paidtopay"] == "Credit") ? item["total_value"] : "";
+                }
+                else {
+                    // ExemptedBasic and every tax column - all rendered identically.
+                    table_data_si.style.width = '5%';
+                    table_data_si.style.textAlign = 'right';
+                    table_data_si.innerHTML = item[key_name];
+                }
+
+                table_row_bodydata.appendChild(table_data_si);
+            }
+
+            return table_row_bodydata;
+        }
+
+        function body() {
+            // Sorted once, into a local array this function owns.
+            //
+            // Both halves of that matter. The sort used to sit *inside* the row loop, redoing
+            // the whole array on every iteration for a result that cannot change between
+            // passes - but it could not simply be hoisted out, because header() re-reads and
+            // re-parses the payload on every page break (see topdiv), replacing the global
+            // `items` with a freshly unsorted array mid-report. Re-sorting every iteration is
+            // what hid that. Iterating a local copy decouples the loop from those re-reads
+            // entirely, so the sort only needs doing once.
+            var rows = items.slice().sort(function (a, b) {
+                var dateCompare = new Date(a.pmt_doc_date) - new Date(b.pmt_doc_date);
+                if (dateCompare !== 0) return dateCompare;
+                var regionCompare = a.gst_region.localeCompare(b.gst_region);
+                if (regionCompare !== 0) return regionCompare;
+                return (a.B2BB2C || '').localeCompare(b.B2BB2C || '');
+            });
+
+            if (rows.length === 0) {
+                return;
+            }
+
+            // Also computed once, for the same reason - the columns must not change shape
+            // halfway through a report.
+            var columns = buildColumns(rows[0]);
+            var keys = Object.keys(rows[0]);
+
+            var context = openPageBody(columns);
+            var current_group = null;
+
+            for (var i = 0; i < rows.length; i++) {
+                var groupRows = [];
+
+                // Generate the current group key with date and B2BB2C type
+                var group_key = rows[i].gst_region + '_' + rows[i].pmt_doc_date + '_' + (rows[i].B2BB2C || '');
+
+                // Check if the current item's group is different from the last processed one
+                if (current_group !== group_key) {
+                    current_group = group_key;
+                    groupRows = buildGroupRows(rows[i], columns, keys);
+                    groupRows.forEach(function (row) { context.table.appendChild(row); });
+                }
+
+                var dataRow = buildDataRow(rows[i], columns);
+                context.table.appendChild(dataRow);
+
+                if (bodyOverflows(context)) {
+                    // A group heading travels to the new page with the row it introduces -
+                    // left behind, it would sit at the foot of a page with nothing under it.
+                    var moving = groupRows.concat([dataRow]);
+                    moving.forEach(function (row) { context.table.removeChild(row); });
+
+                    // rows[0] of the table is the column-header row. If removing this row left
+                    // nothing else behind, it does not fit on an empty page either, and moving
+                    // it on would repeat forever - keep it here and let this one page overflow.
+                    if (context.table.rows.length <= 1) {
+                        moving.forEach(function (row) { context.table.appendChild(row); });
+                    } else {
+                        header();
+                        context = openPageBody(columns);
+                        moving.forEach(function (row) { context.table.appendChild(row); });
+                    }
+                }
+            }
         }
 
         // --------------------------------------------------Footer-----------------------------------------------------------
@@ -724,6 +667,11 @@
             footDiv.appendChild(footPageDiv);
 
             Top_elements.appendChild(footDiv);
+
+            // Returned so openPageBody() can measure against this exact element. Looking it up
+            // by class afterwards would be fragile - footPageDiv carries the same .footDiv
+            // class as its own parent.
+            return footDiv;
         }
 
         // Rewrites every footer's "Page : x of y" from the pages that actually got rendered.
@@ -780,9 +728,11 @@
     <script>
         var inv_date = false;
         try {
+            // header() opens the first page; body() opens and footers every page after it, so
+            // the standalone foot() call that used to sit here would now add a second footer
+            // to the last page.
             header();
             body();
-            foot();
             updateAllFooters();
         } catch (error) {
             console.error('Error decoding or parsing JSON:', error);
