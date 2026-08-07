@@ -122,6 +122,25 @@
             font-size: 13px;
         }
 
+        /* A single long unbroken name (no spaces to wrap at) would otherwise force its column
+           wider than the declared 45% and shove the Amount column off the sheet. Breaking
+           mid-word keeps the column at its intended width - the row just gets taller, which
+           the measured pagination in body() now accounts for.
+
+           Scoped to the name cell rather than every td: applied to all of them it also broke
+           bill numbers ("HO/S/26/000" / "01" on two lines), which are narrow enough to need
+           the opposite treatment. */
+        td.buyer-name {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        /* The reference and date are fixed-format and always fit - keeping them on one line
+           stops a mid-page column-width shift from wrapping them. */
+        td.no-wrap {
+            white-space: nowrap;
+        }
+
         th {
             font-weight: bold;
             font-size: 14px;
@@ -290,10 +309,23 @@
         }
 
         //  -----------------------------Body---------------------------------------------------------------------------------
-        function body() {
 
+        // Opens the body of the page header() has just created, and puts that page into the
+        // document straight away.
+        //
+        // Appending up front (rather than only once the page is full, as this used to) is what
+        // makes the measured pagination below possible at all: an element that isn't in the
+        // document has no layout, so getBoundingClientRect() reports zero for it. The footer
+        // goes on now for the same reason - it has to be part of the layout the row budget is
+        // measured against. Its "Page : x of y" text is a placeholder at this point; the real
+        // numbers can't be known until the last page exists, and updateAllFooters() rewrites
+        // every one of them at the end.
+        function openPageBody() {
             var pageDiv = document.createElement('div');
             pageDiv.className = 'pageDiv';
+            // The fixed height is what holds the footer at the same spot on every page. It is
+            // kept deliberately - the overlap bug was never this box, it was rows being
+            // allowed to spill past it.
             pageDiv.style.height = '87%';
 
             //creating div for table
@@ -306,69 +338,56 @@
             mainTableDiv.appendChild(maintable);
             pageDiv.appendChild(mainTableDiv);
             Top_elements.appendChild(pageDiv);
+            page.appendChild(Top_elements);
+            document.body.appendChild(page);
 
-            count = 0;
+            page_count++;
+            footer();
 
-            var first_page_item = 47;
+            return { pageDiv: pageDiv, maintable: maintable };
+        }
 
-            for (var i = 0; i < loading_list_details.length; i++) {
+        // True once the table has grown past the box reserved for it - i.e. the point at which
+        // its rows would start painting over the footer sitting underneath.
+        //
+        // Compares real rendered edges rather than counting rows, which is the whole fix: a
+        // row's height depends on how many lines its buyer's name wraps to, so no fixed
+        // rows-per-page number can be right for every page. Comparing bottom edges also means
+        // the table's own margins and header row are accounted for automatically, with nothing
+        // to keep in sync by hand.
+        function bodyOverflows(context) {
+            return context.maintable.getBoundingClientRect().bottom >
+                context.pageDiv.getBoundingClientRect().bottom;
+        }
 
-                if (count > first_page_item) {
+        function buildDataRow(item) {
+            var table_row = document.createElement('tr');
 
-                    page_count++;
-                    footer();
+            var cells = [
+                { value: Math.floor(item.row_sl), align: 'center' },
+                { value: item.reference, align: 'left', className: 'no-wrap' },
+                { value: item.date, align: 'center', className: 'no-wrap' },
+                { value: item.paid_topay, align: 'left' },
+                { value: item['Account Name'] != null ? item['Account Name'] : item.account, align: 'left', className: 'buyer-name' },
+                { value: item.value, align: 'right', className: 'no-wrap' }
+            ];
 
-                    page.appendChild(Top_elements);
-                    document.body.appendChild(page);
-
-                    header();
-
-                    pageDiv = document.createElement('div');
-                    pageDiv.className = 'pageDiv';
-                    pageDiv.style.height = '87%';
-
-                    mainTableDiv = document.createElement('div');
-                    mainTableDiv.className = 'maintablediv';
-                    mainTableDiv.style.marginTop = '-10px';
-
-                    maintable = buildMainTable();
-
-                    mainTableDiv.appendChild(maintable);
-                    pageDiv.appendChild(mainTableDiv);
-                    Top_elements.appendChild(pageDiv);
-
-                    count = 0;
-                    i = i - 1;
+            cells.forEach(function (c) {
+                var td = document.createElement('td');
+                td.innerHTML = (c.value == null) ? '' : c.value;
+                td.style.textAlign = c.align;
+                td.style.borderStyle = 'hidden';
+                td.style.verticalAlign = 'top';
+                if (c.className) {
+                    td.className = c.className;
                 }
-                else {
-                    var item = loading_list_details[i];
-                    var table_row = document.createElement('tr');
+                table_row.appendChild(td);
+            });
 
-                    var cells = [
-                        { value: Math.floor(item.row_sl), align: 'center' },
-                        { value: item.reference, align: 'left' },
-                        { value: item.date, align: 'center' },
-                        { value: item.paid_topay, align: 'left' },
-                        { value: item['Account Name'] != null ? item['Account Name'] : item.account, align: 'left' },
-                        { value: item.value, align: 'right' }
-                    ];
+            return table_row;
+        }
 
-                    cells.forEach(function (c) {
-                        var td = document.createElement('td');
-                        td.innerHTML = (c.value == null) ? '' : c.value;
-                        td.style.textAlign = c.align;
-                        td.style.borderStyle = 'hidden';
-                        td.style.verticalAlign = 'top';
-                        table_row.appendChild(td);
-                    });
-
-                    maintable.appendChild(table_row);
-                }
-                count++;
-            }
-
-            sumNumbers();
-
+        function buildTotalRow() {
             var table_row_total = document.createElement('tr');
 
             var td_total = document.createElement('td');
@@ -380,13 +399,48 @@
             td_total.innerHTML = totalAmount;
             table_row_total.appendChild(td_total);
 
-            page_count++;
+            return table_row_total;
+        }
 
-            maintable.appendChild(table_row_total);
+        // Moves a row that didn't fit onto a fresh page. Returns the new page's context.
+        function carryRowToNewPage(context, row) {
+            context.maintable.removeChild(row);
+            header();
+            var next = openPageBody();
+            next.maintable.appendChild(row);
+            return next;
+        }
 
-            Top_elements.appendChild(pageDiv);
-            page.appendChild(Top_elements);
-            document.body.appendChild(page);
+        function body() {
+
+            var context = openPageBody();
+
+            for (var i = 0; i < loading_list_details.length; i++) {
+                var table_row = buildDataRow(loading_list_details[i]);
+                context.maintable.appendChild(table_row);
+
+                if (bodyOverflows(context)) {
+                    // rows[0] is the column-header row, so a length of 1 means this row is the
+                    // only data on the page and still doesn't fit - a name long enough to wrap
+                    // past a whole page on its own. Moving it to a fresh page would overflow
+                    // that one too, forever. Keeping it here overflows a single page instead of
+                    // hanging the report.
+                    if (context.maintable.rows.length <= 2) {
+                        continue;
+                    }
+                    context = carryRowToNewPage(context, table_row);
+                }
+            }
+
+            sumNumbers();
+
+            // The total row is subject to the same budget - on a page that filled exactly, it
+            // would otherwise be the thing that lands on top of the footer.
+            var table_row_total = buildTotalRow();
+            context.maintable.appendChild(table_row_total);
+            if (bodyOverflows(context) && context.maintable.rows.length > 2) {
+                carryRowToNewPage(context, table_row_total);
+            }
         }
 
         // -------------------------------------------------------------Footer------------------------------------------------
@@ -469,6 +523,10 @@
         }
 
         //--------------------------total pages of invoice-------------------------------------------------------------
+        // A placeholder only. Pages are no longer a fixed 48 rows each - how many rows fit
+        // depends on how many lines their names wrap to - so this estimate is not the real
+        // total and is never shown to anyone: updateAllFooters() replaces every footer with
+        // the true page count once the last page has been laid out.
         function updateTotalPages() {
             var totalItems = loading_list_details.length;
             var itemsPerPage = 48;
@@ -495,9 +553,11 @@
 
     <script>
         try {
+            // header() opens the first page; body() opens and footers every page after it, so
+            // the standalone footer() call that used to sit here would now add a second footer
+            // to the last page.
             header();
             body();
-            footer();
             updateAllFooters();
         } catch (error) {
             console.error('Error decoding or parsing JSON:', error);
