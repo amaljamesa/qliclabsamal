@@ -738,23 +738,90 @@
 
     </script>
     <script>
-        try {
+        var isPrinting = false;
+
+        // Discards the rendered report and lays it out again from scratch.
+        function render() {
+            var pages = document.querySelectorAll('.page');
+            for (var i = 0; i < pages.length; i++) {
+                pages[i].remove();
+            }
+            // Only the .page elements are removed, never document.body's contents - the scripts
+            // driving this report live in the body too.
+            page_count = 0;
+
             // header() opens the first page; body() opens and footers every page after it, so
-            // the standalone foot() call that used to sit here would now add a second footer
-            // to the last page.
+            // a standalone foot() call here would add a second footer to the last page.
             header();
             body();
             updateAllFooters();
+        }
+
+        try {
+            render();
         } catch (error) {
             console.error('Error decoding or parsing JSON:', error);
         }
 
+        // Re-paginates when the browser's zoom level changes.
+        //
+        // Pagination measures the report as it stands when generated, which is exact at that
+        // moment and stays exact for as long as nothing about the rendering changes. Zoom
+        // changes it: Chrome rounds each line box's height to whole device pixels, and that
+        // rounding differs between zoom levels, so the same row is fractionally taller at 100%
+        // than at 75%. Over thirty-odd rows that accumulates into roughly twenty pixels - a
+        // report generated at 75% and then viewed at 100% pushed its last row through the
+        // footer, which is exactly what FOOTER_SAFETY_PX turned out to be far too small to
+        // absorb. Measuring again under the new zoom is the only thing that actually holds,
+        // since the drift has no fixed size to reserve against.
+        //
+        // devicePixelRatio is the signal, not the resize event itself: the host preview resizes
+        // this iframe's own box around printing, which fires a resize indistinguishable from a
+        // real one, and an ordinary window resize does not change how rows lay out inside a
+        // fixed-width page.
+        var lastPixelRatio = window.devicePixelRatio;
+        var rerenderTimer;
+
+        function rerenderIfZoomChanged() {
+            if (isPrinting || window.devicePixelRatio === lastPixelRatio) {
+                return;
+            }
+            lastPixelRatio = window.devicePixelRatio;
+            clearTimeout(rerenderTimer);
+            // Deliberately shorter than the 200ms debounce the preview wrapper uses to re-fit
+            // this iframe (report-preview.component.ts): re-pagination has to finish first, or
+            // the wrapper measures a page count that is about to change.
+            rerenderTimer = setTimeout(function () {
+                try {
+                    render();
+                } catch (error) {
+                    console.error('Could not re-render after a zoom change:', error);
+                }
+            }, 100);
+        }
+
+        // A zoom change is detected by polling devicePixelRatio, not by listening for an event.
+        //
+        // That is not the obvious choice, so: a change in device pixel ratio on its own emits
+        // nothing. Not resize, and not a `(resolution: Ndppx)` media query change either - both
+        // were measured, and both stay silent unless the viewport's CSS dimensions also change.
+        // They normally do change under browser zoom, which is what makes the event route look
+        // like it works; but this report renders inside an iframe whose CSS width the host page
+        // fixes, so zooming leaves its viewport exactly the same number of CSS pixels wide and
+        // no event is ever raised. Polling one float a few times a second is cheap and is the
+        // only signal that holds here.
+        //
+        // The resize listeners stay as well, for genuine size changes, which do need a re-fit
+        // and would otherwise wait out the poll interval.
+        window.addEventListener('resize', rerenderIfZoomChanged);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', rerenderIfZoomChanged);
+        }
+        setInterval(rerenderIfZoomChanged, 400);
+
         // The host preview page resizes THIS iframe's own box right before printing and back
-        // again after, which fires a resize event in here indistinguishable from a real one.
-        // This layout paginates by fixed row count (not live measurement) so nothing needs to
-        // re-run on resize - the flag is kept for parity with the other layouts and to make
-        // the print-cycle intent explicit.
-        var isPrinting = false;
+        // again after. Re-paginating in the middle of that would change the page count the
+        // print job is built from, so it is suppressed for the duration.
         window.addEventListener('beforeprint', function () { isPrinting = true; });
         window.addEventListener('afterprint', function () {
             setTimeout(function () { isPrinting = false; }, 300);
