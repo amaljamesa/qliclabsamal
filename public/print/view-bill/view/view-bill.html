@@ -101,6 +101,18 @@
         .date-header {
             padding: 5px 5px 0 5px;
         }
+
+        /* A single long unbroken product name (no spaces to wrap at) would otherwise force its
+           column wider than the declared 30% and push the amount columns off the sheet.
+           Breaking mid-word keeps the column at its intended width - the row just gets taller,
+           which the measured pagination in body() now accounts for.
+
+           Scoped to the product name rather than every td: the numeric columns are
+           fixed-format and need the opposite treatment. */
+        td.product-name {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
     </style>
 </head>
 
@@ -114,6 +126,17 @@
         // in step with the real rendered page.
         var PAGE_WIDTH_CM = 21;
         var PAGE_HEIGHT_CM = 29;
+
+        // Breathing room left between the last row and the footer.
+        //
+        // Pagination measures the report as it stands when generated, which is exact at that
+        // moment - but a line box's height is rounded to whole device pixels, and that rounding
+        // changes with the browser's zoom level. Over dozens of rows those fractions accumulate
+        // into a few pixels, which is enough for a page that fitted exactly at one zoom level
+        // to collide at another (the brief sale report, generated at 80% and then viewed at
+        // 100%, printed its last two rows through the footer). The gap absorbs that drift, at a
+        // cost of at most one row per page and only on pages about to fill exactly.
+        var FOOTER_SAFETY_PX = 8;
 
         var page_count = 0;
         var page_count1 = 0;
@@ -292,34 +315,77 @@
 
         //  ------------------------------------------------Body--------------------------------------------------------------
 
-        function body() {
-            // Predefined list of keys and their display names for non-tax keys
-            var keyDisplayPairs = {
-                "products": "Item",
-                "mrp": "MRP",
-                "qty": "Qty",
-                "rate": "Rate",
-                "disc1": "Disc 1%",
-                "disc1_amt": 'Amt',
-                "disc2": "Disc2 %",
-                "disc2_amt": 'Amt',
-                "basic": 'Net',
-                "tax_per": 'Tax %',
-                "taxes": 'Tax',
-                "total": 'Total',
+        // Predefined list of keys and their display names for non-tax keys. Lifted out of
+        // body() so the row builders extracted below can reach it.
+        var keyDisplayPairs = {
+            "products": "Item",
+            "mrp": "MRP",
+            "qty": "Qty",
+            "rate": "Rate",
+            "disc1": "Disc 1%",
+            "disc1_amt": 'Amt',
+            "disc2": "Disc2 %",
+            "disc2_amt": 'Amt',
+            "basic": 'Net',
+            "tax_per": 'Tax %',
+            "taxes": 'Tax',
+            "total": 'Total',
+        }
+
+        // Widths for every column that carries a number. Doubles as the test for which columns
+        // those are.
+        var numericColumns = {
+            mrp: '10%', qty: '10%', rate: '10%', disc1: '10%', disc1_amt: '10%',
+            disc2: '10%', disc2_amt: '10%', basic: '15%', tax_per: '15%',
+            taxes: '5%', total: '15%'
+        };
+
+        // Helper function to generate display names for tax keys
+        function generateTaxDisplayName(key) {
+            if (key.endsWith("Basic")) {
+                return `Tax @ ${key.match(/\d+/)[0]}%`;
+            } else if (key.endsWith("Tax")) {
+                return "GST";
             }
+            return key;
+        }
 
-            // Helper function to generate display names for tax keys
-            function generateTaxDisplayName(key) {
-                if (key.endsWith("Basic")) {
-                    return `Tax @ ${key.match(/\d+/)[0]}%`;
-                } else if (key.endsWith("Tax")) {
-                    return "GST";
-                }
-                return key;
-            }
+        // Builds the column list from the shape of the data.
+        //
+        // Extracted from body(), where it was duplicated - once for the first page and again
+        // for every page after it - and the two copies had drifted into disagreeing about
+        // which columns exist: the second also matched keys starting "Tax"/"GST". Those keys
+        // have no matching cell in the row builder below (it renders `products` plus the
+        // numeric columns and nothing else), so any report whose data carried them got extra
+        // headers with no data underneath from page two on, shifting every column out of line
+        // with its heading. The first page's narrower filter is the correct one, and is what
+        // every page now uses.
+        //
+        // Takes the sample row as an argument rather than reaching for items[0], because
+        // header() re-reads and re-parses the payload on every page (see topdiv), which
+        // replaces the `items` array mid-report.
+        function buildColumns(sampleItem) {
+            return Object.keys(sampleItem)
+                .filter(key => (keyDisplayPairs.hasOwnProperty(key)))
+                .map(key => {
+                    return {
+                        name: key,
+                        display_name: keyDisplayPairs[key] || generateTaxDisplayName(key)
+                    };
+                });
+        }
 
-
+        // Opens the table on the page header() has just created, and puts that page into the
+        // document straight away.
+        //
+        // Appending up front (rather than only once the page is full, as this used to) is what
+        // makes the measured pagination below possible at all: an element that isn't in the
+        // document has no layout, so getBoundingClientRect() reports zero for it. The footer
+        // goes on now for the same reason - it is the edge the row budget is measured against.
+        // Its "Page : x of y" text is a placeholder at this point; the real numbers can't be
+        // known until the last page exists, and updateAllFooters() rewrites all of them at the
+        // end.
+        function openPageBody(columns) {
             //creating div for  table
             var tableDiv = document.createElement('div');
             tableDiv.id = 'table_Div';
@@ -333,295 +399,222 @@
             body_table.style.fontSize = '11';
             body_table.style.height = 'auto';
 
-
-            //creating table row
-            table_row_body = document.createElement('tr');
+            //creating table header row
+            var table_row_body = document.createElement('tr');
             table_row_body.style.height = '10';
 
-            // Filter and map keys dynamically
-            var columns = Object.keys(items[0])
-                .filter(key => (keyDisplayPairs.hasOwnProperty(key)))
-                .map(key => {
-                    return {
-                        name: key,
-                        display_name: keyDisplayPairs[key] || generateTaxDisplayName(key)
-                    };
-                });
-
-
-            //creating table header
             for (var s = 0; s < columns.length; s++) {
                 var header_si = document.createElement('th');
                 header_si.style.textAlign = 'center';
                 header_si.style.borderBottom = '1px solid';
                 header_si.innerHTML = columns[s].display_name;
                 table_row_body.appendChild(header_si);
-
             }
-
-            //creating table row for line
 
             body_table.appendChild(table_row_body);
             tableDiv.appendChild(body_table);
             Top_header_elements.appendChild(tableDiv);
+            Top_elements.appendChild(Top_header_elements);
+            page.appendChild(Top_elements);
+            document.body.appendChild(page);
 
-            count = 0;
-            var table_row_body;
-            var table_row_bodydata;
+            page_count++;
+            var footer = foot();
+
+            return { table: body_table, footer: footer };
+        }
+
+        // True once the table has grown past the footer sitting below it - i.e. the point at
+        // which its rows start printing on top of the date and page number.
+        //
+        // Compares real rendered edges rather than counting rows, which is the whole fix: a
+        // row's height depends on how many lines its item name wraps to, so no fixed
+        // rows-per-page number can be right for every page. The footer's own top edge is a
+        // fixed point on the sheet (Top_header_elements above it has a declared height), so it
+        // is a stable budget to measure against rather than something that moves with content.
+        function bodyOverflows(context) {
+            return context.table.getBoundingClientRect().bottom >
+                context.footer.getBoundingClientRect().top - FOOTER_SAFETY_PX;
+        }
+
+        // The heading row that introduces each group. Returned rather than appended so the
+        // caller can move it onto the next page along with the row it introduces.
+        // Returns an empty array when this item does not start a new group.
+        function buildGroupRows(item) {
+            var group_row = document.createElement('tr');
+
+            if (item.reference != "") {
+                var date_cell = document.createElement('td');
+                date_cell.className = 'date-header';
+                date_cell.style.borderRight = 'hidden';
+                date_cell.style.fontWeight = '900';
+                date_cell.style.borderBottom = item.account_name == "" ? 'hidden' : '1px solid';
+                date_cell.textContent = item.date;
+                group_row.appendChild(date_cell);
+
+                var group_cell_empty = document.createElement('td');
+                group_cell_empty.className = 'date-header';
+                group_cell_empty.style.borderRight = 'hidden';
+                group_cell_empty.style.fontWeight = '900';
+                group_cell_empty.style.borderBottom = item.account_name == "" ? 'hidden' : '1px solid';
+                group_cell_empty.textContent = item.reference;
+                group_row.appendChild(group_cell_empty);
+
+                var group_cell = document.createElement('td');
+                group_cell.className = 'date-header';
+                group_cell.style.borderRight = 'hidden';
+                group_cell.style.fontWeight = '900';
+                group_cell.colSpan = 15;
+                group_cell.style.borderBottom = item.account_name == "" ? 'hidden' : '1px solid';
+                group_cell.textContent = item.type + '->' + item.account;
+                group_row.appendChild(group_cell);
+
+                return [group_row];
+            }
+
+            var consolidated_cell = document.createElement('td');
+            consolidated_cell.className = 'date-header';
+            consolidated_cell.style.borderRight = 'hidden';
+            consolidated_cell.style.fontWeight = '900';
+            consolidated_cell.colSpan = 15;
+            consolidated_cell.textContent = item.account;
+            group_row.appendChild(consolidated_cell);
+
+            return [group_row];
+        }
+
+        // The group an item belongs to, or null when this layout is not grouping at all.
+        function groupKeyFor(item) {
+            if (item.reference != "") {
+                return item.reference;
+            }
             if (master_details.consolidate_check == 1) {
-                var first_page_item = 33;
+                return item.account;
             }
-            else {
-                first_page_item = 31;
-            }
+            return null;
+        }
 
-            var current_group = "";
+        function buildDataRow(item, columns) {
+            //creating table row
+            var table_row_bodydata = document.createElement('tr');
+            table_row_bodydata.className = 'table_row_bodydata';
+            table_row_bodydata.style.height = '1%';
 
-            for (var i = 0; i < items.length; i++) {
+            for (var p = 0; p < columns.length; p++) {
+                var key_name = columns[p].name;
 
-                if (count > first_page_item) {
+                if (key_name == "products") {
+                    var table_data_si = document.createElement('td');
+                    table_data_si.className = 'table_data_si product-name';
+                    table_data_si.style.verticalAlign = 'top';
+                    table_data_si.style.width = '30%';
+                    table_data_si.style.textAlign = 'left';
 
-                    updateTotalPages();
-                    body_table.appendChild(table_row_bodydata);
-                    tableDiv.appendChild(body_table);
-
-                    Top_header_elements.appendChild(tableDiv);
-                    Top_elements.appendChild(Top_header_elements);
-
-                    page.appendChild(Top_elements);
-                    document.body.appendChild(page);
-
-                    page_count++;
-                    foot();
-
-                    document.body.appendChild(page);
-
-                    //new page
-                    header();
-
-                    //creating div for  table
-                    var tableDiv = document.createElement('div');
-                    tableDiv.id = 'table_Div';
-                    tableDiv.className = 'tableDiv';
-
-                    //creating table
-                    var body_table = document.createElement('table');
-                    body_table.className = 'body_table';
-                    body_table.id = 'bodytable';
-                    body_table.style.width = '100%';
-                    body_table.style.fontSize = '11px';
-                    body_table.style.height = 'auto';
-
-
-                    //creating table row
-                    table_row_body = document.createElement('tr');
-                    table_row_body.style.height = '10';
-
-                    // Filter and map keys dynamically
-                    var columns = Object.keys(items[0])
-                        .filter(key => (keyDisplayPairs.hasOwnProperty(key) || key.startsWith("Tax") || key.startsWith("GST")) && !key.includes("TaxPaidIneligible"))
-                        .map(key => {
-                            return {
-                                name: key,
-                                display_name: keyDisplayPairs[key] || generateTaxDisplayName(key)
-                            };
-                        });
-
-                    //creating table header
-                    for (var s = 0; s < columns.length; s++) {
-                        var header_si = document.createElement('th');
-                        header_si.style.textAlign = 'center';
-                        header_si.style.borderBottom = '1px solid';
-                        header_si.innerHTML = columns[s].display_name;
-                        table_row_body.appendChild(header_si);
-                    }
-
-                    //creating table row for line
-
-                    body_table.appendChild(table_row_body);
-                    tableDiv.appendChild(body_table);
-                    Top_header_elements.appendChild(tableDiv);
-
-                    count = 0;
-                    i = i - 1;
-                }
-                else {
-                    var keys = Object.keys(items[0]);
-                    var item_length = Object.keys(items[0]).length;
-
-                    if (items[i].reference != "") {
-                        // Generate the current group key
-                        var group_key = items[i].reference;
-
-                        // Check if the current item's group is different from the last one
-                        if (current_group != group_key) {
-                            current_group = group_key; // Update the current group key
-
-                            // Insert a new row or divider to indicate a new group
-                            var group_row = document.createElement('tr');
-
-                            var date_cell = document.createElement('td');
-                            date_cell.className = 'date-header';
-                            date_cell.style.borderRight = 'hidden';
-                            date_cell.style.fontWeight = '900';
-
-                            if (items[i].account_name == "") {
-                                date_cell.style.borderBottom = 'hidden';
-                            }
-                            else {
-                                date_cell.style.borderBottom = '1px solid';
-                            }
-                            date_cell.textContent = items[i].date;
-                            group_row.appendChild(date_cell);
-
-                            var group_cell_empty = document.createElement('td');
-                            group_cell_empty.className = 'date-header';
-                            group_cell_empty.style.borderRight = 'hidden';
-                            group_cell_empty.style.fontWeight = '900';
-                            if (items[i].account_name == "") {
-                                group_cell_empty.style.borderBottom = 'hidden';
-                            }
-                            else {
-                                group_cell_empty.style.borderBottom = '1px solid';
-                            }
-                            group_cell_empty.textContent = items[i].reference;
-                            group_row.appendChild(group_cell_empty);
-
-
-                            var group_cell = document.createElement('td');
-                            group_cell.className = 'date-header';
-                            group_cell.style.borderRight = 'hidden';
-                            group_cell.style.fontWeight = '900';
-
-                            group_cell.colSpan = 15;
-                            if (items[i].account_name == "") {
-                                group_cell.style.borderBottom = 'hidden';
-                            }
-                            else {
-                                group_cell.style.borderBottom = '1px solid';
-                            }
-                            group_cell.textContent = items[i].type + '->' + items[i].account;
-                            group_row.appendChild(group_cell);
-
-                            body_table.appendChild(group_row); // Append the group row to the table
-                            count++;
-                        }
-                    }
-                    else if (master_details.consolidate_check == 1) {
-                        var group_key = items[i].account;
-                        if (current_group != group_key) {
-                            current_group = group_key; // Update the current group key
-
-                            var group_row = document.createElement('tr');
-
-                            var group_cell = document.createElement('td');
-                            group_cell.className = 'date-header';
-                            group_cell.style.borderRight = 'hidden';
-                            group_cell.style.fontWeight = '900';
-                            group_cell.colSpan = 15;
-                            group_cell.textContent = items[i].account;
-                            group_row.appendChild(group_cell);
-
-                            body_table.appendChild(group_row); // Append the group row to the table
-
-                            count++;
-                        }
-                    }
-
-                    //creating table row
-                    table_row_bodydata = document.createElement('tr');
-                    table_row_bodydata.className = 'table_row_bodydata';
-                    table_row_bodydata.style.height = '1%';
-
-                    outer: for (p = 0; p < columns.length; p++) {
-
-                        var myJsonString = JSON.stringify(items[i]);
-                        var anotherObject = JSON.parse(myJsonString);
-
-                        var key_name = columns[p].name;
-
-                        if (key_name == "products") {
-                            var table_data_si = document.createElement('td');
-                            table_data_si.className = 'table_data_si';
-                            table_data_si.style.verticalAlign = 'top';
-                            table_data_si.style.width = '30%';
-                            table_data_si.style.textAlign = 'left';
-
-                            if (master_details.consolidate_check == 2) {
-
-                                table_data_si.innerHTML = anotherObject[key_name];
-                            } else {
-                                if (anotherObject["account"] == "") {
-                                    table_data_si.style.border = 'none';
-                                    table_data_si.style.marginTop = '2px';
-                                    table_data_si.style.fontWeight = 'bold';
-                                    table_data_si.style.marginBottom = '2px';
-                                    table_data_si.innerHTML = "Total";
-                                    table_data_si.style.fontSize = '14px';
-                                } else {
-
-                                    if (anotherObject["pmt_mid"] == 0) {
-                                        table_data_si.style.borderTop = '1px solid';
-                                        table_data_si.style.borderBottom = '1px solid';
-                                        table_data_si.style.fontSize = '13px';
-                                        table_data_si.style.fontWeight = 'bold';
-                                    }
-                                    table_data_si.innerHTML = anotherObject[key_name];
-                                }
-                            }
-
-                            table_row_bodydata.appendChild(table_data_si);
-                        }
-
-                        var numericColumns = {
-                            mrp: '10%', qty: '10%', rate: '10%', disc1: '10%', disc1_amt: '10%',
-                            disc2: '10%', disc2_amt: '10%', basic: '15%', tax_per: '15%',
-                            taxes: '5%', total: '15%'
-                        };
-
-                        if (numericColumns.hasOwnProperty(key_name)) {
-                            var table_data_si = document.createElement('td');
-                            table_data_si.className = 'table_data_si';
-                            table_data_si.style.verticalAlign = 'top';
-                            table_data_si.style.width = numericColumns[key_name];
-                            table_data_si.style.textAlign = 'right';
-                            if (anotherObject["account"] == "") {
-                                table_data_si.style.marginTop = '2px';
-                                table_data_si.style.fontWeight = 'bold';
-                                table_data_si.style.marginBottom = '2px';
-                            }
-
-                            if (anotherObject["pmt_mid"] == 0) {
+                    if (master_details.consolidate_check == 2) {
+                        table_data_si.innerHTML = item[key_name];
+                    } else {
+                        if (item["account"] == "") {
+                            table_data_si.style.border = 'none';
+                            table_data_si.style.marginTop = '2px';
+                            table_data_si.style.fontWeight = 'bold';
+                            table_data_si.style.marginBottom = '2px';
+                            table_data_si.innerHTML = "Total";
+                            table_data_si.style.fontSize = '14px';
+                        } else {
+                            if (item["pmt_mid"] == 0) {
                                 table_data_si.style.borderTop = '1px solid';
                                 table_data_si.style.borderBottom = '1px solid';
                                 table_data_si.style.fontSize = '13px';
                                 table_data_si.style.fontWeight = 'bold';
                             }
-
-                            // The tax-percentage column is blanked on total rows - a percentage
-                            // has no meaning once amounts from different rates are summed.
-                            if (key_name == 'tax_per' && anotherObject["pmt_mid"] == 0) {
-                                table_data_si.innerHTML = "";
-                            } else {
-                                table_data_si.innerHTML = anotherObject[key_name];
-                            }
-                            table_row_bodydata.appendChild(table_data_si);
+                            table_data_si.innerHTML = item[key_name];
                         }
                     }
 
-                    body_table.appendChild(table_row_bodydata);
+                    table_row_bodydata.appendChild(table_data_si);
                 }
-                count++;
+
+                if (numericColumns.hasOwnProperty(key_name)) {
+                    var table_data_si = document.createElement('td');
+                    table_data_si.className = 'table_data_si';
+                    table_data_si.style.verticalAlign = 'top';
+                    table_data_si.style.width = numericColumns[key_name];
+                    table_data_si.style.textAlign = 'right';
+                    if (item["account"] == "") {
+                        table_data_si.style.marginTop = '2px';
+                        table_data_si.style.fontWeight = 'bold';
+                        table_data_si.style.marginBottom = '2px';
+                    }
+
+                    if (item["pmt_mid"] == 0) {
+                        table_data_si.style.borderTop = '1px solid';
+                        table_data_si.style.borderBottom = '1px solid';
+                        table_data_si.style.fontSize = '13px';
+                        table_data_si.style.fontWeight = 'bold';
+                    }
+
+                    // The tax-percentage column is blanked on total rows - a percentage
+                    // has no meaning once amounts from different rates are summed.
+                    if (key_name == 'tax_per' && item["pmt_mid"] == 0) {
+                        table_data_si.innerHTML = "";
+                    } else {
+                        table_data_si.innerHTML = item[key_name];
+                    }
+                    table_row_bodydata.appendChild(table_data_si);
+                }
             }
-            page_count++
 
+            return table_row_bodydata;
+        }
 
-            tableDiv.appendChild(body_table);
-            Top_header_elements.appendChild(tableDiv);
+        function body() {
+            // Iterated from a local copy rather than the global `items`, because header()
+            // re-reads and re-parses the payload on every page break (see topdiv), replacing
+            // that array mid-report. Reading through this copy keeps the row sequence stable
+            // across page breaks.
+            var rows = items.slice();
 
-            Top_elements.appendChild(Top_header_elements);
-            page.appendChild(Top_elements);
-            document.body.appendChild(page);
+            if (rows.length === 0) {
+                return;
+            }
+
+            // Computed once, so the columns cannot change shape halfway through a report.
+            var columns = buildColumns(rows[0]);
+
+            var context = openPageBody(columns);
+            var current_group = "";
+
+            for (var i = 0; i < rows.length; i++) {
+                var groupRows = [];
+
+                var group_key = groupKeyFor(rows[i]);
+                if (group_key !== null && current_group != group_key) {
+                    current_group = group_key;
+                    groupRows = buildGroupRows(rows[i]);
+                    groupRows.forEach(function (row) { context.table.appendChild(row); });
+                }
+
+                var dataRow = buildDataRow(rows[i], columns);
+                context.table.appendChild(dataRow);
+
+                if (bodyOverflows(context)) {
+                    // A group heading travels to the new page with the row it introduces -
+                    // left behind, it would sit at the foot of a page with nothing under it.
+                    var moving = groupRows.concat([dataRow]);
+                    moving.forEach(function (row) { context.table.removeChild(row); });
+
+                    // rows[0] of the table is the column-header row. If removing this row left
+                    // nothing else behind, it does not fit on an empty page either, and moving
+                    // it on would repeat forever - keep it here and let this one page overflow.
+                    if (context.table.rows.length <= 1) {
+                        moving.forEach(function (row) { context.table.appendChild(row); });
+                    } else {
+                        header();
+                        context = openPageBody(columns);
+                        moving.forEach(function (row) { context.table.appendChild(row); });
+                    }
+                }
+            }
         }
 
         // --------------------------------------------------Footer-----------------------------------------------------------
@@ -681,6 +674,11 @@
             footDiv.appendChild(footPageDiv);
 
             Top_elements.appendChild(footDiv);
+
+            // Returned so openPageBody() can measure against this exact element. Looking it up
+            // by class afterwards would be fragile - footPageDiv carries the same .footDiv
+            // class as its own parent.
+            return footDiv;
         }
 
         // Rewrites every footer's page number from the pages that actually got rendered, and
@@ -741,9 +739,11 @@
     </script>
     <script>
         try {
+            // header() opens the first page; body() opens and footers every page after it, so
+            // the standalone foot() call that used to sit here would now add a second footer
+            // to the last page.
             header();
             body();
-            foot();
             updateAllFooters();
         } catch (error) {
             console.error('Error decoding or parsing JSON:', error);
