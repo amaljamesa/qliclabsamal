@@ -183,13 +183,31 @@ function buildLoadingListRows(count: number) {
   }));
 }
 
+// Deliberately mixes in names long enough to wrap onto two and three lines. The sample data
+// used to be five short names, every row exactly one line tall - which is why the footer
+// overlap Priyanka reported (Slack, 2026-08-07) never showed up here, even though it was
+// reproducible on real customer data straight away. A sample that only exercises the easy
+// case is what let a row-height bug sit in a layout nobody could see it in.
+const BRIEF_SALE_ACCOUNT_NAMES = [
+  'Walk In',
+  'PINNACLE GLOBE',
+  'MANJUSHREE CHICKEN AND FRESH MUTTON SUPPLIERS - MAVINAKATTE MAIN ROAD BRANCH, MANGALORE DAKSHINA KANNADA',
+  'PAI CATERERS',
+  'SRI DURGA HOME NEEDS AND GENERAL STORE - SHIROOR VILLAGE, KUNDAPURA TALUK, UDUPI DISTRICT KARNATAKA 576222',
+  'RIGID FORMS',
+  // No spaces to wrap at - checks that a single unbroken name breaks mid-word instead of
+  // widening its column and pushing the Amount column off the sheet.
+  'SUPERCALIFRAGILISTICEXPIALIDOCIOUSTRADINGCOMPANYPRIVATELIMITEDMANGALOREBRANCH',
+  'DINESH NAIK'
+];
+
 function buildBriefSaleRows(count: number) {
   return Array.from({ length: count }, (_, index) => ({
     row_sl: index + 1,
     reference: `S/26/${String(100 + index).padStart(5, '0')}`,
     date: `${String((index % 28) + 1).padStart(2, '0')}-Jun-26`,
     paid_topay: index % 3 === 0 ? 'Credit' : 'Paid',
-    'Account Name': ['Walk In', 'PINNACLE GLOBE', 'PAI CATERERS', 'RIGID FORMS', 'DINESH NAIK'][index % 5],
+    'Account Name': BRIEF_SALE_ACCOUNT_NAMES[index % BRIEF_SALE_ACCOUNT_NAMES.length],
     value: (500 + index * 137.25).toFixed(2)
   }));
 }
