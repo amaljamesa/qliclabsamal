@@ -346,7 +346,12 @@ const SAMPLE_REPORT_DATA: Record<string, unknown> = {
       to_ref_no: '',
       from_date: '01-04-2026',
       to_date: '30-06-2026',
-      transaction_type: 'Sales'
+      transaction_type: 'Sales',
+      // Shown above the report title, so a printed copy records which slice of the business
+      // it covers (Priyanka, Slack 2026-08-07).
+      region_name: 'SHIVAMOGGA',
+      route_name: 'NAGARA',
+      area_name: 'Jaynagara'
     },
     company_details: COMPANY_DETAILS,
     loading_list_details: buildBriefSaleRows(120)

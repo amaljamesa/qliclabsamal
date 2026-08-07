@@ -186,4 +186,126 @@ for (const layout of CASES) {
       await context.close();
     });
   }
+
+  // Priyanka's sequence: set the browser to 75%, open the preview so the report generates at
+  // that zoom, then change to 100%. A fixed safety gap was the first attempt and was not
+  // enough - a 25-point zoom change shifts the accumulated line-box rounding by roughly twenty
+  // pixels over thirty-odd rows, and that drift has no bounded size to reserve against. The
+  // layouts re-paginate on a devicePixelRatio change instead.
+  //
+  // What this test can and cannot prove, stated plainly: CDP's deviceScaleFactor override
+  // moves devicePixelRatio and fires a resize, but it does NOT reproduce the line-box rounding
+  // that Chrome's real zoom applies - checked by running this against the unfixed layouts,
+  // where it passed. Nothing in Playwright drives real browser zoom at runtime.
+  //
+  // So the guarantee is split across two tests rather than claimed by one. The per-scale tests
+  // above prove pagination is correct at any given zoom; this one proves a zoom change
+  // actually triggers a fresh pagination. Together they cover the reported sequence. On its
+  // own, this test would be worthless - which is why it asserts the pages were rebuilt rather
+  // than merely that nothing overlaps.
+  test(`${layout.id}: re-paginates when the zoom changes after generating`, async ({ browser }) => {
+    const context = await browser.newContext({ deviceScaleFactor: 0.75 });
+    const page = await context.newPage();
+
+    await page.addInitScript(
+      ({ key, json, storage }: { key: string; json: string; storage: string }) => {
+        const encoded = btoa(unescape(encodeURIComponent(json)));
+        (storage === 'local' ? localStorage : sessionStorage).setItem(key, encoded);
+      },
+      { key: layout.storageKey, json: JSON.stringify(layout.payload), storage: layout.storage }
+    );
+    await page.goto(layout.url);
+    await page.locator('.page').first().waitFor();
+
+    // Tags the pages that exist now. A re-render replaces them wholesale, so if any tagged
+    // element survives, pagination did not re-run - which is the failure this guards against.
+    const pagesBefore = await page.evaluate(() => {
+      const pages = Array.from(document.querySelectorAll('.page'));
+      pages.forEach((pg) => pg.setAttribute('data-generation', 'first'));
+      return pages.length;
+    });
+
+    const client = await context.newCDPSession(page);
+    const viewport = page.viewportSize()!;
+    await client.send('Emulation.setDeviceMetricsOverride', {
+      width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: false
+    });
+
+    // Past the layout's 400ms zoom poll plus its 100ms re-render debounce, with room to spare.
+    await page.waitForTimeout(1500);
+
+    const worstOverlapPx = await page.evaluate(
+      ({ tableSel, footerSel }: { tableSel: string; footerSel: string }) =>
+        Math.max(
+          ...Array.from(document.querySelectorAll('.page')).map((pg) => {
+            const table = pg.querySelector(tableSel);
+            const footer = pg.querySelector(footerSel);
+            if (!table || !footer) return -Infinity;
+            return table.getBoundingClientRect().bottom - footer.getBoundingClientRect().top;
+          })
+        ),
+      { tableSel: layout.table, footerSel: layout.footer }
+    );
+
+    const after = await page.evaluate(() => ({
+      total: document.querySelectorAll('.page').length,
+      // Any survivor means the pages were never rebuilt.
+      stale: document.querySelectorAll('.page[data-generation="first"]').length,
+      // Re-rendering must replace the pages, not stack a second run on top of the first.
+      pagesWithWrongTableCount: Array.from(document.querySelectorAll('.page'))
+        .filter((pg) => pg.querySelectorAll('#maintable, #bodytable').length !== 1).length
+    }));
+
+    expect(pagesBefore).toBeGreaterThan(1);
+    expect(after.stale, 'the zoom change must trigger a fresh pagination').toBe(0);
+    expect(after.total, 'the rebuilt report should still have pages').toBeGreaterThan(1);
+    expect(after.pagesWithWrongTableCount, 're-render should leave one table per page').toBe(0);
+    expect(worstOverlapPx, 'rows must still clear the footer after a zoom change').toBeLessThanOrEqual(0);
+
+    await context.close();
+  });
 }
+
+test('the brief sale header shows the region, route and area it was run for', async ({ page }) => {
+  await page.addInitScript((json: string) => {
+    localStorage.setItem('temp_sale_report', btoa(unescape(encodeURIComponent(json))));
+  }, JSON.stringify({
+    ...briefSalePayload(20),
+    other: {
+      from_ref_no: '0', to_ref_no: '0', from_date: '01-May-2026', to_date: '07-Aug-2026',
+      transaction_type: 'Sales', region_name: 'SHIVAMOGGA', route_name: 'NAGARA', area_name: 'Jaynagara'
+    }
+  }));
+  await page.goto('/print/brief-sale/view/brief-sale.html?message=1');
+  await page.locator('.page').first().waitFor();
+
+  const heading = (await page.locator('.page').first().locator('.floatrightp').innerText()).replace(/\s+/g, ' ');
+  expect(heading).toContain('SHIVAMOGGA | NAGARA | Jaynagara');
+  // Above the title, not merged into it.
+  expect(heading.indexOf('SHIVAMOGGA')).toBeLessThan(heading.indexOf('Brief Sales Report'));
+  expect(heading).toContain('From 01-May-2026 to 07-Aug-2026');
+
+  // The heading block is pulled up by a negative margin to sit alongside the company address,
+  // so adding a line to it pushes the title down into the table header unless the offset is
+  // adjusted too - which is what happened on the first attempt.
+  const clearance = await page.locator('.page').first().evaluate((pg) => {
+    const heading = pg.querySelector('.floatrightp')!.getBoundingClientRect();
+    const table = pg.querySelector('#maintable')!.getBoundingClientRect();
+    return table.top - heading.bottom;
+  });
+  expect(clearance, 'the heading must not run into the table').toBeGreaterThanOrEqual(0);
+});
+
+test('the brief sale header omits the scope line when there is no region, route or area', async ({ page }) => {
+  // A report run without those filters must look exactly as it did before, not gain an empty
+  // line or a row of stray separators.
+  await page.addInitScript((json: string) => {
+    localStorage.setItem('temp_sale_report', btoa(unescape(encodeURIComponent(json))));
+  }, JSON.stringify(briefSalePayload(20)));
+  await page.goto('/print/brief-sale/view/brief-sale.html?message=1');
+  await page.locator('.page').first().waitFor();
+
+  const heading = (await page.locator('.page').first().locator('.floatrightp').innerText()).replace(/\s+/g, ' ').trim();
+  expect(heading).not.toContain('|');
+  expect(heading.startsWith('Brief')).toBe(true);
+});
