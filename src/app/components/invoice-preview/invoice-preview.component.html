@@ -23,6 +23,9 @@
       </button>
     }
   </span>
+  <!-- Sits beside Print because both are ways of taking the invoice out of the app - Print
+       covers the PDF route (print to PDF), this one hands the same invoice to Excel. -->
+  <button id="excelButton" type="button" (click)="exportExcel()">Export to Excel</button>
   <button id="printButton" type="button" (click)="print()">Print</button>
 </div>
 <div class="preview-viewport">
