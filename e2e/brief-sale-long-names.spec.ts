@@ -60,6 +60,15 @@ async function renderReport(page: import('@playwright/test').Page, rowCount: num
 // Reads the rendered geometry of every page back out of the browser.
 async function measure(page: import('@playwright/test').Page) {
   return page.evaluate(() => {
+    // How many lines a cell's text actually occupies. A Range over the text yields one rect
+    // per line box; getClientRects() on the td itself returns a single rect for the whole
+    // block box however many lines are inside it, so it can never detect wrapping.
+    const lineCount = (el: Element) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return range.getClientRects().length;
+    };
+
     return Array.from(document.querySelectorAll('.page')).map((pg) => {
       const pageDiv = pg.querySelector('.pageDiv') as HTMLElement;
       const table = pg.querySelector('#maintable') as HTMLElement;
@@ -80,7 +89,11 @@ async function measure(page: import('@playwright/test').Page) {
         // word-break to every cell, which split them ("HO/S/26/000" / "01") - a regression
         // the geometric overlap checks above were perfectly happy with.
         wrappedReferences: Array.from(pg.querySelectorAll('#maintable td.no-wrap'))
-          .filter((td) => td.getClientRects().length > 1).length
+          .filter((td) => lineCount(td) > 1).length,
+        // Proves the fixture is actually exercising wrapping - without this the overlap
+        // assertions could pass against one-line rows and prove nothing.
+        wrappedNames: Array.from(pg.querySelectorAll('#maintable td.buyer-name'))
+          .filter((td) => lineCount(td) > 1).length
       };
     });
   });
@@ -91,6 +104,8 @@ test('long names never overlap the footer in the brief sale layout', async ({ pa
   const pages = await measure(page);
 
   expect(pages.length).toBeGreaterThan(1);
+  // The fixture has to actually produce wrapped rows, or everything below is vacuous.
+  expect(pages.reduce((sum, p) => sum + p.wrappedNames, 0)).toBeGreaterThan(0);
 
   for (const [index, p] of pages.entries()) {
     // The actual bug: the last row's bottom edge crossing into the footer.
