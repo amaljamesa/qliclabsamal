@@ -7,7 +7,9 @@ function utf8ToBase64(str: string): string {
   return btoa(unescape(encodeURIComponent(str)));
 }
 
-function base64ToUtf8(value: string): string {
+// Exported for InvoiceExcelService, which reads the very same stored payload the layouts
+// render, so both decode it exactly one way.
+export function base64ToUtf8(value: string): string {
   return decodeURIComponent(escape(atob(value)));
 }
 
