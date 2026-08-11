@@ -171,6 +171,9 @@
 
     <!-- -----------------------------header----------------------------------------------- -->
 
+    <script src="../../../assets/js/report-scope.js"></script>
+    <script src="../../../assets/js/report-zoom.js"></script>
+
     <script>
         // Physical page size, declared once and reused everywhere it matters: the @page rule,
         // the .page CSS, and (read off the rendered element's data attributes) the preview
@@ -237,38 +240,6 @@
             loading_list_details = myArray.loading_list_details;
         }
 
-        // The region / route / area the report was run for, shown above the report title -
-        // "SHIVAMOGGA | NAGARA | Jaynagara" (Priyanka, Slack 2026-08-07). Without it a printed
-        // copy carries no record of which slice of the business it covers, which matters as
-        // soon as two of them are sitting on the same desk.
-        //
-        // Every part is optional and only what is present gets shown, so a report run with no
-        // region/route/area filter is unchanged rather than gaining an empty line or stray
-        // separators. The alternative key spellings are there because this payload comes from
-        // an API this repo does not define - `region`/`route`/`area` and the `_name` suffixed
-        // forms are both plausible, and accepting either costs nothing next to shipping the
-        // wrong guess.
-        function buildScopeLine() {
-            var parts = [
-                other.region_name || other.region,
-                other.route_name || other.route,
-                other.area_name || other.area
-            ];
-
-            var shown = [];
-            for (var i = 0; i < parts.length; i++) {
-                var value = (parts[i] === null || parts[i] === undefined) ? '' : String(parts[i]).trim();
-                if (value) {
-                    shown.push(value);
-                }
-            }
-
-            if (shown.length === 0) {
-                return '';
-            }
-            return "<b>" + shown.join(' &nbsp;|&nbsp; ') + "</b><br>";
-        }
-
         //  -----------------------------header--------------------------------------------------------------------------------
         function header() {
 
@@ -300,7 +271,7 @@
 
             var floatrightp = document.createElement("p");
             floatrightp.className = 'floatrightp';
-            var scopeLine = buildScopeLine();
+            var scopeLine = buildReportScopeLine(other);
             if (other.from_ref_no > "0" && other.to_ref_no > "0") {
                 floatrightp.innerHTML = scopeLine + "Brief " + other.transaction_type + " Report<span class='spacer'></span>From Bill / Ref # &nbsp;&nbsp;" + other.from_ref_no + " to " + other.to_ref_no;
             }
@@ -600,8 +571,6 @@
     </script>
 
     <script>
-        var isPrinting = false;
-
         // Discards the rendered report and lays it out again from scratch.
         function render() {
             var pages = document.querySelectorAll('.page');
@@ -625,69 +594,9 @@
             console.error('Error decoding or parsing JSON:', error);
         }
 
-        // Re-paginates when the browser's zoom level changes.
-        //
-        // Pagination measures the report as it stands when generated, which is exact at that
-        // moment and stays exact for as long as nothing about the rendering changes. Zoom
-        // changes it: Chrome rounds each line box's height to whole device pixels, and that
-        // rounding differs between zoom levels, so the same row is fractionally taller at 100%
-        // than at 75%. Over thirty-odd rows that accumulates into roughly twenty pixels - a
-        // report generated at 75% and then viewed at 100% pushed its last row through the
-        // footer, which is exactly what FOOTER_SAFETY_PX turned out to be far too small to
-        // absorb. Measuring again under the new zoom is the only thing that actually holds,
-        // since the drift has no fixed size to reserve against.
-        //
-        // devicePixelRatio is the signal, not the resize event itself: the host preview resizes
-        // this iframe's own box around printing, which fires a resize indistinguishable from a
-        // real one, and an ordinary window resize does not change how rows lay out inside a
-        // fixed-width page.
-        var lastPixelRatio = window.devicePixelRatio;
-        var rerenderTimer;
-
-        function rerenderIfZoomChanged() {
-            if (isPrinting || window.devicePixelRatio === lastPixelRatio) {
-                return;
-            }
-            lastPixelRatio = window.devicePixelRatio;
-            clearTimeout(rerenderTimer);
-            // Deliberately shorter than the 200ms debounce the preview wrapper uses to re-fit
-            // this iframe (report-preview.component.ts): re-pagination has to finish first, or
-            // the wrapper measures a page count that is about to change.
-            rerenderTimer = setTimeout(function () {
-                try {
-                    render();
-                } catch (error) {
-                    console.error('Could not re-render after a zoom change:', error);
-                }
-            }, 100);
-        }
-
-        // A zoom change is detected by polling devicePixelRatio, not by listening for an event.
-        //
-        // That is not the obvious choice, so: a change in device pixel ratio on its own emits
-        // nothing. Not resize, and not a `(resolution: Ndppx)` media query change either - both
-        // were measured, and both stay silent unless the viewport's CSS dimensions also change.
-        // They normally do change under browser zoom, which is what makes the event route look
-        // like it works; but this report renders inside an iframe whose CSS width the host page
-        // fixes, so zooming leaves its viewport exactly the same number of CSS pixels wide and
-        // no event is ever raised. Polling one float a few times a second is cheap and is the
-        // only signal that holds here.
-        //
-        // The resize listeners stay as well, for genuine size changes, which do need a re-fit
-        // and would otherwise wait out the poll interval.
-        window.addEventListener('resize', rerenderIfZoomChanged);
-        if (window.visualViewport) {
-            window.visualViewport.addEventListener('resize', rerenderIfZoomChanged);
-        }
-        setInterval(rerenderIfZoomChanged, 400);
-
-        // The host preview page resizes THIS iframe's own box right before printing and back
-        // again after. Re-paginating in the middle of that would change the page count the
-        // print job is built from, so it is suppressed for the duration.
-        window.addEventListener('beforeprint', function () { isPrinting = true; });
-        window.addEventListener('afterprint', function () {
-            setTimeout(function () { isPrinting = false; }, 300);
-        });
+        // Re-paginates when the zoom level changes, which pagination has to be redone for -
+        // see public/assets/js/report-zoom.js for why, and why a poll rather than an event.
+        watchZoomAndRepaginate(render);
     </script>
 </body>
 

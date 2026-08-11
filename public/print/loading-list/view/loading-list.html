@@ -92,6 +92,10 @@
 
 <body>
 
+
+    <script src="../../../assets/js/report-scope.js"></script>
+    <script src="../../../assets/js/report-zoom.js"></script>
+
     <script>
         // Physical page size, declared once and reused everywhere it matters: the @page rule
         // above, the .page CSS, and (read off the rendered element's data attributes) the
@@ -234,10 +238,16 @@
             headerRight.className = 'header-right';
             let rightP = document.createElement('p');
             rightP.style.margin = '0';
+            // The region / route / area goes above the report title, so a printed copy records
+            // which slice of the business it covers (Priyanka, Slack 2026-08-11). Omitted
+            // entirely when the report was not filtered by any of them. The extra line needs no
+            // allowance in the pagination: getAvailableBodyHeight measures this header's real
+            // rendered height, so the row budget shrinks by exactly one line on its own.
+            const scopeLine = buildReportScopeLine(other);
             if (other.from_ref_no > "0" && other.to_ref_no > "0") {
-                rightP.innerHTML = `Brief ${other.transaction_type} Report (in Qty)<br>From Bill / Ref # &nbsp;&nbsp;${other.from_ref_no} to ${other.to_ref_no}`;
+                rightP.innerHTML = `${scopeLine}Brief ${other.transaction_type} Report (in Qty)<br>From Bill / Ref # &nbsp;&nbsp;${other.from_ref_no} to ${other.to_ref_no}`;
             } else {
-                rightP.innerHTML = `Brief ${other.transaction_type} Report (in Qty)<br><b>From ${other.from_date} to ${other.to_date}</b>`;
+                rightP.innerHTML = `${scopeLine}Brief ${other.transaction_type} Report (in Qty)<br><b>From ${other.from_date} to ${other.to_date}</b>`;
             }
             headerRight.appendChild(rightP);
 
@@ -554,6 +564,11 @@
         });
 
         generateLoadingList();
+
+        // Pagination is measured against the zoom level in force when the report was built, so
+        // a later zoom change has to rebuild it - see public/assets/js/report-zoom.js for the
+        // detail, including why a zoom change is polled for rather than listened for.
+        watchZoomAndRepaginate(generateLoadingList);
     </script>
 
 </body>

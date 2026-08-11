@@ -68,6 +68,22 @@ function gstSalePayload(count: number) {
   };
 }
 
+function loadingListPayload(count: number) {
+  return {
+    other: {
+      from_ref_no: '', to_ref_no: '', from_date: '01-Apr-2026', to_date: '07-Aug-2026',
+      transaction_type: 'Sales', page_size: 'a4'
+    },
+    config: { main_table_border: true },
+    company_details: COMPANY,
+    loading_list_details: Array.from({ length: count }, (_, i) => ({
+      row_sl: i + 1, 'Brand Short Name': ['JABSONS', 'MDH', 'R-PURE', 'SNAPIN'][i % 4],
+      pro_code: `PRD${String(1000 + i)}`, 'Product Name': name(i + 1),
+      pro_mrp: (50 + (i % 20) * 7.5).toFixed(2), qty: String(12 * ((i % 8) + 1))
+    }))
+  };
+}
+
 function viewBillPayload(count: number) {
   return {
     heading: { name: 'View Bills' },
@@ -121,6 +137,16 @@ const CASES: LayoutCase[] = [
     storageKey: 'loadingDataViewBills', storage: 'session',
     table: '#bodytable', footer: '.footDiv', nameCell: 'td.product-name',
     payload: viewBillPayload(90)
+  },
+  // Added when the zoom re-pagination was extended to every layout (Priyanka, Slack
+  // 2026-08-11). This one paginates by measured row heights like the three above, so it is
+  // exposed to exactly the same accumulated line-box rounding - it simply had not been covered.
+  // Its rows carry no class names, so the product column is addressed by position.
+  {
+    id: 'loading-list', url: '/print/loading-list/view/loading-list.html?message=1',
+    storageKey: 'loadingData', storage: 'local',
+    table: '.body-table', footer: '.footer-section', nameCell: 'tbody td:nth-child(4)',
+    payload: loadingListPayload(120)
   }
 ];
 
@@ -247,14 +273,14 @@ for (const layout of CASES) {
       { tableSel: layout.table, footerSel: layout.footer }
     );
 
-    const after = await page.evaluate(() => ({
+    const after = await page.evaluate((tableSel: string) => ({
       total: document.querySelectorAll('.page').length,
       // Any survivor means the pages were never rebuilt.
       stale: document.querySelectorAll('.page[data-generation="first"]').length,
       // Re-rendering must replace the pages, not stack a second run on top of the first.
       pagesWithWrongTableCount: Array.from(document.querySelectorAll('.page'))
-        .filter((pg) => pg.querySelectorAll('#maintable, #bodytable').length !== 1).length
-    }));
+        .filter((pg) => pg.querySelectorAll(tableSel).length !== 1).length
+    }), layout.table);
 
     expect(pagesBefore).toBeGreaterThan(1);
     expect(after.stale, 'the zoom change must trigger a fresh pagination').toBe(0);
@@ -294,6 +320,111 @@ test('the brief sale header shows the region, route and area it was run for', as
     return table.top - heading.bottom;
   });
   expect(clearance, 'the heading must not run into the table').toBeGreaterThanOrEqual(0);
+});
+
+// The same header on the two layouts it was extended to (Priyanka, Slack 2026-08-11). Both
+// assert the same three things as the brief sale test above - that the line is there, that it
+// sits above the title rather than merging into it, and that the extra line it adds does not
+// push the table into the footer. That last one is the reason these are geometric tests and not
+// string checks: both layouts budget their rows against measured heights, so a taller header has
+// to cost a row rather than overflow the sheet.
+const SCOPE = { region_name: 'SHIVAMOGGA', route_name: 'NAGARA', area_name: 'Jaynagara' };
+
+async function worstOverlap(page: import('@playwright/test').Page, tableSel: string, footerSel: string) {
+  return page.evaluate(
+    ({ tableSel, footerSel }: { tableSel: string; footerSel: string }) =>
+      Math.max(
+        ...Array.from(document.querySelectorAll('.page')).map((pg) => {
+          const table = pg.querySelector(tableSel);
+          const footer = pg.querySelector(footerSel);
+          if (!table || !footer) return -Infinity;
+          return table.getBoundingClientRect().bottom - footer.getBoundingClientRect().top;
+        })
+      ),
+    { tableSel, footerSel }
+  );
+}
+
+test('the loading list header shows the region, route and area it was run for', async ({ page }) => {
+  const payload = loadingListPayload(60);
+  await page.addInitScript((json: string) => {
+    localStorage.setItem('loadingData', btoa(unescape(encodeURIComponent(json))));
+  }, JSON.stringify({ ...payload, other: { ...payload.other, ...SCOPE } }));
+  await page.goto('/print/loading-list/view/loading-list.html?message=1');
+  await page.locator('.page').first().waitFor();
+
+  const heading = (await page.locator('.page').first().locator('.header-right p').innerText()).replace(/\s+/g, ' ');
+  expect(heading).toContain('SHIVAMOGGA | NAGARA | Jaynagara');
+  expect(heading.indexOf('SHIVAMOGGA')).toBeLessThan(heading.indexOf('Brief Sales Report'));
+
+  expect(await page.locator('.page').count()).toBeGreaterThan(1);
+  expect(await worstOverlap(page, '.body-table', '.footer-section'),
+    'the extra header line must cost a row, not overflow the footer').toBeLessThanOrEqual(0);
+});
+
+test('the view bills header shows the region, route and area it was run for', async ({ page }) => {
+  await page.addInitScript((json: string) => {
+    sessionStorage.setItem('loadingDataViewBills', btoa(unescape(encodeURIComponent(json))));
+  }, JSON.stringify({ ...viewBillPayload(90), other: SCOPE }));
+  await page.goto('/print/view-bill/view/view-bill.html?message=1');
+  await page.locator('.page').first().waitFor();
+
+  const heading = (await page.locator('.page').first().locator('.floatrightp').innerText()).replace(/\s+/g, ' ');
+  expect(heading).toContain('SHIVAMOGGA | NAGARA | Jaynagara');
+  // Above the date range, not merged into it.
+  expect(heading.indexOf('SHIVAMOGGA')).toBeLessThan(heading.indexOf('From'));
+
+  expect(await page.locator('.page').count()).toBeGreaterThan(1);
+  expect(await worstOverlap(page, '#bodytable', '.footDiv'),
+    'the extra header line must cost a row, not overflow the footer').toBeLessThanOrEqual(0);
+});
+
+// A pre-existing defect found while adding the header above, and fixed with it: the view bills
+// header block was a fixed 5% of the sheet, which its own content overflows as soon as there is a
+// GSTIN to print - the last line ended up flush against the table header row below, reading as one
+// run-together line.
+//
+// The assertion has to measure the TEXT, not the block: that block is a stretched flex item, so
+// its own box bottom is the container's bottom by definition and always reports zero clearance
+// whether the text inside fits or not. A Range over its contents gives the real line boxes.
+test('the view bills company block clears the table below it', async ({ page }) => {
+  await page.addInitScript((json: string) => {
+    sessionStorage.setItem('loadingDataViewBills', btoa(unescape(encodeURIComponent(json))));
+  }, JSON.stringify({ ...viewBillPayload(40), other: SCOPE }));
+  await page.goto('/print/view-bill/view/view-bill.html?message=1');
+  await page.locator('.page').first().waitFor();
+
+  const clearance = await page.locator('.page').first().evaluate((pg) => {
+    const range = document.createRange();
+    range.selectNodeContents(pg.querySelector('.maintable')!);
+    const textBottom = Math.max(...Array.from(range.getClientRects()).map((r) => r.bottom));
+    return pg.querySelector('#bodytable')!.getBoundingClientRect().top - textBottom;
+  });
+
+  // Zero is the expected value, not a near miss: the block sizes exactly to its own content, so
+  // its last line ends where the table begins and the table header's own padding carries the gap.
+  // Against the fixed-height version this measured -17.9px, which is the overlap being guarded.
+  expect(clearance, 'the company/GSTIN lines must not run into the table header').toBeGreaterThanOrEqual(0);
+});
+
+test('the loading list and view bills headers omit the scope line when it was not filtered', async ({ page }) => {
+  await page.addInitScript((json: string) => {
+    localStorage.setItem('loadingData', btoa(unescape(encodeURIComponent(json))));
+  }, JSON.stringify(loadingListPayload(20)));
+  await page.goto('/print/loading-list/view/loading-list.html?message=1');
+  await page.locator('.page').first().waitFor();
+  let heading = (await page.locator('.page').first().locator('.header-right p').innerText()).replace(/\s+/g, ' ').trim();
+  expect(heading).not.toContain('|');
+  expect(heading.startsWith('Brief')).toBe(true);
+
+  await page.addInitScript((json: string) => {
+    sessionStorage.setItem('loadingDataViewBills', btoa(unescape(encodeURIComponent(json))));
+  }, JSON.stringify(viewBillPayload(20)));
+  await page.goto('/print/view-bill/view/view-bill.html?message=1');
+  await page.locator('.page').first().waitFor();
+  heading = (await page.locator('.page').first().locator('.floatrightp').innerText()).replace(/\s+/g, ' ').trim();
+  expect(heading).not.toContain('|');
+  expect(heading.startsWith('From')).toBe(true);
 });
 
 test('the brief sale header omits the scope line when there is no region, route or area', async ({ page }) => {

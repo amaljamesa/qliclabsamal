@@ -5,6 +5,8 @@
     <meta charset="utf-8">
     <title>Invoice</title>
 
+    <script src="../../../assets/js/report-zoom.js"></script>
+
     <script type="text/javascript">
         function getQueryParam(param) {
             let searchParams = new URLSearchParams(window.location.search);
@@ -721,6 +723,11 @@
         });
 
         generateReport();
+
+        // Pagination is measured against the zoom level in force when the report was built, so
+        // a later zoom change has to rebuild it - see public/assets/js/report-zoom.js for the
+        // detail, including why a zoom change is polled for rather than listened for.
+        watchZoomAndRepaginate(generateReport);
     </script>
 </body>
 

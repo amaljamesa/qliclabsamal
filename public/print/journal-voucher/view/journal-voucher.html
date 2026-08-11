@@ -189,6 +189,9 @@
 </head>
 
 <body>
+
+  <script src="../../../assets/js/report-zoom.js"></script>
+
   <script>
     // Physical page size, declared once and reused everywhere it matters: the @page rule,
     // the .voucher CSS, and (read off the rendered element's data attributes) the preview
@@ -388,6 +391,11 @@
     });
 
     generateJournalVoucher();
+
+    // Pagination is measured against the zoom level in force when the report was built, so
+    // a later zoom change has to rebuild it - see public/assets/js/report-zoom.js for the
+    // detail, including why a zoom change is polled for rather than listened for.
+    watchZoomAndRepaginate(generateJournalVoucher);
   </script>
 </body>
 
