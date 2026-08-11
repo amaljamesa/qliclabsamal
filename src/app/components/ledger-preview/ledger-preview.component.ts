@@ -1,4 +1,6 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, Input, OnDestroy, ViewChild } from '@angular/core';
+import { PreviewPdfService } from '../../services/preview-pdf.service';
+import { getNaturalContentSizePx, getPageDimensionsCm, setPrintPageSize } from '../../services/preview-page.util';
 
 const RESIZE_DEBOUNCE_MS = 200;
 
@@ -7,15 +9,26 @@ const RESIZE_DEBOUNCE_MS = 200;
 // document to a phone screen. This is a pure visual scale (CSS transform) applied from the
 // outside; the report itself renders at its normal, natural size inside the iframe and is
 // never touched, so its data/pagination is completely unaffected by this component.
+//
+// Hosted two ways: as the /print/ledger-preview page in its own right, and (the usual route
+// now) inside PreviewDialogComponent, which sets `embedded`.
 @Component({
   selector: 'app-ledger-preview',
   standalone: true,
   templateUrl: './ledger-preview.component.html',
-  styleUrls: ['./ledger-preview.component.css']
+  styleUrls: ['./ledger-preview.component.css'],
+  host: { '[class.embedded]': 'embedded' }
 })
 export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
   @ViewChild('frameWrapper', { static: true }) frameWrapper!: ElementRef<HTMLDivElement>;
   @ViewChild('ledgerFrame', { static: true }) ledgerFrame!: ElementRef<HTMLIFrameElement>;
+
+  /** Set by PreviewDialogComponent when this preview is shown inside the dialog. */
+  @Input() embedded = false;
+
+  // Drives the PDF button's label and disabled state. Rasterising a multi-page report takes a
+  // noticeable moment, and without this the button would look like it had done nothing.
+  isBuildingPdf = false;
 
   private resizeTimer: ReturnType<typeof setTimeout> | undefined;
   private previousBodyOverflowX = '';
@@ -30,6 +43,11 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
   // also reflects real monitor DPI, not just zoom - only *changes* from this baseline matter.
   private readonly baselinePixelRatio = window.devicePixelRatio;
 
+  constructor(
+    private host: ElementRef<HTMLElement>,
+    private previewPdfService: PreviewPdfService
+  ) {}
+
   private readonly onResize = (): void => {
     clearTimeout(this.resizeTimer);
     this.resizeTimer = setTimeout(() => this.fitFrame(), RESIZE_DEBOUNCE_MS);
@@ -38,60 +56,38 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
   private readonly onIframeLoad = (): void => {
     // A short delay so the report (which generates its own content on load) has finished
     // rendering before the first fit measures it.
-    setTimeout(() => this.fitFrame(), 50);
+    setTimeout(() => {
+      this.fitFrame();
+    }, 50);
   };
-
-  // The report's true content size, immune to two separate ways naive DOM measurement lies
-  // here: (1) scrollWidth/scrollHeight reflect whatever on-screen zoom is currently active
-  // (confirmed via a real print that the page count varied by zoom level alone for identical
-  // data), and (2) less obviously, an iframe's own document reports scrollHeight as *at
-  // least* the iframe element's own fixed CSS box size (900x1400, see .ledger-frame) even
-  // when the real content is shorter - a single-page ledger is well under that 1400px floor,
-  // so scrollHeight would silently report the floor instead, inflating fitFrame()'s on-screen
-  // wrapper and leaving a dead gray gap below the page. Counting .page elements (a plain DOM
-  // count, unaffected by zoom or the iframe's own box size) and multiplying by the report's
-  // own fixed, CSS-spec-defined page size (21cm x 29.7cm - see ledger-report.component.css),
-  // converted via the CSS specification's fixed 96px/2.54cm ratio, sidesteps both at once.
-  //
-  // Only used for HEIGHT in fitFrame() (see its comment on naturalWidth) - the equivalent
-  // width calculation turned out to assume the rendered page is *exactly* its declared cm
-  // width with zero tolerance, which real-world font rendering doesn't always honor, and that
-  // showed up as clipped content on other machines/the deployed site. Height doesn't have
-  // that problem: each .page's height is hard-clipped to its declared cm value via
-  // `overflow: hidden`, so unlike width there's no content-dependent variance to tolerate -
-  // the true height genuinely always is pageCount x 29.7cm, exactly.
-  private getNaturalContentSizePx(doc: Document): { width: number; height: number } | null {
-    const pageCount = doc.querySelectorAll('.page').length;
-    if (pageCount === 0) {
-      return null;
-    }
-    const CM_TO_PX = 96 / 2.54;
-    return {
-      width: 21 * CM_TO_PX,
-      height: pageCount * 29.7 * CM_TO_PX
-    };
-  }
 
   // Expanding the iframe to its true natural size beforehand (no transform, no clipping)
   // makes the entire report part of the wrapper page's actual layout, so printing the wrapper
   // prints all of it rather than just the first screenful (the iframe is otherwise kept at a
   // fixed 900x1400px box on screen and only visually scaled with a CSS transform - see the
-  // CSS comment on .ledger-frame). This wrapper page did not previously declare its own @page
-  // rule, so it fell back to the browser's default paper size (commonly Letter, not A4) -
-  // which didn't match the size the iframe's own internal page-break-after:always rules
-  // assume, and was the actual cause of a page's footer splitting off onto its own extra
-  // sheet in earlier testing (not the sizing math itself). The matching @page rule added to
-  // this component's CSS is what actually fixes that.
+  // CSS comment on .ledger-frame).
+  //
+  // The @page size that goes with it (setPrintPageSize) matters just as much: without a rule
+  // matching the report's real paper size, the printing document falls back to whatever the
+  // browser assumes (commonly Letter, not A4), which doesn't match what the iframe's own
+  // internal page-break-after:always rules assume - and that mismatch, not the sizing maths,
+  // was the actual cause of a page's footer splitting off onto its own extra sheet in earlier
+  // testing. It is set here per print rather than declared statically in this component's CSS
+  // because an @page rule is document-wide: as a static rule it would follow this component
+  // into the app's own document once the ledger can be opened as a dialog, and would then
+  // still be there, claiming A4, when an A5 invoice was printed later.
   private readonly onBeforePrint = (): void => {
     const iframe = this.ledgerFrame.nativeElement;
     const doc = iframe.contentDocument;
     if (!doc) {
       return;
     }
-    const size = this.getNaturalContentSizePx(doc);
-    if (!size) {
+    const dimensions = getPageDimensionsCm(doc);
+    const size = getNaturalContentSizePx(doc);
+    if (!dimensions || !size) {
       return;
     }
+    setPrintPageSize(dimensions);
     iframe.style.transform = 'none';
     iframe.style.width = `${size.width}px`;
     iframe.style.height = `${size.height}px`;
@@ -105,23 +101,9 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
   };
 
   ngAfterViewInit(): void {
-    this.previousBodyOverflowX = document.body.style.overflowX;
-    // The report is a fixed width - on a narrow screen that would normally force a
-    // horizontal scrollbar. The responsive scaling below shrinks the *visual* size to fit
-    // instead, so nothing should ever actually overflow, but this is a safety net against
-    // any residual sub-pixel overflow.
-    document.body.style.overflowX = 'hidden';
-
-    // The window itself should stay static - .frame-wrapper (sized to the viewport via CSS,
-    // see its max-height rule) is what scrolls internally to reveal a report taller than the
-    // screen, like an embedded PDF viewer rather than a normal scrolling page. Locking
-    // overflow on both html and body (some browsers put the scrollbar on one, some the other)
-    // is what actually stops the page itself from ever growing a second, outer scrollbar
-    // alongside the wrapper's own.
-    this.previousBodyOverflowY = document.body.style.overflowY;
-    this.previousHtmlOverflowY = document.documentElement.style.overflowY;
-    document.body.style.overflowY = 'hidden';
-    document.documentElement.style.overflowY = 'hidden';
+    if (!this.embedded) {
+      this.lockPageScrolling();
+    }
 
     this.ledgerFrame.nativeElement.addEventListener('load', this.onIframeLoad);
     window.addEventListener('resize', this.onResize);
@@ -133,14 +115,55 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
     window.addEventListener('afterprint', this.onAfterPrint);
   }
 
+  // Only when this preview *is* the page. Inside the dialog the same locking is done once by
+  // the dialog itself, for the whole time it is open - doing it here as well would mean two
+  // owners of one style, and whichever restored last would win.
+  private lockPageScrolling(): void {
+    this.previousBodyOverflowX = document.body.style.overflowX;
+    // The report is a fixed width - on a narrow screen that would normally force a
+    // horizontal scrollbar. The responsive scaling below shrinks the *visual* size to fit
+    // instead, so nothing should ever actually overflow, but this is a safety net against
+    // any residual sub-pixel overflow.
+    document.body.style.overflowX = 'hidden';
+
+    // The window itself should stay static - .preview-viewport (sized to the viewport via CSS)
+    // is what scrolls internally to reveal a report taller than the screen, like an embedded
+    // PDF viewer rather than a normal scrolling page. Locking overflow on both html and body
+    // (some browsers put the scrollbar on one, some the other) is what actually stops the page
+    // itself from ever growing a second, outer scrollbar alongside the wrapper's own.
+    this.previousBodyOverflowY = document.body.style.overflowY;
+    this.previousHtmlOverflowY = document.documentElement.style.overflowY;
+    document.body.style.overflowY = 'hidden';
+    document.documentElement.style.overflowY = 'hidden';
+  }
+
   print(): void {
     window.print();
   }
 
+  // Saves the ledger as a PDF file directly, with no print dialog to drive - see
+  // PreviewPdfService for why that is a separate route from Print rather than the same one.
+  async downloadPdf(): Promise<void> {
+    const doc = this.ledgerFrame.nativeElement.contentDocument;
+    if (!doc || this.isBuildingPdf) {
+      return;
+    }
+    this.isBuildingPdf = true;
+    try {
+      await this.previewPdfService.download(doc, 'ledger.pdf');
+    } catch (error) {
+      console.error('Could not build a PDF of this ledger:', error);
+    } finally {
+      this.isBuildingPdf = false;
+    }
+  }
+
   ngOnDestroy(): void {
-    document.body.style.overflowX = this.previousBodyOverflowX;
-    document.body.style.overflowY = this.previousBodyOverflowY;
-    document.documentElement.style.overflowY = this.previousHtmlOverflowY;
+    if (!this.embedded) {
+      document.body.style.overflowX = this.previousBodyOverflowX;
+      document.body.style.overflowY = this.previousBodyOverflowY;
+      document.documentElement.style.overflowY = this.previousHtmlOverflowY;
+    }
     this.ledgerFrame.nativeElement.removeEventListener('load', this.onIframeLoad);
     window.removeEventListener('resize', this.onResize);
     window.visualViewport?.removeEventListener('resize', this.onResize);
@@ -169,7 +192,7 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
     // actually reaches, clipping its right edge.
     //
     // getNaturalContentSizePx's page-count x cm-size WIDTH calculation looked like a
-    // strictly better replacement for this (floor-immune, see that method's comment) but
+    // strictly better replacement for this (floor-immune, see that function's comment) but
     // assumes the rendered page is *exactly* its declared cm width with zero tolerance, and
     // real-world font rendering can differ by a handful of pixels across systems/fonts in
     // ways scrollWidth naturally absorbs by just measuring whatever actually rendered. That
@@ -181,14 +204,16 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
     // even when true content is shorter. Unlike width, height has no content-rendering
     // variance to worry about (each .page's height is hard-clipped to its declared cm value),
     // so it's safe to use the exact calculation here while width stays conservative above.
-    const naturalHeight = this.getNaturalContentSizePx(doc)?.height ?? doc.documentElement.scrollHeight;
+    const naturalHeight = getNaturalContentSizePx(doc)?.height ?? doc.documentElement.scrollHeight;
     if (naturalWidth === 0 || naturalHeight === 0) {
       return;
     }
 
-    // A small safety margin (rather than the exact measured width) absorbs the vertical
-    // scrollbar this page needs for a tall multi-page report.
-    const availableWidth = document.documentElement.clientWidth - 20;
+    // Measured from this component's own box rather than the viewport, because the two are no
+    // longer the same thing: as a page it is pinned to the full viewport, but inside the dialog
+    // it is only as wide as the dialog. A small safety margin (rather than the exact measured
+    // width) absorbs the vertical scrollbar this component needs for a tall multi-page report.
+    const availableWidth = this.host.nativeElement.clientWidth - 20;
     // Capped at 1: on a screen wider than the report's natural size, show it centered at its
     // true size (like a normal document viewer) rather than stretched to fill the whole
     // screen - Priyanka's feedback was that filling wide screens made the report cover the

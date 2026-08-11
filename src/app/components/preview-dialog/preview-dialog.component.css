@@ -1,0 +1,133 @@
+/* The pinning lives on the host, not on the .preview-dialog div inside it: a custom element is
+   display:inline by default, so a host whose only child is position:fixed has no box of its own
+   at all - which reads as "not visible" to anything measuring it (assistive tech, Playwright)
+   even though the dialog is plainly on screen. Giving the host the layer makes the component's
+   own element the full-viewport box it appears to be.
+
+   The previews themselves are no longer pinned when embedded (see their :host(.embedded)
+   rules), so there is exactly one thing on screen claiming to be full-screen. */
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: block;
+}
+
+.preview-dialog {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  /* Stretched rather than centred: the panel takes the full available height and the report
+     scrolls inside it, like a document viewer, instead of the dialog growing with the report. */
+  align-items: stretch;
+  padding: 1.5vh 1vw;
+}
+
+.dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+/* Wide enough to show an A4 page at its natural size (21cm ~ 794px) plus the preview's own
+   margins, and capped so it doesn't stretch edge to edge on a very wide monitor. Narrower
+   screens fall back to the full available width, where the preview's fit-to-width scaling takes
+   over - it measures this panel, not the viewport, so the report always fits inside it. */
+.dialog-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(1200px, 100%);
+  max-height: 100%;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.35);
+}
+
+.dialog-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #0f172a;
+  color: #fff;
+}
+
+.dialog-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dialog-close {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  font-size: 22px;
+  line-height: 1;
+  background: transparent;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.dialog-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Gives the embedded preview a definite height to fill, which is what lets it scroll internally
+   (min-height:0 - without it a flex item's floor is its content height, and a tall report would
+   push the panel past the viewport instead of scrolling inside it). */
+.dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.dialog-body > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Printing from the dialog prints the app's own document, so everything that makes this a
+   dialog has to get out of the way first: the pinning (a position:fixed element prints only
+   what fits on one screenful and clips the rest), the height cap and the clipping. The ERP
+   shell behind it is dropped by the matching rule in src/styles.css, which is global because
+   the shell is not this component's markup to hide. */
+@media print {
+  :host,
+  .preview-dialog {
+    position: static;
+    inset: auto;
+    display: block;
+    padding: 0;
+  }
+
+  .dialog-backdrop,
+  .dialog-header {
+    display: none;
+  }
+
+  .dialog-panel {
+    display: block;
+    width: auto;
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .dialog-body {
+    display: block;
+    overflow: visible;
+  }
+}

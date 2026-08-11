@@ -1,16 +1,21 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, Input, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { PaperSize, ReportPrintService } from '../../services/report-print.service';
+import { PreviewPdfService } from '../../services/preview-pdf.service';
+import {
+  getNaturalContentSizePx,
+  getPageDimensionsCm,
+  matchPaperSize,
+  setPrintPageSize
+} from '../../services/preview-page.util';
 
 const RESIZE_DEBOUNCE_MS = 200;
-const PRINT_STYLE_ID = 'report-preview-page-size-style';
-const CM_TO_PX = 96 / 2.54;
 
 // Every report layout this component can embed, keyed by the :report route segment. Each
 // entry is just the static file to load - the physical page size is NOT listed here on
 // purpose: it's read off the rendered .page element's own data attributes instead (see
-// getPageDimensionsCm), so a layout that changes its paper size stays correct here without
+// preview-page.util), so a layout that changes its paper size stays correct here without
 // this map needing to be kept in sync.
 const REPORT_SOURCES: Record<string, string> = {
   'loading-list': '/print/loading-list/view/loading-list.html?message=1',
@@ -33,20 +38,29 @@ const REPORT_SOURCES: Record<string, string> = {
 //
 // This is the same design already proven on InvoicePreviewComponent/LedgerPreviewComponent,
 // generalised so the five newer layouts share one implementation rather than each carrying
-// its own copy. It differs from those two in one way: they hardcode (ledger) or read from
-// inline style (invoice) their page size, whereas these layouts declare theirs via data
-// attributes, which also covers the landscape one (gst-sale is 29.7cm x 21cm, wider than
-// it is tall - a portrait assumption would print it at roughly double the page count).
+// its own copy.
+//
+// Hosted two ways: as the /print/report/:report page in its own right, and (the usual route
+// now) inside PreviewDialogComponent, which passes the layout as an input and sets `embedded`.
 @Component({
   selector: 'app-report-preview',
   standalone: true,
   imports: [CommonModule],
   templateUrl: './report-preview.component.html',
-  styleUrls: ['./report-preview.component.css']
+  styleUrls: ['./report-preview.component.css'],
+  host: { '[class.embedded]': 'embedded' }
 })
 export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
   @ViewChild('frameWrapper', { static: true }) frameWrapper!: ElementRef<HTMLDivElement>;
   @ViewChild('reportFrame', { static: true }) reportFrame!: ElementRef<HTMLIFrameElement>;
+
+  /**
+   * Which layout to embed. Empty when this is the routed page, where the :report segment says
+   * so instead - a dialog has no route of its own to read.
+   */
+  @Input() report = '';
+  /** Set by PreviewDialogComponent when this preview is shown inside the dialog. */
+  @Input() embedded = false;
 
   frameSrc = '';
   reportTitle = 'Report';
@@ -56,6 +70,10 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
   // fitFrame), so the highlighted button always reflects what is on screen rather than what
   // was last clicked.
   activeSize: PaperSize | '' = '';
+
+  // Drives the PDF button's label and disabled state. Rasterising a multi-page report takes a
+  // noticeable moment, and without this the button would look like it had done nothing.
+  isBuildingPdf = false;
 
   private resizeTimer: ReturnType<typeof setTimeout> | undefined;
   private previousBodyOverflowX = '';
@@ -73,7 +91,12 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
 
   private reportKey = '';
 
-  constructor(private route: ActivatedRoute, private reportPrintService: ReportPrintService) {}
+  constructor(
+    private host: ElementRef<HTMLElement>,
+    private route: ActivatedRoute,
+    private reportPrintService: ReportPrintService,
+    private previewPdfService: PreviewPdfService
+  ) {}
 
   private readonly onResize = (): void => {
     clearTimeout(this.resizeTimer);
@@ -83,67 +106,10 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
   private readonly onIframeLoad = (): void => {
     // A short delay so the report (which generates its own content on load) has finished
     // rendering before the first fit measures it.
-    setTimeout(() => this.fitFrame(), 50);
+    setTimeout(() => {
+      this.fitFrame();
+    }, 50);
   };
-
-  // Reads the physical page size straight off the rendered .page element's data attributes -
-  // the literal values the layout itself declared, not a rendered measurement, so unlike
-  // getBoundingClientRect() this is unaffected by whatever on-screen zoom or scale is
-  // currently applied. Falls back to inline style (the invoice layout's convention) so this
-  // component also works against a layout that hasn't adopted the data attributes.
-  private getPageDimensionsCm(doc: Document): { widthCm: number; heightCm: number } | null {
-    const page = doc.querySelector<HTMLElement>('.page');
-    if (!page) {
-      return null;
-    }
-    const widthCm = parseFloat(page.dataset['pageWCm'] ?? page.style.width);
-    const heightCm = parseFloat(page.dataset['pageHCm'] ?? page.style.height);
-    if (!widthCm || !heightCm) {
-      return null;
-    }
-    return { widthCm, heightCm };
-  }
-
-  // Ensures this wrapper page's own @page rule matches the report's actual paper size.
-  // Without it, printing falls back to whatever default the browser assumes (commonly
-  // Letter), which doesn't match what the iframe's internal page-break-after:always rules
-  // assume - that mismatch is what splits a page's footer onto its own extra sheet.
-  private ensurePageSizeStyle(widthCm: number, heightCm: number): void {
-    let styleEl = document.getElementById(PRINT_STYLE_ID) as HTMLStyleElement | null;
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = PRINT_STYLE_ID;
-      document.head.appendChild(styleEl);
-    }
-    styleEl.textContent = `@page { size: ${widthCm}cm ${heightCm}cm; margin: 0; }`;
-  }
-
-  // The report's true content size, immune to two separate ways naive DOM measurement lies
-  // here: (1) scrollWidth/scrollHeight reflect whatever on-screen zoom is currently active
-  // (which made the printed page count vary by zoom level alone for identical data), and
-  // (2) less obviously, an iframe's own document reports scrollHeight as *at least* the
-  // iframe element's own fixed CSS box size (see .report-frame) even when the real content
-  // is shorter - a single-page report is well under that floor, so scrollHeight silently
-  // reports the floor instead, inflating the on-screen wrapper and leaving a dead gray gap
-  // below the report. Counting .page elements (a plain DOM count, unaffected by zoom or the
-  // iframe's box) and multiplying by the layout's own declared cm page size sidesteps both.
-  //
-  // Only HEIGHT is used from this (see fitFrame's comment on naturalWidth) - the equivalent
-  // width calculation assumes the rendered page is *exactly* its declared cm width with zero
-  // tolerance, which real-world font rendering doesn't always honor, and that showed up as
-  // clipped content on other machines. Height has no such variance: each .page's height is
-  // hard-clipped to its declared cm value via overflow:hidden.
-  private getNaturalContentSizePx(doc: Document): { width: number; height: number } | null {
-    const pageCount = doc.querySelectorAll('.page').length;
-    const dimensions = this.getPageDimensionsCm(doc);
-    if (pageCount === 0 || !dimensions) {
-      return null;
-    }
-    return {
-      width: dimensions.widthCm * CM_TO_PX,
-      height: pageCount * dimensions.heightCm * CM_TO_PX
-    };
-  }
 
   // Expanding the iframe to its true natural size beforehand (no transform, no clipping)
   // makes the entire multi-page report part of the wrapper page's actual layout, so printing
@@ -154,12 +120,12 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
     if (!doc) {
       return;
     }
-    const dimensions = this.getPageDimensionsCm(doc);
-    const size = this.getNaturalContentSizePx(doc);
+    const dimensions = getPageDimensionsCm(doc);
+    const size = getNaturalContentSizePx(doc);
     if (!dimensions || !size) {
       return;
     }
-    this.ensurePageSizeStyle(dimensions.widthCm, dimensions.heightCm);
+    setPrintPageSize(dimensions);
     iframe.style.transform = 'none';
     iframe.style.width = `${size.width}px`;
     iframe.style.height = `${size.height}px`;
@@ -176,6 +142,23 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
     window.print();
   }
 
+  // Saves the report as a PDF file directly, with no print dialog to drive - see
+  // PreviewPdfService for why that is a separate route from Print rather than the same one.
+  async downloadPdf(): Promise<void> {
+    const doc = this.reportFrame.nativeElement.contentDocument;
+    if (!doc || this.isBuildingPdf) {
+      return;
+    }
+    this.isBuildingPdf = true;
+    try {
+      await this.previewPdfService.download(doc, `${this.reportKey || 'report'}.pdf`);
+    } catch (error) {
+      console.error('Could not build a PDF of this report:', error);
+    } finally {
+      this.isBuildingPdf = false;
+    }
+  }
+
   // Switching paper size rewrites the payload's page_size and reloads the frame - the layout
   // renders either size from the same HTML, so there is no second file to point at. The
   // reload fires the existing load handler, which re-fits and re-reads the active size.
@@ -190,7 +173,8 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    const reportKey = this.route.snapshot.paramMap.get('report') ?? '';
+    // The input wins when it is set (the dialog), the route segment is the fallback (the page).
+    const reportKey = this.report || this.route.snapshot.paramMap.get('report') || '';
     this.reportKey = reportKey;
     this.paperSizes = this.reportPrintService.getPaperSizes(reportKey) ?? [];
     this.frameSrc = REPORT_SOURCES[reportKey] ?? '';
@@ -206,6 +190,24 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
     }
     this.reportFrame.nativeElement.src = this.frameSrc;
 
+    if (!this.embedded) {
+      this.lockPageScrolling();
+    }
+
+    this.reportFrame.nativeElement.addEventListener('load', this.onIframeLoad);
+    window.addEventListener('resize', this.onResize);
+    // visualViewport is purpose-built to report zoom-driven viewport changes and fires more
+    // reliably for zoom-only changes (no accompanying window resize) than window's own
+    // resize event across browsers - belt-and-suspenders alongside the listener above.
+    window.visualViewport?.addEventListener('resize', this.onResize);
+    window.addEventListener('beforeprint', this.onBeforePrint);
+    window.addEventListener('afterprint', this.onAfterPrint);
+  }
+
+  // Only when this preview *is* the page. Inside the dialog the same locking is done once by
+  // the dialog itself, for the whole time it is open - doing it here as well would mean two
+  // owners of one style, and whichever restored last would win.
+  private lockPageScrolling(): void {
     this.previousBodyOverflowX = document.body.style.overflowX;
     // The report is a fixed width - on a narrow screen that would normally force a
     // horizontal scrollbar. The responsive scaling below shrinks the *visual* size to fit
@@ -222,21 +224,14 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
     this.previousHtmlOverflowY = document.documentElement.style.overflowY;
     document.body.style.overflowY = 'hidden';
     document.documentElement.style.overflowY = 'hidden';
-
-    this.reportFrame.nativeElement.addEventListener('load', this.onIframeLoad);
-    window.addEventListener('resize', this.onResize);
-    // visualViewport is purpose-built to report zoom-driven viewport changes and fires more
-    // reliably for zoom-only changes (no accompanying window resize) than window's own
-    // resize event across browsers - belt-and-suspenders alongside the listener above.
-    window.visualViewport?.addEventListener('resize', this.onResize);
-    window.addEventListener('beforeprint', this.onBeforePrint);
-    window.addEventListener('afterprint', this.onAfterPrint);
   }
 
   ngOnDestroy(): void {
-    document.body.style.overflowX = this.previousBodyOverflowX;
-    document.body.style.overflowY = this.previousBodyOverflowY;
-    document.documentElement.style.overflowY = this.previousHtmlOverflowY;
+    if (!this.embedded) {
+      document.body.style.overflowX = this.previousBodyOverflowX;
+      document.body.style.overflowY = this.previousBodyOverflowY;
+      document.documentElement.style.overflowY = this.previousHtmlOverflowY;
+    }
     this.reportFrame.nativeElement.removeEventListener('load', this.onIframeLoad);
     window.removeEventListener('resize', this.onResize);
     window.visualViewport?.removeEventListener('resize', this.onResize);
@@ -261,11 +256,9 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
     // Read back what the report actually rendered at, rather than trusting the last button
     // press - matched against the real dimensions rather than a width threshold, since one
     // of these layouts is landscape and would read as "wide" either way.
-    const rendered = this.getPageDimensionsCm(doc);
+    const rendered = getPageDimensionsCm(doc);
     if (rendered) {
-      const match = (widthCm: number, heightCm: number) =>
-        Math.abs(rendered.widthCm - widthCm) < 0.1 && Math.abs(rendered.heightCm - heightCm) < 0.1;
-      this.activeSize = match(14.8, 21) ? 'a5' : match(21, 29.7) ? 'a4' : '';
+      this.activeSize = matchPaperSize(rendered);
     }
 
     // Deliberately the content's total extent (scrollWidth), not the declared cm width -
@@ -277,14 +270,16 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
     // Height uses the floor-immune calculation instead (see getNaturalContentSizePx) -
     // scrollHeight bottoms out at the iframe's own fixed CSS box even when the true content
     // is shorter, which shows up as dead gray space below a short report.
-    const naturalHeight = this.getNaturalContentSizePx(doc)?.height ?? doc.documentElement.scrollHeight;
+    const naturalHeight = getNaturalContentSizePx(doc)?.height ?? doc.documentElement.scrollHeight;
     if (naturalWidth === 0 || naturalHeight === 0) {
       return;
     }
 
-    // A small safety margin (rather than the exact measured width) absorbs the vertical
-    // scrollbar this page needs for a tall multi-page report.
-    const availableWidth = document.documentElement.clientWidth - 20;
+    // Measured from this component's own box rather than the viewport, because the two are no
+    // longer the same thing: as a page it is pinned to the full viewport, but inside the dialog
+    // it is only as wide as the dialog. A small safety margin (rather than the exact measured
+    // width) absorbs the vertical scrollbar this component needs for a tall multi-page report.
+    const availableWidth = this.host.nativeElement.clientWidth - 20;
     // Capped at 1: on a screen wider than the report's natural size, show it centered at its
     // true size (like a normal document viewer) rather than stretched to fill the whole
     // screen. Still shrinks below 1 on a narrower screen, where there wouldn't be room to

@@ -31,3 +31,11 @@
     </div>
   </div>
 }
+
+<!-- Report previews (invoice, bulk print, ledger, the report layouts) open here as a dialog
+     over whatever screen asked for them, rather than in a new browser tab. Rendered once at the
+     app's root, so the screens that open a preview only set the request (see
+     PreviewDialogService) and never carry any dialog markup of their own. -->
+@if (previewDialog.request(); as previewRequest) {
+  <app-preview-dialog [request]="previewRequest"></app-preview-dialog>
+}

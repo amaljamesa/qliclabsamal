@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { DataService } from './data.service';
 import { LedgerData, LedgerDetailItem } from '../models/ledger.model';
+import { PreviewDialogService } from './preview-dialog.service';
 
 // UTF-8 safe base64 encode - mirrors the base64ToUtf8 decode the ledger report expects.
 function utf8ToBase64(str: string): string {
@@ -18,7 +19,10 @@ function formatLedgerDate(isoDate: string): string {
   providedIn: 'root'
 })
 export class LedgerService {
-  constructor(private dataService: DataService) {}
+  constructor(
+    private dataService: DataService,
+    private previewDialog: PreviewDialogService
+  ) {}
 
   buildLedgerData(partyName: string): LedgerData {
     const invoices = this.dataService
@@ -70,10 +74,13 @@ export class LedgerService {
     };
   }
 
+  // Opens the ledger preview as a dialog over the current screen rather than in a new browser
+  // tab. The payload handoff through localStorage is unchanged, so the /print/ledger-preview
+  // route (and the /print/ledger report inside it) still work exactly as before.
   openLedger(partyName: string): void {
     const data = this.buildLedgerData(partyName);
     const base64 = utf8ToBase64(JSON.stringify(data));
     localStorage.setItem('ledgerData', base64);
-    window.open('/print/ledger-preview?message=1', '_blank');
+    this.previewDialog.open({ kind: 'ledger', title: `Ledger - ${partyName}` });
   }
 }

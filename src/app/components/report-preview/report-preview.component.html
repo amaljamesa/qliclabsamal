@@ -15,6 +15,11 @@
       }
     </span>
   }
+  <!-- Saves the file directly, with no print dialog to drive - and always exports the paper size
+       currently on screen. -->
+  <button id="pdfButton" type="button" [disabled]="isBuildingPdf" (click)="downloadPdf()">
+    {{ isBuildingPdf ? 'Preparing PDF...' : 'Download PDF' }}
+  </button>
   <button id="printButton" type="button" (click)="print()">Print</button>
 </div>
 <div class="preview-viewport">

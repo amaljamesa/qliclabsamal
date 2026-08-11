@@ -192,6 +192,16 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
     newPage.style.pageBreakBefore = 'always';
     newPage.style.width = '21cm';
     newPage.style.height = '1100px';
+    // The paper this page is meant for, stated the same way every other print layout in
+    // public/print/ states it. It is deliberately NOT the same thing as the height just above:
+    // 1100px is this report's on-screen page box, whereas A4 is what it prints on (see the
+    // @page rule in this component's CSS). Anything measuring the report from outside has to
+    // read the paper size rather than infer it from the screen box - the preview wrapper needs
+    // it for the printing document's own @page rule and for the PDF export's page size, and it
+    // previously had 21cm x 29.7cm hardcoded on its side instead, which is the sort of
+    // duplicate that quietly goes stale. See preview-page.util.ts.
+    newPage.dataset['pageWCm'] = '21';
+    newPage.dataset['pageHCm'] = '29.7';
 
     pageFrame.appendChild(newPage);
     this.pagesContainer.nativeElement.appendChild(pageFrame);

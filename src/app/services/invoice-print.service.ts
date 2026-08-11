@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { DataService, Invoice, InvoiceItem } from './data.service';
+import { PreviewDialogService } from './preview-dialog.service';
 
 // UTF-8 safe base64 encode - mirrors the base64ToUtf8 decode the invoice report expects
 // (public/print/invoice/view/invoice.html).
@@ -12,6 +13,10 @@ function utf8ToBase64(str: string): string {
 export function base64ToUtf8(value: string): string {
   return decodeURIComponent(escape(atob(value)));
 }
+
+// Where every invoice layout looks for its payload. Dictated by the layouts themselves (they
+// predate this app), so it is named once here rather than spelled out at each use.
+export const INVOICE_STORAGE_KEY = 'temp_inv_data';
 
 export type PaperSize = 'a4' | 'a5';
 
@@ -56,6 +61,43 @@ export function withPaperSize(encoded: string, pageSize: PaperSize): string | nu
     console.error('Could not change paper size on the stored payload:', error);
     return null;
   }
+}
+
+// The invoices the preview currently holds, normalised to an array: a bulk print payload
+// carries one entry per invoice, a single preview is the invoice itself. Shared by the two
+// exports that read the payload rather than the rendered design (Excel and PDF filenames), so
+// neither has to know which of the two shapes it is looking at. Null means there is nothing
+// usable stored - already logged, so callers only have to decide what to do about it.
+export function readStoredInvoices(): Record<string, any>[] | null {
+  const stored = sessionStorage.getItem(INVOICE_STORAGE_KEY);
+  if (!stored) {
+    console.error('No invoice payload stored - nothing to read.');
+    return null;
+  }
+  try {
+    const payload = JSON.parse(base64ToUtf8(stored));
+    return Array.isArray(payload.invoices) ? payload.invoices : [payload];
+  } catch (error) {
+    console.error('Could not read the stored invoice payload:', error);
+    return null;
+  }
+}
+
+// The download filename (without extension) for the invoice(s) in the preview. Shared so the
+// Excel and PDF exports of the same invoice land next to each other in the user's downloads
+// folder under matching names instead of drifting apart.
+export function invoiceFileBaseName(invoices: Record<string, any>[]): string {
+  if (invoices.length > 1) {
+    return `invoices-${invoices.length}`;
+  }
+  const raw = String(invoices[0]?.['master_details']?.['inv_no'] ?? '').trim();
+  // The bulk print sample data uses these as "no value" placeholders - a file called
+  // invoice-nan says less than a plain invoice.
+  const meaningful = raw === 'nan' || raw === 'N/A' || raw === 'null' ? '' : raw;
+  // Invoice numbers legitimately contain slashes (e.g. "INV/26-27/001"), which a filename
+  // cannot.
+  const invoiceNo = meaningful.replace(/[^A-Za-z0-9._-]+/g, '-');
+  return invoiceNo ? `invoice-${invoiceNo}` : 'invoice';
 }
 
 function formatInvoiceDate(isoDate: string): string {
@@ -133,7 +175,10 @@ interface TaxGroup {
   providedIn: 'root'
 })
 export class InvoicePrintService {
-  constructor(private dataService: DataService) {}
+  constructor(
+    private dataService: DataService,
+    private previewDialog: PreviewDialogService
+  ) {}
 
   // Maps this app's real Invoice record onto the target JSON schema the invoice print layout
   // (public/print/invoice/view/invoice.html) expects. The layout's schema covers far more
@@ -321,7 +366,7 @@ export class InvoicePrintService {
   // the stored payload rather than rebuilding it from the invoice record, so this works the
   // same for a single preview, a bulk batch, and (later) any payload that arrives from an API.
   setStoredPaperSize(pageSize: PaperSize): boolean {
-    const stored = sessionStorage.getItem('temp_inv_data');
+    const stored = sessionStorage.getItem(INVOICE_STORAGE_KEY);
     if (!stored) {
       return false;
     }
@@ -329,10 +374,14 @@ export class InvoicePrintService {
     if (!updated) {
       return false;
     }
-    sessionStorage.setItem('temp_inv_data', updated);
+    sessionStorage.setItem(INVOICE_STORAGE_KEY, updated);
     return true;
   }
 
+  // Opens the preview as a dialog over the current screen rather than in a new browser tab.
+  // The handoff is unchanged - the payload still goes through sessionStorage, because a full
+  // invoice's JSON comfortably exceeds what a query string can carry - so the preview itself,
+  // and the /print/invoice-preview route it also still serves, work exactly as before.
   openInvoicePreview(invoiceId: string, pageSize: PaperSize = 'a4'): void {
     const invoice = this.dataService.getInvoice(invoiceId);
     if (!invoice) {
@@ -341,8 +390,8 @@ export class InvoicePrintService {
     }
     const data = this.buildInvoiceData(invoice, pageSize);
     const base64 = utf8ToBase64(JSON.stringify(data));
-    sessionStorage.setItem('temp_inv_data', base64);
-    window.open('/print/invoice-preview?message=1', '_blank');
+    sessionStorage.setItem(INVOICE_STORAGE_KEY, base64);
+    this.previewDialog.open({ kind: 'invoice', title: `Invoice ${invoice.invoiceNo}` });
   }
 
   // Bulk print entry point: takes the ids selected in the invoice list and opens ONE preview
@@ -364,8 +413,11 @@ export class InvoicePrintService {
     }
     const invoices = invoiceIds.map(() => HARDCODED_BULK_TEST_INVOICE);
     const base64 = utf8ToBase64(JSON.stringify({ invoices }));
-    sessionStorage.setItem('temp_inv_data', base64);
-    window.open('/print/invoice-preview?message=1', '_blank');
+    sessionStorage.setItem(INVOICE_STORAGE_KEY, base64);
+    this.previewDialog.open({
+      kind: 'invoice',
+      title: `Bulk print - ${invoices.length} ${invoices.length === 1 ? 'invoice' : 'invoices'}`
+    });
   }
 }
 

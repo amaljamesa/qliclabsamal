@@ -1,0 +1,27 @@
+<div class="preview-dialog" role="dialog" aria-modal="true" [attr.aria-label]="request.title">
+  <!-- Clicking away closes, the same as the X - a preview is a read-only view, so there is
+       nothing here a stray click could lose. -->
+  <div class="dialog-backdrop" (click)="close()"></div>
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <h2 class="dialog-title">{{ request.title }}</h2>
+      <button class="dialog-close" type="button" aria-label="Close preview" (click)="close()">&times;</button>
+    </div>
+    <!-- One of the three existing previews, chosen by the request. Each keeps its own toolbar
+         (design picker, paper size, Download PDF, Print, Excel where it has one) - the dialog
+         adds a title bar and a way out, and nothing else. -->
+    <div class="dialog-body">
+      @switch (request.kind) {
+        @case ('invoice') {
+          <app-invoice-preview [embedded]="true"></app-invoice-preview>
+        }
+        @case ('ledger') {
+          <app-ledger-preview [embedded]="true"></app-ledger-preview>
+        }
+        @case ('report') {
+          <app-report-preview [embedded]="true" [report]="request.reportId ?? ''"></app-report-preview>
+        }
+      }
+    </div>
+  </div>
+</div>

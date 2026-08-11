@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { base64ToUtf8 } from './invoice-print.service';
+import { invoiceFileBaseName, readStoredInvoices } from './invoice-print.service';
 import { buildXlsxBlob, columnLetter, downloadBlob, SheetCell, SheetRow, WorkbookSheet } from './xlsx-writer.util';
 
 // Exports the invoice currently loaded in the preview as an .xlsx workbook, alongside the
@@ -157,38 +157,16 @@ export class InvoiceExcelService {
    * invoice in a single workbook. Returns false if there is nothing stored to export.
    */
   exportStoredInvoice(): boolean {
-    const stored = sessionStorage.getItem('temp_inv_data');
-    if (!stored) {
-      console.error('No invoice payload stored - nothing to export.');
-      return false;
-    }
-
-    let payload: Payload;
-    try {
-      payload = JSON.parse(base64ToUtf8(stored));
-    } catch (error) {
-      console.error('Could not read the stored invoice payload:', error);
-      return false;
-    }
-
-    const invoices: Payload[] = Array.isArray(payload['invoices']) ? payload['invoices'] : [payload];
-    if (invoices.length === 0) {
+    // Reading and naming are shared with the PDF export (see invoice-print.service), so both
+    // exports of the same preview agree on what is in it and what to call the file.
+    const invoices: Payload[] | null = readStoredInvoices();
+    if (!invoices || invoices.length === 0) {
       return false;
     }
 
     const sheets = invoices.map((invoice, index) => this.buildSheet(invoice, index, invoices.length));
-    downloadBlob(buildXlsxBlob(sheets), this.buildFilename(invoices));
+    downloadBlob(buildXlsxBlob(sheets), `${invoiceFileBaseName(invoices)}.xlsx`);
     return true;
-  }
-
-  private buildFilename(invoices: Payload[]): string {
-    if (invoices.length > 1) {
-      return `invoices-${invoices.length}.xlsx`;
-    }
-    // Invoice numbers legitimately contain slashes (e.g. "INV/26-27/001"), which a filename
-    // cannot.
-    const invoiceNo = text(invoices[0]?.['master_details']?.['inv_no']).replace(/[^A-Za-z0-9._-]+/g, '-');
-    return invoiceNo ? `invoice-${invoiceNo}.xlsx` : 'invoice.xlsx';
   }
 
   private buildSheet(invoice: Payload, index: number, total: number): WorkbookSheet {

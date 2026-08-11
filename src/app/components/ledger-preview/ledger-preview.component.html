@@ -1,4 +1,13 @@
-<button id="printButton" type="button" (click)="print()">Print</button>
+<!-- A toolbar row above the report rather than a button floating over its top-right corner:
+     with two actions it needs the room, and a position:fixed button would sit over the dialog's
+     own title bar when this preview is opened as a dialog rather than as a page. -->
+<div class="preview-toolbar">
+  <!-- Saves the file directly, with no print dialog to drive. -->
+  <button id="pdfButton" type="button" [disabled]="isBuildingPdf" (click)="downloadPdf()">
+    {{ isBuildingPdf ? 'Preparing PDF...' : 'Download PDF' }}
+  </button>
+  <button id="printButton" type="button" (click)="print()">Print</button>
+</div>
 <div class="preview-viewport">
   <div #frameWrapper class="frame-wrapper">
     <iframe #ledgerFrame class="ledger-frame" src="/print/ledger?message=1"></iframe>

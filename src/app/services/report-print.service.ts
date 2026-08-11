@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HARDCODED_BULK_TEST_INVOICE, PaperSize, withPaperSize } from './invoice-print.service';
+import { PreviewDialogService } from './preview-dialog.service';
 
 // Re-exported so the report preview keeps importing everything it needs from one place; the
 // type lives with the payload helpers in invoice-print.service.
@@ -48,10 +49,13 @@ export const REPORT_LAYOUTS = Object.entries(REPORT_TARGETS).map(([id, target]) 
 
 @Injectable({ providedIn: 'root' })
 export class ReportPrintService {
-  // Opens a layout's responsive preview, stashing the payload where that layout reads it
-  // from. Same handoff the invoice/ledger previews already use: the data goes through
-  // storage rather than the URL because a full report's JSON comfortably exceeds what a
-  // query string can carry, while `?message=1` stays as the flag the layouts check.
+  constructor(private previewDialog: PreviewDialogService) {}
+
+  // Opens a layout's responsive preview as a dialog over the current screen, stashing the
+  // payload where that layout reads it from. Same handoff the invoice/ledger previews use: the
+  // data goes through storage rather than the URL because a full report's JSON comfortably
+  // exceeds what a query string can carry. The /print/report/:report route still serves the
+  // same preview for anyone opening it directly.
   openReportPreview(reportId: string, data: unknown): void {
     const target = REPORT_TARGETS[reportId];
     if (!target) {
@@ -61,7 +65,7 @@ export class ReportPrintService {
     const encoded = utf8ToBase64(JSON.stringify(data));
     const store = target.storage === 'session' ? sessionStorage : localStorage;
     store.setItem(target.key, encoded);
-    window.open(`/print/report/${reportId}?message=1`, '_blank');
+    this.previewDialog.open({ kind: 'report', title: target.label, reportId });
   }
 
   // Opens a layout preloaded with the sample payload below. Mirrors the bulk-print
@@ -285,7 +289,12 @@ const SAMPLE_REPORT_DATA: Record<string, unknown> = {
       from_date: '01-04-2026',
       to_date: '30-06-2026',
       transaction_type: 'Sales',
-      page_size: 'a4'
+      page_size: 'a4',
+      // Shown above the report title, so a printed copy records which slice of the business it
+      // covers - the same header the brief sale report carries (Priyanka, Slack 2026-08-11).
+      region_name: 'SHIVAMOGGA',
+      route_name: 'NAGARA',
+      area_name: 'Jaynagara'
     },
     config: { main_table_border: true },
     company_details: COMPANY_DETAILS,
@@ -297,6 +306,14 @@ const SAMPLE_REPORT_DATA: Record<string, unknown> = {
     be_details: BE_DETAILS,
     heading: { name: 'Bill Register' },
     master_details: { tax_date: '30-06-2026', consolidate_check: 0 },
+    // Shown above the date range, so a printed copy records which slice of the business it covers
+    // (Priyanka, Slack 2026-08-11). In its own object because this layout's schema has no agreed
+    // home for these - see the comment on `other` in view-bill.html.
+    other: {
+      region_name: 'SHIVAMOGGA',
+      route_name: 'NAGARA',
+      area_name: 'Jaynagara'
+    },
     items: buildViewBillRows(70)
   },
 

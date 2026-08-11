@@ -48,7 +48,7 @@ const PAYLOAD = {
 
 async function openPreviewWithPayload(page: import('@playwright/test').Page, payload: unknown) {
   // Seeded before any app code runs, exactly as InvoicePrintService.openInvoicePreview would
-  // have left it before opening this window.
+  // have left it before opening the preview.
   await page.addInitScript((json: string) => {
     sessionStorage.setItem('temp_inv_data', btoa(unescape(encodeURIComponent(json))));
   }, JSON.stringify(payload));
@@ -56,10 +56,17 @@ async function openPreviewWithPayload(page: import('@playwright/test').Page, pay
   await expect(page.locator('#excelButton')).toBeVisible();
 }
 
+// The preview's toolbar can produce two kinds of file (this workbook and a PDF - see
+// preview-pdf.spec.ts), so every wait in this spec is filtered by extension rather than taking
+// whichever download turns up first.
+function waitForXlsx(page: import('@playwright/test').Page) {
+  return page.waitForEvent('download', (download) => download.suggestedFilename().endsWith('.xlsx'));
+}
+
 test('exports the previewed invoice as a readable .xlsx workbook', async ({ page }) => {
   await openPreviewWithPayload(page, PAYLOAD);
 
-  const downloadPromise = page.waitForEvent('download');
+  const downloadPromise = waitForXlsx(page);
   await page.locator('#excelButton').click();
   const download = await downloadPromise;
 
@@ -111,7 +118,7 @@ test('exports a bulk print batch as one sheet per invoice', async ({ page }) => 
     ]
   });
 
-  const downloadPromise = page.waitForEvent('download');
+  const downloadPromise = waitForXlsx(page);
   await page.locator('#excelButton').click();
   const download = await downloadPromise;
 
@@ -131,19 +138,18 @@ test('exports a bulk print batch as one sheet per invoice', async ({ page }) => 
 // Print flow instead, so the export meets the actual production payload
 // (HARDCODED_BULK_TEST_INVOICE - far wider than the sample above: eleven items, HSN summary,
 // discounts, footer lines, terms) with no test-authored data in the way.
-test('exports the payload the real Bulk Print flow produces', async ({ page, context }) => {
+test('exports the payload the real Bulk Print flow produces', async ({ page }) => {
   await page.goto('/invoices');
   const firstRowCheckbox = page.locator('td.checkbox-td input[type="checkbox"]').first();
   await firstRowCheckbox.waitFor();
   await firstRowCheckbox.check();
 
-  // Bulk Print opens the preview in a new tab.
-  const previewPromise = context.waitForEvent('page');
+  // Bulk Print opens the preview as a dialog on this same page (it used to open a new tab).
   await page.locator('.bulk-print-btn').click();
-  const preview = await previewPromise;
-  await preview.waitForLoadState();
+  const preview = page.locator('app-preview-dialog');
+  await expect(preview.locator('#excelButton')).toBeVisible();
 
-  const downloadPromise = preview.waitForEvent('download');
+  const downloadPromise = waitForXlsx(page);
   await preview.locator('#excelButton').click();
   const download = await downloadPromise;
 
@@ -155,7 +161,7 @@ test('exports the payload the real Bulk Print flow produces', async ({ page, con
   expect(sheet).toContain('Sunshine Limited');
   expect(sheet).toContain('GARBAGE BAGS 19*21');
   expect(sheet).toContain('terms and condition texted here');
-  expect(await isWellFormedXml(preview, sheet)).toBe(true);
+  expect(await isWellFormedXml(page, sheet)).toBe(true);
 });
 
 // Unpacks a stored-entry ZIP by walking its central directory - the same way a reader would,

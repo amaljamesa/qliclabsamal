@@ -8,16 +8,16 @@ import { test, expect } from '@playwright/test';
 // long names, but it supplies those names itself; the app's sample data was five short names,
 // every row one line tall, so nobody clicking through the UI could see the overlap or the fix.
 
-test('the Brief Sale sample data exercises long names, and they do not overlap', async ({ page, context }) => {
+test('the Brief Sale sample data exercises long names, and they do not overlap', async ({ page }) => {
   await page.goto('/reports');
 
-  const previewPromise = context.waitForEvent('page');
+  // The card opens the preview as a dialog on this same page (it used to open a new tab).
   await page.getByText('Brief Sale Report', { exact: false }).first().click();
-  const preview = await previewPromise;
-  await preview.waitForLoadState();
+  const preview = page.locator('app-preview-dialog');
+  await expect(preview).toBeVisible();
 
   // The layout renders inside the preview's iframe.
-  const frame = preview.frameLocator('iframe');
+  const frame = page.frameLocator('app-preview-dialog iframe');
   await frame.locator('.page').first().waitFor();
 
   const result = await preview.locator('iframe').evaluate((iframe: HTMLIFrameElement) => {

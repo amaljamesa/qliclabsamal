@@ -16,6 +16,15 @@
   overflow: hidden;
 }
 
+/* Inside PreviewDialogComponent this fills the dialog's body instead of pinning itself to the
+   viewport - the dialog is what owns the viewport there, and a position:fixed child would
+   escape it and cover the whole screen. */
+:host(.embedded) {
+  position: static;
+  inset: auto;
+  height: 100%;
+}
+
 /* The one and only thing that scrolls. Deliberately a *separate* element from
    .frame-wrapper below, not overflow-y on .frame-wrapper itself - .frame-wrapper's only
    child is the iframe, and an iframe's own CSS box (see .report-frame) is its layout
@@ -84,7 +93,8 @@
   color: #fff;
 }
 
-#printButton {
+#printButton,
+#pdfButton {
   padding: 0.6rem 1.2rem;
   font-size: 14px;
   font-family: Arial, Helvetica, sans-serif;
@@ -96,8 +106,31 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
-#printButton:hover {
+#printButton:hover,
+#pdfButton:hover {
   background: #1d4ed8;
+}
+
+/* Outlined rather than a second solid blue button: Print is the primary action here, and two
+   filled buttons side by side would give them equal weight. */
+#pdfButton {
+  background: #fff;
+  color: #2563eb;
+  border: 1px solid #2563eb;
+  box-shadow: none;
+}
+
+#pdfButton:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+/* While a PDF is being rasterised. */
+#pdfButton:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #cbd5e1;
+  cursor: progress;
 }
 
 /* Reports its own scaled (visual) size, since a CSS transform doesn't change the iframe's

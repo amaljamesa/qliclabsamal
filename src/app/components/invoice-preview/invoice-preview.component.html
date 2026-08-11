@@ -23,9 +23,14 @@
       </button>
     }
   </span>
-  <!-- Sits beside Print because both are ways of taking the invoice out of the app - Print
-       covers the PDF route (print to PDF), this one hands the same invoice to Excel. -->
+  <!-- Sits beside Print because all three are ways of taking the invoice out of the app: to
+       paper, to a PDF file, or to a spreadsheet. -->
   <button id="excelButton" type="button" (click)="exportExcel()">Export to Excel</button>
+  <!-- Saves the file directly, with no print dialog to drive - and always exports the design and
+       paper size currently on screen. -->
+  <button id="pdfButton" type="button" [disabled]="isBuildingPdf" (click)="downloadPdf()">
+    {{ isBuildingPdf ? 'Preparing PDF...' : 'Download PDF' }}
+  </button>
   <button id="printButton" type="button" (click)="print()">Print</button>
 </div>
 <div class="preview-viewport">

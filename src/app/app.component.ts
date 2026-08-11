@@ -3,12 +3,14 @@ import { Component } from '@angular/core';
 import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { SidebarComponent } from './components/sidebar/sidebar.component';
 import { HeaderComponent } from './components/header/header.component';
+import { PreviewDialogComponent } from './components/preview-dialog/preview-dialog.component';
+import { PreviewDialogService } from './services/preview-dialog.service';
 import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent, HeaderComponent],
+  imports: [RouterOutlet, SidebarComponent, HeaderComponent, PreviewDialogComponent],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
@@ -17,7 +19,9 @@ export class AppComponent {
   isSidebarCollapsed = false;
   isStandalonePage = false;
 
-  constructor(private router: Router) {
+  // Public for the template: the one report preview dialog, opened from wherever a preview is
+  // requested (see PreviewDialogService) rather than from any one screen.
+  constructor(private router: Router, readonly previewDialog: PreviewDialogService) {
     // Close sidebar on mobile when navigating
     this.isStandalonePage = this.isStandaloneUrl(this.router.url);
     this.router.events.pipe(
@@ -25,6 +29,9 @@ export class AppComponent {
     ).subscribe((event: any) => {
       this.isSidebarOpen = false;
       this.isStandalonePage = this.isStandaloneUrl(event.urlAfterRedirects);
+      // A preview belongs to the screen that opened it - leaving that screen (a sidebar link,
+      // the browser's back button) should not leave the report hanging over the next one.
+      this.previewDialog.close();
     });
   }
 

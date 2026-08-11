@@ -106,3 +106,25 @@ app-root,
   display: block;
   min-width: 0;
 }
+
+/* A report preview now opens as a dialog over the app (PreviewDialogComponent) instead of in a
+   new browser tab. Printing from it prints this document, which - unlike that old tab - also
+   contains the ERP shell and whatever list screen is underneath, so both have to be dropped
+   from the printout; the preview's own @media print rules then lay the report out at its full
+   natural height. Global rather than part of the dialog's own styles because the shell is not
+   the dialog's markup to hide, and scoped to the body class the dialog sets while it is open so
+   ordinary printing of an app screen is untouched.
+
+   The overflow reset matters as much as the hiding: the dialog locks body scrolling while it is
+   open, and a body still clipped to one screenful prints as one screenful. */
+@media print {
+  body.preview-dialog-open {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  body.preview-dialog-open > app-root > *:not(app-preview-dialog) {
+    display: none !important;
+  }
+}
