@@ -6,6 +6,12 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <!-- The payload resolver every print layout shares (public/assets/js/report-payload.js).
+       Loaded here as well as by the static layouts because one layout - the ledger report - is
+       an Angular route rather than a file in public/print/, and it resolves its payload through
+       exactly the same chain. Keeping it on one implementation is the point; a TypeScript copy
+       of the same fallback order would be a second thing to keep in step. -->
+  <script src="assets/js/report-payload.js"></script>
 </head>
 <body>
   <app-root></app-root>

@@ -190,6 +190,7 @@
 
 <body>
 
+  <script src="../../../assets/js/report-payload.js"></script>
   <script src="../../../assets/js/report-zoom.js"></script>
 
   <script>
@@ -204,16 +205,6 @@
     // the original single-page layout had no pagination at all and did exactly that.
     const ROWS_PER_PAGE = 30;
 
-    // UTF-8 safe decode. Plain atob() mangles any multi-byte character (it reads each byte
-    // as its own code point), which is what turned the rupee sign into mojibake in the
-    // original - this mirrors the same helper the other report layouts use.
-    function base64ToUtf8(urlSafeBase64) {
-      let base64 = urlSafeBase64.replace(/-/g, '+').replace(/_/g, '/');
-      while (base64.length % 4) { base64 += '='; }
-      const binaryString = atob(base64);
-      const bytes = new Uint8Array([...binaryString].map((char) => char.charCodeAt(0)));
-      return new TextDecoder().decode(bytes);
-    }
 
     // Format date to 2-May-24 format
     function formatDateToDMY(dateStr) {
@@ -329,22 +320,17 @@
     }
 
     function generateJournalVoucher() {
-      const searchParams = new URLSearchParams(window.location.search);
-      const message = searchParams.get('message');
+      // Already resolved and already parsed (see the loadReportPayload call at the bottom of
+      // this script), so the repeated rebuilds - resize, zoom, beforeprint - cost nothing. This
+      // used to re-read storage, re-decode base64 and re-parse the whole payload on each one.
+      const jsonData = getReportPayload();
+      if (!jsonData) {
+        console.error('No journal voucher payload found to render.');
+        return;
+      }
 
       try {
         resetGeneratedContent();
-
-        const stored = localStorage.getItem('journalVoucherData');
-        let jsonData;
-        if (stored !== null) {
-          jsonData = JSON.parse(base64ToUtf8(stored));
-        } else if (message) {
-          jsonData = JSON.parse(base64ToUtf8(message));
-        } else {
-          console.error('No data found.');
-          return;
-        }
 
         const beb = jsonData.beb_details || {};
         const entries = Array.isArray(jsonData.journal_voucher_details)
@@ -390,7 +376,10 @@
       setTimeout(() => { isPrinting = false; }, 300);
     });
 
-    generateJournalVoucher();
+    // Resolves the payload once, then renders. Only this step can be async (the IndexedDB
+    // fallback is); every rebuild after it reads the cached object synchronously, which is
+    // what keeps the beforeprint rebuild safe.
+    loadReportPayload('journalVoucherData', generateJournalVoucher);
 
     // Pagination is measured against the zoom level in force when the report was built, so
     // a later zoom change has to rebuild it - see public/assets/js/report-zoom.js for the

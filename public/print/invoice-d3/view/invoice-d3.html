@@ -5,6 +5,7 @@
     <meta charset="utf-8">
     <title>Invoice</title>
 
+    <script src="../../../assets/js/report-payload.js"></script>
     <script src="../../../assets/js/report-zoom.js"></script>
 
     <script type="text/javascript">
@@ -414,24 +415,6 @@
             return el ? el.getBoundingClientRect().height : 0;
         }
 
-        // Plain atob() mangles multi-byte characters (the rupee sign, accented party names):
-        // it yields one byte per code unit, and those bytes are UTF-8 that still needs
-        // decoding. Mirrors the utf8ToBase64 encode on the sending side.
-        function base64ToUtf8(value) {
-            // ' ' -> '+': a space is never valid base64, but reading the payload straight out of
-            // a query string turns every '+' into one (that is what '+' means in a query string),
-            // which would otherwise corrupt the decode.
-            var base64 = String(value).replace(/ /g, '+').replace(/-/g, '+').replace(/_/g, '/');
-            while (base64.length % 4) {
-                base64 += '=';
-            }
-            var binary = atob(base64);
-            var bytes = new Uint8Array(binary.length);
-            for (var i = 0; i < binary.length; i++) {
-                bytes[i] = binary.charCodeAt(i);
-            }
-            return new TextDecoder().decode(bytes);
-        }
 
         function formatText(text) {
             if (!text) return '';
@@ -780,10 +763,13 @@
         // single preview sends one payload directly; both are normalised to an array here so
         // one window.print() covers the whole batch as a single continuous job.
         function generateReport() {
-            var searchParams = new URLSearchParams(window.location.search);
-            var message = searchParams.get('message');
-            if (!message) {
-                console.error('No message found in the URL parameters.');
+            // Already resolved and already parsed (see the loadReportPayload call at the
+            // bottom of this script), so the repeated rebuilds below - resize, zoom,
+            // beforeprint - cost nothing. This used to re-read sessionStorage, re-decode
+            // base64 and re-parse the entire payload on every one of them.
+            var payload = getReportPayload();
+            if (!payload) {
+                console.error('No invoice payload found to render.');
                 return;
             }
 
@@ -793,8 +779,6 @@
                 // and every height budget below is derived from it.
                 _pxPerCm = null;
 
-                var storedValue = sessionStorage.getItem('temp_inv_data');
-                var payload = JSON.parse(base64ToUtf8(storedValue !== null ? storedValue : message));
                 var invoices = Array.isArray(payload.invoices) ? payload.invoices : [payload];
                 invoices.forEach(renderInvoice);
             } catch (error) {
@@ -839,7 +823,10 @@
             setTimeout(function () { isPrinting = false; }, RESIZE_DEBOUNCE_MS + 100);
         });
 
-        generateReport();
+        // Resolves the payload once, then renders. Only this step can be async (the IndexedDB
+        // fallback is); every rebuild after it reads the cached object synchronously, which is
+        // what keeps the beforeprint rebuild above safe.
+        loadReportPayload('temp_inv_data', generateReport);
 
         // Pagination is measured against the zoom level in force when the report was built, so
         // a later zoom change has to rebuild it - see public/assets/js/report-zoom.js for the

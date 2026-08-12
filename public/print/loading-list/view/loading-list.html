@@ -94,6 +94,7 @@
 
 
     <script src="../../../assets/js/report-scope.js"></script>
+    <script src="../../../assets/js/report-payload.js"></script>
     <script src="../../../assets/js/report-zoom.js"></script>
 
     <script>
@@ -175,13 +176,6 @@
 
         const CM_TO_PX = 37.795;
 
-        function base64ToUtf8(urlSafeBase64) {
-            let base64 = urlSafeBase64.replace(/-/g, '+').replace(/_/g, '/');
-            while (base64.length % 4) { base64 += '='; }
-            const binaryString = atob(base64);
-            const bytes = new Uint8Array([...binaryString].map(char => char.charCodeAt(0)));
-            return new TextDecoder().decode(bytes);
-        }
 
         function waitForNonZeroHeights(currentPage) {
             return new Promise((resolve) => {
@@ -485,25 +479,18 @@
         }
 
         async function generateLoadingList() {
-            let searchParams = new URLSearchParams(window.location.search);
-            let message = searchParams.get('message');
+            // Already resolved and already parsed (see the loadReportPayload call at the bottom
+            // of this script), so the repeated rebuilds - resize, zoom, beforeprint - cost
+            // nothing. This used to re-read storage, re-decode base64 and re-parse the whole
+            // payload on every one of them.
+            const myArray = getReportPayload();
+            if (!myArray) {
+                console.error('No loading list payload found to render.');
+                return;
+            }
 
             try {
                 resetGeneratedContent();
-
-                let retrievedValue = localStorage.getItem('loadingData');
-                let myArray;
-
-                if (retrievedValue !== null) {
-                    let decodedString = base64ToUtf8(retrievedValue);
-                    myArray = JSON.parse(decodedString);
-                } else if (message) {
-                    let decodedString = base64ToUtf8(message);
-                    myArray = JSON.parse(decodedString);
-                } else {
-                    console.error('No data found.');
-                    return;
-                }
 
                 other = myArray.other;
                 company_details = myArray.company_details;
@@ -563,7 +550,10 @@
             }, 300);
         });
 
-        generateLoadingList();
+        // Resolves the payload once, then renders. Only this step can be async (the IndexedDB
+        // fallback is); every rebuild after it reads the cached object synchronously, which is
+        // what keeps the beforeprint rebuild safe.
+        loadReportPayload('loadingData', generateLoadingList);
 
         // Pagination is measured against the zoom level in force when the report was built, so
         // a later zoom change has to rebuild it - see public/assets/js/report-zoom.js for the

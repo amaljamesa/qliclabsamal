@@ -1,11 +1,19 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, ViewEncapsulation } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
 import { LedgerData, LedgerDetailItem } from '../../models/ledger.model';
 import { indianFormat } from '../../services/indian-number-format.util';
+import { LEDGER_STORAGE_KEY } from '../../services/ledger.service';
 
 const MIDDLE_GAP_PX = 5;
 const FOOTER_BUFFER_PX = 40;
 const RESIZE_DEBOUNCE_MS = 200;
+
+// Loaded from index.html (public/assets/js/report-payload.js) - the same resolver the static
+// print layouts use. This report is an Angular route rather than a file in public/print/, but
+// it runs in an iframe just like they do and resolves its payload the same way: the live object
+// off the parent window first, then IndexedDB, then the legacy Web Storage and query-string
+// payloads.
+declare const loadReportPayload: (key: string, onReady: (payload: unknown) => void) => void;
+declare const getReportPayload: <T>() => T | null;
 
 @Component({
   selector: 'app-ledger-report',
@@ -63,11 +71,15 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
     }, RESIZE_DEBOUNCE_MS + 100);
   };
 
-  constructor(private route: ActivatedRoute) {}
-
   ngAfterViewInit(): void {
-    this.generateReport();
-    this.applyResponsiveScale();
+    // Resolved once, here, because one branch of the chain (IndexedDB) is async. Every later
+    // rebuild - resize, zoom, beforeprint - reads the cached object synchronously instead, which
+    // is what keeps generateReport() safe to call from 'beforeprint'; see the note on
+    // measureHeaderHeight for what an async rebuild does to a print job.
+    loadReportPayload(LEDGER_STORAGE_KEY, () => {
+      this.generateReport();
+      this.applyResponsiveScale();
+    });
     // Pagination is otherwise a one-time calculation done at load. If the user zooms
     // in/out *after* the report is already rendered, text can reflow slightly differently
     // at the new zoom (the same subpixel rounding issue fixed elsewhere, just triggered
@@ -93,12 +105,6 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
     window.removeEventListener('beforeprint', this.onBeforePrint);
     window.removeEventListener('afterprint', this.onAfterPrint);
     clearTimeout(this.resizeTimer);
-  }
-
-  private base64ToUtf8(base64: string): string {
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array([...binaryString].map((char) => char.charCodeAt(0)));
-    return new TextDecoder().decode(bytes);
   }
 
   // Renders a throwaway footer off in the body purely to measure its real height, since
@@ -144,16 +150,18 @@ export class LedgerReportComponent implements AfterViewInit, OnDestroy {
     this.pagesContainer.nativeElement.innerHTML = '';
     this.pageCount = 1;
 
-    const message = this.route.snapshot.queryParamMap.get('message');
-    if (!message) {
-      this.errorMessage = 'No message found in the URL parameters.';
+    // Already resolved and already parsed (see ngAfterViewInit), so this costs nothing on the
+    // repeated rebuilds - it used to re-read localStorage, re-decode base64 and re-parse the
+    // whole ledger on every zoom change and every print.
+    const payload = getReportPayload<LedgerData>();
+    if (!payload) {
+      this.errorMessage = 'No ledger data found to render.';
       console.error(this.errorMessage);
       return;
     }
 
     try {
-      const storedValue = localStorage.getItem('ledgerData');
-      this.jsonData = JSON.parse(this.base64ToUtf8(storedValue ?? message));
+      this.jsonData = payload;
 
       const page = this.createNewPage();
       const localPageNumber = this.pageCount;

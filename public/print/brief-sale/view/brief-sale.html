@@ -172,6 +172,7 @@
     <!-- -----------------------------header----------------------------------------------- -->
 
     <script src="../../../assets/js/report-scope.js"></script>
+    <script src="../../../assets/js/report-payload.js"></script>
     <script src="../../../assets/js/report-zoom.js"></script>
 
     <script>
@@ -201,11 +202,6 @@
         var company_details = "";
         var loading_list_details = "";
 
-        function base64ToUtf8(base64) {
-            const binaryString = atob(base64);
-            const bytes = new Uint8Array([...binaryString].map(char => char.charCodeAt(0)));
-            return new TextDecoder().decode(bytes);
-        }
 
         function topdiv() {
 
@@ -222,18 +218,11 @@
             Top_elements.className = 'Top';
             Top_elements.id = 'Top_elements';
 
-            let searchParams = new URLSearchParams(window.location.search)
-            var message = searchParams.get('message')
-
-            var retrievedValue = localStorage.getItem('temp_sale_report');
-            if (retrievedValue !== null) {
-                var decodedString = base64ToUtf8(retrievedValue);
-                var myArray = JSON.parse(decodedString);
-            }
-            else {
-                var decodedString = base64ToUtf8(message);
-                var myArray = JSON.parse(decodedString);
-            }
+            // NOTE: topdiv() runs once per page element created, so what stands here runs once
+            // per page of the report. It used to be a storage read, a base64 decode and a
+            // JSON.parse OF THE WHOLE PAYLOAD - repeated for every page, on every re-render, and
+            // report-zoom.js re-renders on every zoom change. This is now a cached object read.
+            var myArray = getReportPayload() || {};
 
             other = myArray.other;
             company_details = myArray.company_details;
@@ -588,11 +577,16 @@
             updateAllFooters();
         }
 
-        try {
-            render();
-        } catch (error) {
-            console.error('Error decoding or parsing JSON:', error);
-        }
+        // Resolves the payload once, then renders. Only this step can be async (the IndexedDB
+        // fallback is); every rebuild after it reads the cached object synchronously, which is
+        // what keeps the beforeprint rebuild safe.
+        loadReportPayload('temp_sale_report', function () {
+            try {
+                render();
+            } catch (error) {
+                console.error('Error rendering the report payload:', error);
+            }
+        });
 
         // Re-paginates when the zoom level changes, which pagination has to be redone for -
         // see public/assets/js/report-zoom.js for why, and why a poll rather than an event.

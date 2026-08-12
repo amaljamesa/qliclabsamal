@@ -1,27 +1,20 @@
 import { Injectable } from '@angular/core';
-import { HARDCODED_BULK_TEST_INVOICE, PaperSize, withPaperSize } from './invoice-print.service';
+import { applyPaperSize, HARDCODED_BULK_TEST_INVOICE, PaperSize } from './invoice-print.service';
 import { PreviewDialogService } from './preview-dialog.service';
+import { getPreviewPayload, setPreviewPayload } from './preview-payload';
 
 // Re-exported so the report preview keeps importing everything it needs from one place; the
 // type lives with the payload helpers in invoice-print.service.
 export type { PaperSize };
 
-// UTF-8 safe base64 encode - mirrors the base64ToUtf8 decode every report layout expects.
-// Plain btoa() throws on any multi-byte character (₹, accented names), so this must stay in
-// step with the decode side rather than being simplified away.
-function utf8ToBase64(str: string): string {
-  return btoa(unescape(encodeURIComponent(str)));
-}
 
-
-// Which storage key each layout reads its payload from. These are the keys the layouts
-// themselves already look up (they predate this app), so they're dictated by the layouts,
-// not chosen here - changing one means changing that layout's own lookup to match.
-type StorageKind = 'local' | 'session';
-
+// The key each layout looks its payload up by. These are the keys the layouts themselves
+// already use (they predate this app), so they're dictated by the layouts, not chosen here -
+// changing one means changing that layout's own lookup to match. They were Web Storage keys
+// originally; they are now just the name a payload is handed over under (preview-payload.ts),
+// which is why nothing here records which store a layout used to read.
 interface ReportTarget {
   key: string;
-  storage: StorageKind;
   label: string;
   // Only the invoice designs render at more than one paper size (from the same HTML - the
   // size is a field in the payload). Listing them here is what puts the A4/A5 switch on
@@ -30,16 +23,16 @@ interface ReportTarget {
 }
 
 const REPORT_TARGETS: Record<string, ReportTarget> = {
-  'loading-list': { key: 'loadingData', storage: 'local', label: 'Loading List' },
-  'view-bill': { key: 'loadingDataViewBills', storage: 'session', label: 'View Bills' },
-  'journal-voucher': { key: 'journalVoucherData', storage: 'local', label: 'Journal Voucher' },
-  'gst-sale': { key: 'temp_tax_register', storage: 'local', label: 'GST Sales Register' },
-  'brief-sale': { key: 'temp_sale_report', storage: 'local', label: 'Brief Sale Report' },
-  // Alternative invoice designs. Same payload and same storage key as the main invoice
-  // layout - only the HTML design differs between them.
-  'invoice-d2': { key: 'temp_inv_data', storage: 'session', label: 'Invoice Design 2', paperSizes: ['a4', 'a5'] },
-  'invoice-d3': { key: 'temp_inv_data', storage: 'session', label: 'Invoice Design 3', paperSizes: ['a4', 'a5'] },
-  'invoice-d4': { key: 'temp_inv_data', storage: 'session', label: 'Invoice Design 4', paperSizes: ['a4', 'a5'] }
+  'loading-list': { key: 'loadingData', label: 'Loading List' },
+  'view-bill': { key: 'loadingDataViewBills', label: 'View Bills' },
+  'journal-voucher': { key: 'journalVoucherData', label: 'Journal Voucher' },
+  'gst-sale': { key: 'temp_tax_register', label: 'GST Sales Register' },
+  'brief-sale': { key: 'temp_sale_report', label: 'Brief Sale Report' },
+  // Alternative invoice designs. Same payload and same key as the main invoice layout - only
+  // the HTML design differs between them.
+  'invoice-d2': { key: 'temp_inv_data', label: 'Invoice Design 2', paperSizes: ['a4', 'a5'] },
+  'invoice-d3': { key: 'temp_inv_data', label: 'Invoice Design 3', paperSizes: ['a4', 'a5'] },
+  'invoice-d4': { key: 'temp_inv_data', label: 'Invoice Design 4', paperSizes: ['a4', 'a5'] }
 };
 
 export const REPORT_LAYOUTS = Object.entries(REPORT_TARGETS).map(([id, target]) => ({
@@ -51,20 +44,19 @@ export const REPORT_LAYOUTS = Object.entries(REPORT_TARGETS).map(([id, target]) 
 export class ReportPrintService {
   constructor(private previewDialog: PreviewDialogService) {}
 
-  // Opens a layout's responsive preview as a dialog over the current screen, stashing the
-  // payload where that layout reads it from. Same handoff the invoice/ledger previews use: the
-  // data goes through storage rather than the URL because a full report's JSON comfortably
-  // exceeds what a query string can carry. The /print/report/:report route still serves the
-  // same preview for anyone opening it directly.
+  // Opens a layout's responsive preview as a dialog over the current screen, handing the
+  // payload over under the key that layout looks itself up by. Same handoff the invoice and
+  // ledger previews use: the object goes across in memory rather than through the URL or Web
+  // Storage, neither of which can carry a full report's JSON (see preview-payload.ts). The
+  // /print/report/:report route still serves the same preview for anyone opening it directly.
   openReportPreview(reportId: string, data: unknown): void {
     const target = REPORT_TARGETS[reportId];
     if (!target) {
       console.error('Unknown report layout:', reportId);
       return;
     }
-    const encoded = utf8ToBase64(JSON.stringify(data));
-    const store = target.storage === 'session' ? sessionStorage : localStorage;
-    store.setItem(target.key, encoded);
+    // Before the dialog opens, because opening it is what creates the iframe that reads this.
+    setPreviewPayload(target.key, data);
     this.previewDialog.open({ kind: 'report', title: target.label, reportId });
   }
 
@@ -78,26 +70,21 @@ export class ReportPrintService {
     return REPORT_TARGETS[reportId]?.paperSizes;
   }
 
-  // Re-stamps the payload already in storage with a different paper size. These layouts
-  // render A4 and A5 from the same HTML - the size lives in the payload, not in the file -
-  // so switching is a matter of rewriting one field and reloading, with no need to go back
-  // to wherever the data originally came from. Deliberately edits the stored payload rather
-  // than rebuilding the sample, so this keeps working once real invoice data is wired up.
+  // Re-stamps the payload already loaded in the preview with a different paper size. These
+  // layouts render A4 and A5 from the same HTML - the size lives in the payload, not in the
+  // file - so switching is a matter of editing one field and reloading, with no need to go
+  // back to wherever the data originally came from. Deliberately edits the payload rather than
+  // rebuilding the sample, so this keeps working once real invoice data is wired up.
   setStoredPaperSize(reportId: string, pageSize: PaperSize): boolean {
     const target = REPORT_TARGETS[reportId];
     if (!target) {
       return false;
     }
-    const store = target.storage === 'session' ? sessionStorage : localStorage;
-    const stored = store.getItem(target.key);
-    if (!stored) {
+    const payload = getPreviewPayload(target.key);
+    if (!payload) {
       return false;
     }
-    const updated = withPaperSize(stored, pageSize);
-    if (!updated) {
-      return false;
-    }
-    store.setItem(target.key, updated);
+    applyPaperSize(payload, pageSize);
     return true;
   }
 

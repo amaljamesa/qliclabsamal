@@ -1,16 +1,12 @@
 import { Injectable } from '@angular/core';
 import { DataService, Invoice, InvoiceItem } from './data.service';
 import { PreviewDialogService } from './preview-dialog.service';
+import { getPreviewPayload, setPreviewPayload } from './preview-payload';
 
-// UTF-8 safe base64 encode - mirrors the base64ToUtf8 decode the invoice report expects
-// (public/print/invoice/view/invoice.html).
-function utf8ToBase64(str: string): string {
-  return btoa(unescape(encodeURIComponent(str)));
-}
-
-// Exported for InvoiceExcelService, which reads the very same stored payload the layouts
-// render, so both decode it exactly one way.
-export function base64ToUtf8(value: string): string {
+// Decodes a payload left by an older build, which is the only thing that still writes base64
+// into Web Storage - see readInvoicePayload. Nothing here encodes any more: the layouts read
+// the live object off the parent window instead (see preview-payload.ts for why).
+function base64ToUtf8(value: string): string {
   return decodeURIComponent(escape(atob(value)));
 }
 
@@ -42,45 +38,65 @@ export const INVOICE_LAYOUTS: InvoiceLayoutOption[] = [
   { id: 'd10', label: 'Design 10 - Dark header', src: '/print/invoice-d10/view/invoice-d10.html?message=1' }
 ];
 
-// Re-stamps an already-encoded payload with a different paper size. The layouts render A4
-// and A5 from the same HTML - the size is a field in the payload, not a property of the file
-// - so a size switch is this one rewrite plus a reload. Shared with ReportPrintService so
-// both previews change size by exactly the same route. Returns null if the payload can't be
-// read, leaving the caller to keep whatever is already stored.
-export function withPaperSize(encoded: string, pageSize: PaperSize): string | null {
-  try {
-    const payload = JSON.parse(base64ToUtf8(encoded));
-    // A bulk print payload carries one entry per invoice; a single preview is the invoice
-    // itself. Both are normalised here so the whole batch changes size together.
-    const invoices = Array.isArray(payload.invoices) ? payload.invoices : [payload];
-    for (const invoice of invoices) {
-      invoice.others = { ...(invoice.others ?? {}), page_size: pageSize };
+// A bulk print payload carries one entry per invoice; a single preview is the invoice itself.
+// Normalised here so nothing downstream has to know which of the two shapes it is holding.
+function invoicesOf(payload: any): Record<string, any>[] {
+  return Array.isArray(payload?.invoices) ? payload.invoices : [payload];
+}
+
+// Stamps a different paper size onto a payload in place. The layouts render A4 and A5 from the
+// same HTML - the size is a field in the payload, not a property of the file - so a size switch
+// is this one edit plus a frame reload. Shared with ReportPrintService so both previews change
+// size by exactly the same route.
+//
+// Mutates rather than rebuilding: the layout is holding this very object (see
+// preview-payload.ts), so editing it is what the reload then picks up. Rebuilding would also
+// mean re-serialising a whole bulk batch to change one field per invoice.
+export function applyPaperSize(payload: unknown, pageSize: PaperSize): void {
+  for (const invoice of invoicesOf(payload)) {
+    if (invoice) {
+      invoice['others'] = { ...(invoice['others'] ?? {}), page_size: pageSize };
     }
-    return utf8ToBase64(JSON.stringify(payload));
-  } catch (error) {
-    console.error('Could not change paper size on the stored payload:', error);
-    return null;
   }
 }
 
-// The invoices the preview currently holds, normalised to an array: a bulk print payload
-// carries one entry per invoice, a single preview is the invoice itself. Shared by the two
-// exports that read the payload rather than the rendered design (Excel and PDF filenames), so
-// neither has to know which of the two shapes it is looking at. Null means there is nothing
-// usable stored - already logged, so callers only have to decide what to do about it.
-export function readStoredInvoices(): Record<string, any>[] | null {
+// The payload the preview currently holds, as the live object every layout is rendering.
+//
+// Falls back to a base64 payload left in sessionStorage by an older build - a tab opened before
+// this deploy, say - and promotes it into the in-memory bridge on the way through, so that from
+// then on it behaves like any other payload (including being mutable by the paper-size switch,
+// which no longer writes anything back to storage).
+export function readInvoicePayload(): unknown | null {
+  const live = getPreviewPayload(INVOICE_STORAGE_KEY);
+  if (live) {
+    return live;
+  }
+
   const stored = sessionStorage.getItem(INVOICE_STORAGE_KEY);
   if (!stored) {
-    console.error('No invoice payload stored - nothing to read.');
     return null;
   }
   try {
     const payload = JSON.parse(base64ToUtf8(stored));
-    return Array.isArray(payload.invoices) ? payload.invoices : [payload];
+    setPreviewPayload(INVOICE_STORAGE_KEY, payload);
+    return payload;
   } catch (error) {
     console.error('Could not read the stored invoice payload:', error);
     return null;
   }
+}
+
+// The invoices the preview currently holds, normalised to an array. Shared by the two exports
+// that read the payload rather than the rendered design (Excel and PDF filenames), so neither
+// has to know which shape it is looking at. Null means there is nothing usable - already
+// logged, so callers only have to decide what to do about it.
+export function readStoredInvoices(): Record<string, any>[] | null {
+  const payload = readInvoicePayload();
+  if (!payload) {
+    console.error('No invoice payload available - nothing to read.');
+    return null;
+  }
+  return invoicesOf(payload);
 }
 
 // The download filename (without extension) for the invoice(s) in the preview. Shared so the
@@ -363,34 +379,31 @@ export class InvoicePrintService {
   }
 
   // Changes the paper size of the invoice already loaded in the preview. Deliberately edits
-  // the stored payload rather than rebuilding it from the invoice record, so this works the
-  // same for a single preview, a bulk batch, and (later) any payload that arrives from an API.
+  // the payload already being rendered rather than rebuilding it from the invoice record, so
+  // this works the same for a single preview, a bulk batch, and (later) any payload that
+  // arrives from an API.
   setStoredPaperSize(pageSize: PaperSize): boolean {
-    const stored = sessionStorage.getItem(INVOICE_STORAGE_KEY);
-    if (!stored) {
+    const payload = readInvoicePayload();
+    if (!payload) {
       return false;
     }
-    const updated = withPaperSize(stored, pageSize);
-    if (!updated) {
-      return false;
-    }
-    sessionStorage.setItem(INVOICE_STORAGE_KEY, updated);
+    applyPaperSize(payload, pageSize);
     return true;
   }
 
   // Opens the preview as a dialog over the current screen rather than in a new browser tab.
-  // The handoff is unchanged - the payload still goes through sessionStorage, because a full
-  // invoice's JSON comfortably exceeds what a query string can carry - so the preview itself,
-  // and the /print/invoice-preview route it also still serves, work exactly as before.
+  // The payload is handed over in memory (see preview-payload.ts) - the layout reads the very
+  // object built here off the parent window, so nothing is encoded and nothing is capped. The
+  // /print/invoice-preview route this also still serves works the same way.
+  //
+  // Set BEFORE the dialog opens, because opening it is what creates the iframe that reads it.
   openInvoicePreview(invoiceId: string, pageSize: PaperSize = 'a4'): void {
     const invoice = this.dataService.getInvoice(invoiceId);
     if (!invoice) {
       console.error('Invoice not found:', invoiceId);
       return;
     }
-    const data = this.buildInvoiceData(invoice, pageSize);
-    const base64 = utf8ToBase64(JSON.stringify(data));
-    sessionStorage.setItem(INVOICE_STORAGE_KEY, base64);
+    setPreviewPayload(INVOICE_STORAGE_KEY, this.buildInvoiceData(invoice, pageSize));
     this.previewDialog.open({ kind: 'invoice', title: `Invoice ${invoice.invoiceNo}` });
   }
 
@@ -411,9 +424,15 @@ export class InvoicePrintService {
     if (invoiceIds.length === 0) {
       return;
     }
+    // One shared object reference per id, not N copies. That was already true before the
+    // payload stopped being serialised (JSON.stringify expanded the repeats); keeping it means
+    // a 250-invoice batch costs one invoice's memory rather than 250, which matters most in
+    // exactly the large-batch case this handoff exists to support. Safe because the only
+    // in-place edits anyone makes to an entry - the paper-size stamp below and the layout's
+    // `copies` default - are idempotent, so applying them N times to one object is the same as
+    // applying them once to each of N.
     const invoices = invoiceIds.map(() => HARDCODED_BULK_TEST_INVOICE);
-    const base64 = utf8ToBase64(JSON.stringify({ invoices }));
-    sessionStorage.setItem(INVOICE_STORAGE_KEY, base64);
+    setPreviewPayload(INVOICE_STORAGE_KEY, { invoices });
     this.previewDialog.open({
       kind: 'invoice',
       title: `Bulk print - ${invoices.length} ${invoices.length === 1 ? 'invoice' : 'invoices'}`

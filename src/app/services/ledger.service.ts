@@ -2,11 +2,10 @@ import { Injectable } from '@angular/core';
 import { DataService } from './data.service';
 import { LedgerData, LedgerDetailItem } from '../models/ledger.model';
 import { PreviewDialogService } from './preview-dialog.service';
+import { setPreviewPayload } from './preview-payload';
 
-// UTF-8 safe base64 encode - mirrors the base64ToUtf8 decode the ledger report expects.
-function utf8ToBase64(str: string): string {
-  return btoa(unescape(encodeURIComponent(str)));
-}
+// The key the ledger report looks its payload up by - see LedgerReportComponent.
+export const LEDGER_STORAGE_KEY = 'ledgerData';
 
 function formatLedgerDate(isoDate: string): string {
   const date = new Date(`${isoDate}T00:00:00`);
@@ -75,12 +74,13 @@ export class LedgerService {
   }
 
   // Opens the ledger preview as a dialog over the current screen rather than in a new browser
-  // tab. The payload handoff through localStorage is unchanged, so the /print/ledger-preview
-  // route (and the /print/ledger report inside it) still work exactly as before.
+  // tab. The payload is handed over in memory (see preview-payload.ts) rather than base64'd
+  // into localStorage, so the /print/ledger-preview route (and the /print/ledger report inside
+  // it) still work exactly as before, without the ~5MB origin-wide storage ceiling.
+  //
+  // Set BEFORE the dialog opens, because opening it is what creates the frame that reads it.
   openLedger(partyName: string): void {
-    const data = this.buildLedgerData(partyName);
-    const base64 = utf8ToBase64(JSON.stringify(data));
-    localStorage.setItem('ledgerData', base64);
+    setPreviewPayload(LEDGER_STORAGE_KEY, this.buildLedgerData(partyName));
     this.previewDialog.open({ kind: 'ledger', title: `Ledger - ${partyName}` });
   }
 }

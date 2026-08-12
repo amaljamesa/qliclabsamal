@@ -2,11 +2,13 @@ import { AfterViewInit, Component, ElementRef, Input, OnDestroy, ViewChild } fro
 import { CommonModule } from '@angular/common';
 import {
   INVOICE_LAYOUTS,
+  INVOICE_STORAGE_KEY,
   InvoicePrintService,
   invoiceFileBaseName,
   PaperSize,
   readStoredInvoices
 } from '../../services/invoice-print.service';
+import { adoptPayloadFromFrame } from '../../services/preview-payload';
 import { InvoiceExcelService } from '../../services/invoice-excel.service';
 import { PreviewPdfService } from '../../services/preview-pdf.service';
 import {
@@ -91,6 +93,11 @@ export class InvoicePreviewComponent implements AfterViewInit, OnDestroy {
     // A short delay so the report (which generates its own content on load) has finished
     // rendering before the first fit measures it.
     setTimeout(() => {
+      // Covers a reload of this page: the app's own copy of the payload is gone, but the frame
+      // has just restored one from IndexedDB. Taking it back keeps the two exports that read
+      // the payload rather than the rendered DOM - Excel, and the PDF's filename - working
+      // across an F5, which they did for free while the payload lived in sessionStorage.
+      adoptPayloadFromFrame(INVOICE_STORAGE_KEY, this.invoiceFrame.nativeElement);
       this.fitFrame();
       // Revealed only once it has been measured and scaled - see loadLayout().
       this.invoiceFrame.nativeElement.style.opacity = '1';
