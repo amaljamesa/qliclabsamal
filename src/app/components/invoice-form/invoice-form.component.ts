@@ -360,6 +360,12 @@ export class InvoiceFormComponent implements OnInit {
 
     if (Array.isArray(itemErrors)) {
       itemErrors.forEach((rowErrors, index) => {
+        // Never name a row the user cannot see. The real API sends items 1:1 with what was
+        // posted, so a longer list means the response and the grid disagree - and pointing at
+        // 'Row 7' of a four-row invoice tells the user nothing they can act on.
+        if (index >= this.items.length) {
+          return;
+        }
         this.pushFieldErrors(errors, index + 1, rowErrors);
       });
     }
