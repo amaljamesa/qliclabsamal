@@ -308,7 +308,7 @@
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           <span class="underline-shortcut">X</span>: Exit
         </button>
-        <button class="btn-new btn-update" (click)="saveInvoice()">
+        <button class="btn-new btn-update" (click)="saveInvoice()" [disabled]="saving">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           <span class="underline-shortcut">S</span>: Update
         </button>
@@ -320,5 +320,56 @@
 
     </div>
   </div>
+
+  <!-- Validation popup: the required-field sweep and the API's row faults both land here -->
+  @if (showValidationPopup) {
+    <div class="validation-backdrop" (click)="closeValidationPopup()">
+      <div class="validation-card" (click)="$event.stopPropagation()">
+        <div class="validation-header">
+          <h4 class="validation-title">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            {{ validationTitle }}
+          </h4>
+          <button class="validation-close-btn" (click)="closeValidationPopup()">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="validation-body">
+          <p class="validation-intro">
+            {{ validationErrors.length }}
+            {{ validationErrors.length === 1 ? 'issue' : 'issues' }}
+            to fix before this invoice can be saved.
+          </p>
+          <table class="validation-table">
+            <thead>
+              <tr>
+                <th class="vt-row">Row</th>
+                <th class="vt-field">Field</th>
+                <th class="vt-msg">Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (err of validationErrors; track err) {
+                <tr>
+                  <td class="vt-row">
+                    @if (err.row === null) {
+                      <span class="row-chip row-chip-invoice">Invoice</span>
+                    } @else {
+                      <span class="row-chip">Row {{ err.row }}</span>
+                    }
+                  </td>
+                  <td class="vt-field">{{ err.field }}</td>
+                  <td class="vt-msg">{{ err.message }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="validation-footer">
+          <button class="validation-btn" (click)="closeValidationPopup()">OK</button>
+        </div>
+      </div>
+    </div>
+  }
 
 </div>

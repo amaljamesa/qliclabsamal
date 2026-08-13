@@ -2,7 +2,23 @@ import { Component, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { DataService, Invoice, InvoiceItem, PartyType, Product } from '../../services/data.service';
+import {
+  DataService,
+  Invoice,
+  InvoiceApiErrorMessages,
+  InvoiceItem,
+  PartyType,
+  Product
+} from '../../services/data.service';
+
+// One thing wrong with the invoice, from either side of the save. `row` is the 1-based line
+// number the user sees in the Si column; null means the fault sits on the invoice itself
+// rather than on a line.
+export interface InvoiceValidationError {
+  row: number | null;
+  field: string;
+  message: string;
+}
 
 @Component({
   selector: 'app-invoice-form',
@@ -51,6 +67,25 @@ export class InvoiceFormComponent implements OnInit {
   productSearchQuery = '';
   filteredProducts: Product[] = [];
   showAutocomplete = false;
+
+  // Validation popup state
+  validationErrors: InvoiceValidationError[] = [];
+  validationTitle = '';
+  showValidationPopup = false;
+  saving = false;
+
+  // Required line-item cells, in the order they appear in the grid, so the popup lists a
+  // row's missing fields left to right the way the user scans them.
+  private readonly requiredItemFields: Array<{
+    key: keyof InvoiceItem;
+    label: string;
+    message: string;
+  }> = [
+    { key: 'productName', label: 'Product Name', message: 'This field is required.' },
+    { key: 'qty', label: 'Qty', message: 'Enter a quantity greater than zero.' },
+    { key: 'rate', label: 'Rate', message: 'Enter a rate greater than zero.' },
+    { key: 'taxRate', label: 'Tax Rate', message: 'This field is required.' }
+  ];
 
   constructor(
     private dataService: DataService,
@@ -260,19 +295,137 @@ export class InvoiceFormComponent implements OnInit {
     }
   }
 
-  saveInvoice(): void {
-    if (!this.selectedParty) {
-      alert('Please select a party.');
-      return;
+  // The single place a save attempt decides what is wrong with the invoice. It runs twice per
+  // attempt: once with no argument - the required-field sweep that has to pass before the API
+  // is called at all - and once with the response's error_messages, for the row faults only the
+  // backend can find. Both sources land in the same list behind the same popup, so a missing
+  // cell and a rejected one read identically to the user. Returns true when nothing is wrong.
+  validateInvoice(apiErrorMessages?: InvoiceApiErrorMessages | null): boolean {
+    const errors: InvoiceValidationError[] = apiErrorMessages
+      ? this.collectApiErrors(apiErrorMessages)
+      : this.collectRequiredFieldErrors();
+
+    // A rejection the response gave us nothing to explain still has to say so, rather than
+    // closing quietly and looking like the invoice saved.
+    if (apiErrorMessages && errors.length === 0) {
+      errors.push({
+        row: null,
+        field: 'Invoice',
+        message: 'The invoice could not be saved. Please try again.'
+      });
     }
+
+    this.validationTitle = apiErrorMessages
+      ? 'The invoice was rejected'
+      : 'Required details are missing';
+    this.validationErrors = errors;
+    this.showValidationPopup = errors.length > 0;
+
+    return errors.length === 0;
+  }
+
+  // Front-end pass: every required cell of every row, plus the invoice-level essentials.
+  private collectRequiredFieldErrors(): InvoiceValidationError[] {
+    const errors: InvoiceValidationError[] = [];
+
+    if (!this.selectedParty || !this.selectedParty.trim()) {
+      errors.push({ row: null, field: 'Select Party', message: 'This field is required.' });
+    }
+
     if (this.items.length === 0) {
-      alert('Please add at least one item to the invoice.');
+      errors.push({ row: null, field: 'Items', message: 'Add at least one item to the invoice.' });
+    }
+
+    this.items.forEach((item, index) => {
+      this.requiredItemFields.forEach(field => {
+        const value = item[field.key];
+        const missing = typeof value === 'number'
+          ? !(value > 0)
+          : !String(value ?? '').trim();
+
+        if (missing) {
+          errors.push({ row: index + 1, field: field.label, message: field.message });
+        }
+      });
+    });
+
+    return errors;
+  }
+
+  // Response pass: `items` is positional, so an entry's index is its row number - index 3 is
+  // Row 4. Every other key describes the invoice header instead of a line.
+  private collectApiErrors(apiErrorMessages: InvoiceApiErrorMessages): InvoiceValidationError[] {
+    const errors: InvoiceValidationError[] = [];
+    const itemErrors = apiErrorMessages.items;
+
+    if (Array.isArray(itemErrors)) {
+      itemErrors.forEach((rowErrors, index) => {
+        this.pushFieldErrors(errors, index + 1, rowErrors);
+      });
+    }
+
+    Object.keys(apiErrorMessages)
+      .filter(key => key !== 'items')
+      .forEach(key => {
+        this.pushFieldErrors(errors, null, { [key]: apiErrorMessages[key] });
+      });
+
+    return errors;
+  }
+
+  // Unpacks one { field: [messages] } bag. The backend sends a list per field, and sometimes a
+  // bare string, so both shapes are flattened to one popup line each.
+  private pushFieldErrors(
+    errors: InvoiceValidationError[],
+    row: number | null,
+    fieldErrors: unknown
+  ): void {
+    if (!fieldErrors || typeof fieldErrors !== 'object') {
       return;
     }
 
-    const invalidItem = this.items.find(item => !item.productName.trim() || item.qty <= 0 || item.rate <= 0);
-    if (invalidItem) {
-      alert('Please fill out all product details (Product Name, Qty and Rate must be greater than zero).');
+    Object.entries(fieldErrors as Record<string, unknown>).forEach(([field, messages]) => {
+      const list = Array.isArray(messages) ? messages : [messages];
+      list.forEach(message => {
+        if (message === null || message === undefined || message === '') {
+          return;
+        }
+        errors.push({ row, field: this.fieldLabel(field), message: String(message) });
+      });
+    });
+  }
+
+  // Backend field names reach the user as-is in spirit but not in spelling: pro_serial_no
+  // reads as 'Pro Serial No', so the popup still names the field the response complained about.
+  private fieldLabel(field: string): string {
+    const known = this.requiredItemFields.find(f => f.key === field);
+    if (known) {
+      return known.label;
+    }
+
+    return field
+      .replace(/[_-]+/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/\b\w/g, char => char.toUpperCase())
+      .trim();
+  }
+
+  closeValidationPopup(): void {
+    this.showValidationPopup = false;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    this.closeValidationPopup();
+  }
+
+  saveInvoice(): void {
+    if (this.saving) {
+      return;
+    }
+
+    // Before the call: nothing is posted until every required cell in every row is filled.
+    if (!this.validateInvoice()) {
       return;
     }
 
@@ -293,13 +446,28 @@ export class InvoiceFormComponent implements OnInit {
       book: this.invoiceBook
     };
 
-    if (this.isEditMode) {
-      this.dataService.updateInvoice(this.invoiceId, invoicePayload);
-    } else {
-      this.dataService.addInvoice(invoicePayload);
-    }
+    this.showValidationPopup = false;
+    this.saving = true;
 
-    this.router.navigate(['/invoices']);
+    this.dataService
+      .saveInvoiceApi(invoicePayload, this.isEditMode ? this.invoiceId : undefined)
+      .subscribe({
+        next: response => {
+          this.saving = false;
+
+          if (response.success) {
+            this.router.navigate(['/invoices']);
+            return;
+          }
+
+          // After the call: the same function, now fed the response, raises the same popup.
+          this.validateInvoice(response.error_messages ?? {});
+        },
+        error: () => {
+          this.saving = false;
+          this.validateInvoice({});
+        }
+      });
   }
 
   goBack(): void {
