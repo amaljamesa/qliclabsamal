@@ -1283,10 +1283,18 @@ export class DataService {
   // exercised end to end now; swapping this body for an HttpClient call leaves callers alone.
   saveInvoiceApi(payload: Omit<Invoice, 'id' | 'invoiceNo'>, id?: string): Observable<InvoiceSaveResponse> {
     if (SIMULATE_API_ROW_ERRORS) {
-      return of<InvoiceSaveResponse>({
-        success: false,
-        error_messages: { items: SIMULATED_ITEM_ERRORS }
-      }).pipe(delay(250));
+      // The sample rejection is 13 lines long, but a real response carries exactly one entry
+      // per line posted - so trim it to the invoice in hand. An invoice with fewer than four
+      // lines comes back clean and saves as usual, which keeps the popup from ever naming a
+      // row that is not on screen.
+      const itemErrors = SIMULATED_ITEM_ERRORS.slice(0, payload.items.length);
+
+      if (itemErrors.some(rowErrors => Object.keys(rowErrors).length > 0)) {
+        return of<InvoiceSaveResponse>({
+          success: false,
+          error_messages: { items: itemErrors }
+        }).pipe(delay(250));
+      }
     }
 
     if (id) {
