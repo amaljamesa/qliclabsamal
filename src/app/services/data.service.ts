@@ -1,4 +1,6 @@
 import { Injectable } from '@angular/core';
+import { Observable, of } from 'rxjs';
+import { delay } from 'rxjs/operators';
 
 export interface PartyType {
   id: number;
@@ -126,6 +128,44 @@ export interface Invoice {
   measure?: string;
   book?: string;
 }
+
+// Validation faults exactly as the invoice API reports them. `items` is positional - one
+// entry per submitted line, in order, and an empty object for a line that came back clean -
+// so the entry's index, not any id inside it, is what identifies the row to the user.
+// Any other key is a fault on the invoice header rather than on a line.
+export interface InvoiceApiErrorMessages {
+  items?: Array<Record<string, string[]>>;
+  [field: string]: unknown;
+}
+
+export interface InvoiceSaveResponse {
+  success: boolean;
+  invoice?: Invoice;
+  error_messages?: InvoiceApiErrorMessages;
+}
+
+// While true, every save comes back rejected with SIMULATED_ITEM_ERRORS. That is what makes
+// the row-error popup reachable with no backend behind the screen yet; flip it to false to
+// let saves through, and delete both constants once saveInvoiceApi posts for real.
+const SIMULATE_API_ROW_ERRORS = true;
+
+// The sample rejection from the API contract: a 13-line submission whose 4th and 7th lines
+// carry an over-long serial number. Positional, so indexes 3 and 6 are rows 4 and 7.
+const SIMULATED_ITEM_ERRORS: Array<Record<string, string[]>> = [
+  {},
+  {},
+  {},
+  { pro_serial_no: ['Ensure this field has no more than 250 characters.'] },
+  {},
+  {},
+  { pro_serial_no: ['Ensure this field has no more than 250 characters.'] },
+  {},
+  {},
+  {},
+  {},
+  {},
+  {}
+];
 
 @Injectable({
   providedIn: 'root'
@@ -1236,6 +1276,25 @@ export class DataService {
       return true;
     }
     return false;
+  }
+
+  // Stand-in for the real save endpoint. It answers in the shape the backend answers in -
+  // either a saved invoice or an error_messages block - so the save flow can be built and
+  // exercised end to end now; swapping this body for an HttpClient call leaves callers alone.
+  saveInvoiceApi(payload: Omit<Invoice, 'id' | 'invoiceNo'>, id?: string): Observable<InvoiceSaveResponse> {
+    if (SIMULATE_API_ROW_ERRORS) {
+      return of<InvoiceSaveResponse>({
+        success: false,
+        error_messages: { items: SIMULATED_ITEM_ERRORS }
+      }).pipe(delay(250));
+    }
+
+    if (id) {
+      this.updateInvoice(id, payload);
+      return of<InvoiceSaveResponse>({ success: true, invoice: this.getInvoice(id) }).pipe(delay(250));
+    }
+
+    return of<InvoiceSaveResponse>({ success: true, invoice: this.addInvoice(payload) }).pipe(delay(250));
   }
 
   deleteInvoice(id: string): boolean {
