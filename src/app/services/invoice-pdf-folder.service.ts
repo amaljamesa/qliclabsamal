@@ -113,8 +113,9 @@ export class InvoicePdfFolderService {
 
     if (this.folder) {
       try {
+        const remaining = missingSubfolders(this.folder.name);
         let directory = this.folder;
-        for (const name of SUBFOLDERS) {
+        for (const name of remaining) {
           directory = await directory.getDirectoryHandle(name, { create: true });
         }
         const file = await directory.getFileHandle(safeName, { create: true });
@@ -123,7 +124,7 @@ export class InvoicePdfFolderService {
         await writable.close();
         return {
           target: 'folder',
-          path: [this.folder.name, ...SUBFOLDERS].join(' / '),
+          path: [this.folder.name, ...remaining].join(' / '),
           filename: safeName
         };
       } catch (error) {
@@ -209,6 +210,20 @@ export class InvoicePdfFolderService {
       return { target: 'failed', filename };
     }
   }
+}
+
+// Which of the subfolders still have to be created inside the folder the user picked.
+//
+// Picking Documents is not always on offer: Chrome refuses to hand over several well-known
+// directories - "can't open this folder because it contains system files" - and on a good many
+// Windows setups Documents is one of them, especially when OneDrive is backing it. The way
+// round that is for the user to pick Documents\Invoice Folder themselves. Creating the whole
+// chain regardless would then bury the files in Invoice Folder\Invoice Folder\PDFs, so any
+// leading segment the pick already satisfies is dropped. Documents, Invoice Folder and PDFs
+// therefore all end up writing to the same place, which is the one the task asked for.
+function missingSubfolders(pickedName: string): string[] {
+  const index = SUBFOLDERS.findIndex(name => name.toLowerCase() === pickedName.toLowerCase());
+  return index === -1 ? [...SUBFOLDERS] : SUBFOLDERS.slice(index + 1);
 }
 
 // Invoice numbers (S-26-00143) are already safe; this guards the general case, since the name
