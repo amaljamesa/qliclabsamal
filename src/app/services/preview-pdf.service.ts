@@ -46,9 +46,31 @@ export class PreviewPdfService {
    * Resolves false, without throwing, if the document has no pages to export yet.
    */
   async download(doc: Document, filename: string): Promise<boolean> {
+    const pdf = await this.build(doc);
+    if (!pdf) {
+      return false;
+    }
+    pdf.save(filename);
+    return true;
+  }
+
+  /**
+   * The same rendering as download(), but hands the file back instead of sending it to the
+   * browser's downloads. That split exists for the save-time auto-export (see
+   * InvoicePdfAutoSaveService), which has somewhere specific to put the file - a folder the
+   * user picked - and so must not have it dropped into Downloads on the way past.
+   */
+  async render(doc: Document): Promise<Blob | null> {
+    const pdf = await this.build(doc);
+    return pdf ? (pdf.output('blob') as Blob) : null;
+  }
+
+  // The retry loop both routes share. Null means no file could be produced - already logged,
+  // so callers only have to decide what to do about it.
+  private async build(doc: Document): Promise<import('jspdf').jsPDF | null> {
     if (doc.querySelectorAll('.page').length === 0) {
       console.error('No rendered pages found - nothing to export as PDF.');
-      return false;
+      return null;
     }
 
     // Loaded on demand so the two rendering libraries stay out of the app's initial bundle -
@@ -63,11 +85,10 @@ export class PreviewPdfService {
       // The preview was closed while this was running (see abandoned()); the user is not
       // waiting for a file, so stopping without one is the right answer, and without noise.
       if (pdf === 'abandoned') {
-        return false;
+        return null;
       }
       if (pdf) {
-        pdf.save(filename);
-        return true;
+        return pdf;
       }
       if (attempt < MAX_ATTEMPTS) {
         await new Promise((resolve) => setTimeout(resolve, REPAGINATION_SETTLE_MS));
@@ -75,7 +96,7 @@ export class PreviewPdfService {
     }
 
     console.error(`Could not export the PDF: the report kept re-rendering after ${MAX_ATTEMPTS} attempts.`);
-    return false;
+    return null;
   }
 
   // One full pass over the report. Returns the finished document, null if the pages were

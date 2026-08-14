@@ -10,6 +10,8 @@ import {
   PartyType,
   Product
 } from '../../services/data.service';
+import { InvoicePdfAutoSaveService } from '../../services/invoice-pdf-autosave.service';
+import { PdfSaveResult } from '../../services/invoice-pdf-folder.service';
 
 // One thing wrong with the invoice, from either side of the save. `row` is the 1-based line
 // number the user sees in the Si column; null means the fault sits on the invoice itself
@@ -73,6 +75,12 @@ export class InvoiceFormComponent implements OnInit {
   validationTitle = '';
   showValidationPopup = false;
   saving = false;
+  // Set while the saved invoice is being rendered to PDF, so the Save button can say what it
+  // is waiting on - rasterising a multi-page invoice takes a visible moment.
+  savingPdf = false;
+  // The invoice is already saved and the screen is only still here to show the popup; closing
+  // it leaves for the list, exactly as a clean save does.
+  private leaveOnPopupClose = false;
 
   // Required line-item cells, in the order they appear in the grid, so the popup lists a
   // row's missing fields left to right the way the user scans them.
@@ -90,7 +98,8 @@ export class InvoiceFormComponent implements OnInit {
   constructor(
     private dataService: DataService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private pdfAutoSave: InvoicePdfAutoSaveService
   ) {}
 
   ngOnInit(): void {
@@ -418,6 +427,10 @@ export class InvoiceFormComponent implements OnInit {
 
   closeValidationPopup(): void {
     this.showValidationPopup = false;
+    if (this.leaveOnPopupClose) {
+      this.leaveOnPopupClose = false;
+      this.router.navigate(['/invoices']);
+    }
   }
 
   @HostListener('document:keydown.escape')
@@ -455,17 +468,22 @@ export class InvoiceFormComponent implements OnInit {
     this.showValidationPopup = false;
     this.saving = true;
 
+    // Started here, in the click itself, rather than once there is a PDF to put somewhere:
+    // choosing a folder needs the user's click behind it, and by the time the API has answered
+    // and the layout has rendered, that has long expired. First save of the session only - it
+    // resolves silently on every one after. See InvoicePdfFolderService.ensureFolder.
+    const folderReady = this.pdfAutoSave.prepareFolder();
+
     this.dataService
       .saveInvoiceApi(invoicePayload, this.isEditMode ? this.invoiceId : undefined)
       .subscribe({
         next: response => {
-          this.saving = false;
-
           if (response.success) {
-            this.router.navigate(['/invoices']);
+            void this.exportSavedInvoice(response.invoice, folderReady);
             return;
           }
 
+          this.saving = false;
           // After the call: the same function, now fed the response, raises the same popup.
           this.validateInvoice(response.error_messages ?? {});
         },
@@ -474,6 +492,47 @@ export class InvoiceFormComponent implements OnInit {
           this.validateInvoice({});
         }
       });
+  }
+
+  // The auto-export half of a save: the invoice is on record by now, so nothing here can undo
+  // it, and a PDF that cannot be produced costs a message rather than the save.
+  private async exportSavedInvoice(
+    invoice: Invoice | undefined,
+    folderReady: Promise<boolean>
+  ): Promise<void> {
+    if (!invoice) {
+      this.saving = false;
+      this.router.navigate(['/invoices']);
+      return;
+    }
+
+    this.savingPdf = true;
+    let result: PdfSaveResult | null = null;
+    try {
+      await folderReady;
+      result = await this.pdfAutoSave.saveInvoicePdf(invoice);
+    } finally {
+      this.savingPdf = false;
+      this.saving = false;
+    }
+
+    // Silence would read as "the PDF is in the folder" whether or not it is, so the one case
+    // the user has to know about - saved invoice, no file - says so before leaving.
+    if (!result || result.target === 'failed') {
+      this.leaveOnPopupClose = true;
+      this.validationTitle = `Invoice ${invoice.invoiceNo} was saved`;
+      this.validationErrors = [
+        {
+          row: null,
+          field: 'PDF',
+          message: 'The invoice saved, but its PDF could not be created. You can download it from the invoice preview.'
+        }
+      ];
+      this.showValidationPopup = true;
+      return;
+    }
+
+    this.router.navigate(['/invoices']);
   }
 
   goBack(): void {
