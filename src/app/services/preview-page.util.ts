@@ -133,3 +133,58 @@ export function setPrintPageSize(dimensions: PageDimensionsCm): void {
   }
   styleEl.textContent = `@page { size: ${dimensions.widthCm}cm ${dimensions.heightCm}cm; margin: 0; }`;
 }
+
+// The embedded layouts expose this once they are watching for zoom changes (report-zoom.js).
+interface RepaginatingWindow extends Window {
+  repaginateForPrint?: () => void;
+}
+
+// Lays an embedded report out at its true size for printing, and has it re-paginate itself
+// against that box before the browser snapshots the document.
+//
+// The three previews all did the first half of this and none did the second, which is the
+// defect behind Sabhya's report (2026-09-02): rows printing through the footer, and rows
+// vanishing entirely between one sheet and the next.
+//
+// Why re-pagination belongs here rather than being left to the layout: these layouts choose
+// their page breaks by measuring rendered rows against a fixed page box, and that box is
+// overflow:hidden - so a row past the budget is CLIPPED, not merely overlapped, and the data
+// is gone with nothing on the sheet to suggest it was ever there. Those measurements are only
+// valid for the box the report was laid out in, and the three lines below deliberately change
+// that box: the frame is a fixed 1200px on screen (.report-frame) and becomes the page's own
+// natural width here, 21cm/794px for these reports. Printing on breaks measured against the
+// old box is printing a plan for a page that no longer exists.
+//
+// Order matters and is the whole point: resize, THEN re-paginate, THEN re-read the height,
+// because re-pagination can change the page count and the frame has to be tall enough for the
+// pages that now exist. Every step is synchronous - a caller in 'beforeprint' has only this
+// call stack before the snapshot is taken.
+export function prepareIframeForPrint(iframe: HTMLIFrameElement): void {
+  const doc = iframe.contentDocument;
+  if (!doc) {
+    return;
+  }
+  const dimensions = getPageDimensionsCm(doc);
+  const size = getNaturalContentSizePx(doc);
+  if (!dimensions || !size) {
+    return;
+  }
+
+  setPrintPageSize(dimensions);
+  iframe.style.transform = 'none';
+  iframe.style.width = `${size.width}px`;
+  iframe.style.height = `${size.height}px`;
+
+  const repaginate = (iframe.contentWindow as RepaginatingWindow | null)?.repaginateForPrint;
+  if (typeof repaginate !== 'function') {
+    // A layout that paginates without measuring (the journal voucher) exposes nothing, and
+    // needs nothing - the size set above is all it wanted.
+    return;
+  }
+  repaginate();
+
+  const repaginated = getNaturalContentSizePx(doc);
+  if (repaginated) {
+    iframe.style.height = `${repaginated.height}px`;
+  }
+}

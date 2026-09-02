@@ -15,7 +15,7 @@ import {
   getNaturalContentSizePx,
   getPageDimensionsCm,
   matchPaperSize,
-  setPrintPageSize
+  prepareIframeForPrint
 } from '../../services/preview-page.util';
 
 const RESIZE_DEBOUNCE_MS = 200;
@@ -121,20 +121,7 @@ export class InvoicePreviewComponent implements AfterViewInit, OnDestroy {
   // fixed 900x1400px box on screen and only visually scaled with a CSS transform - see the
   // CSS comment on .invoice-frame).
   private readonly onBeforePrint = (): void => {
-    const iframe = this.invoiceFrame.nativeElement;
-    const doc = iframe.contentDocument;
-    if (!doc) {
-      return;
-    }
-    const dimensions = getPageDimensionsCm(doc);
-    const size = getNaturalContentSizePx(doc);
-    if (!dimensions || !size) {
-      return;
-    }
-    setPrintPageSize(dimensions);
-    iframe.style.transform = 'none';
-    iframe.style.width = `${size.width}px`;
-    iframe.style.height = `${size.height}px`;
+    prepareIframeForPrint(this.invoiceFrame.nativeElement);
   };
 
   private readonly onAfterPrint = (): void => {

@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, ElementRef, Input, OnDestroy, ViewChild } from '@angular/core';
 import { PreviewPdfService } from '../../services/preview-pdf.service';
-import { getNaturalContentSizePx, getPageDimensionsCm, setPrintPageSize } from '../../services/preview-page.util';
+import { getNaturalContentSizePx, getPageDimensionsCm, prepareIframeForPrint } from '../../services/preview-page.util';
 
 const RESIZE_DEBOUNCE_MS = 200;
 
@@ -77,20 +77,7 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
   // into the app's own document once the ledger can be opened as a dialog, and would then
   // still be there, claiming A4, when an A5 invoice was printed later.
   private readonly onBeforePrint = (): void => {
-    const iframe = this.ledgerFrame.nativeElement;
-    const doc = iframe.contentDocument;
-    if (!doc) {
-      return;
-    }
-    const dimensions = getPageDimensionsCm(doc);
-    const size = getNaturalContentSizePx(doc);
-    if (!dimensions || !size) {
-      return;
-    }
-    setPrintPageSize(dimensions);
-    iframe.style.transform = 'none';
-    iframe.style.width = `${size.width}px`;
-    iframe.style.height = `${size.height}px`;
+    prepareIframeForPrint(this.ledgerFrame.nativeElement);
   };
 
   private readonly onAfterPrint = (): void => {

@@ -77,7 +77,25 @@
     }
     setInterval(checkZoom, POLL_MS);
 
+    // Re-paginates on demand, deliberately ignoring the isPrinting guard: the caller is
+    // stating that the box this report is laid out in has just changed, which is precisely
+    // when that guard would otherwise refuse. The previews call this from their own
+    // 'beforeprint' once they have resized this frame - see prepareIframeForPrint in
+    // preview-page.util.ts.
+    global.repaginateForPrint = rerender;
+
     global.addEventListener('beforeprint', function () {
+      // Measure again FIRST, then raise the guard. The guard exists to stop the zoom poller
+      // re-rendering underneath a print job already being built; it was never meant to block
+      // the one re-measurement that job needs, which is what it had been doing. What is on
+      // screen was paginated against the box this report had a moment ago, and a print is the
+      // one moment it is certain to be laid out for something else - a different frame size,
+      // and print's own rendering rather than the browser's current zoom.
+      //
+      // Synchronous on purpose: beforeprint is the last point at which the document can still
+      // be changed before the browser snapshots it, the same reason LedgerReportComponent
+      // rebuilds inline in its own handler rather than scheduling the work.
+      rerender();
       isPrinting = true;
     });
     global.addEventListener('afterprint', function () {

@@ -7,7 +7,7 @@ import {
   getNaturalContentSizePx,
   getPageDimensionsCm,
   matchPaperSize,
-  setPrintPageSize
+  prepareIframeForPrint
 } from '../../services/preview-page.util';
 
 const RESIZE_DEBOUNCE_MS = 200;
@@ -115,20 +115,7 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
   // makes the entire multi-page report part of the wrapper page's actual layout, so printing
   // the wrapper prints all of it rather than just the first screenful.
   private readonly onBeforePrint = (): void => {
-    const iframe = this.reportFrame.nativeElement;
-    const doc = iframe.contentDocument;
-    if (!doc) {
-      return;
-    }
-    const dimensions = getPageDimensionsCm(doc);
-    const size = getNaturalContentSizePx(doc);
-    if (!dimensions || !size) {
-      return;
-    }
-    setPrintPageSize(dimensions);
-    iframe.style.transform = 'none';
-    iframe.style.width = `${size.width}px`;
-    iframe.style.height = `${size.height}px`;
+    prepareIframeForPrint(this.reportFrame.nativeElement);
   };
 
   private readonly onAfterPrint = (): void => {
