@@ -82,6 +82,12 @@
         .body-table { width: 100%; border-collapse: collapse; font-family: Arial, Helvetica, sans-serif; }
         .body-table th { font-weight: bold; font-size: 3.7mm; border-top: 0.5mm solid black; border-bottom: 0.5mm solid black; padding: 1mm 0.5mm; }
         .body-table td { font-size: 3.5mm; padding: 0.5mm; vertical-align: top; }
+        /* Pinned so a row is the same height at every zoom - left as `normal`, Chrome derives it
+           from font metrics and rounds to device pixels, so the row count a page fits changes
+           with the zoom the report happened to be generated at while the printout is always
+           rendered at 100%. 15px is what `normal` computes to here at 100%, so the report looks
+           and paginates exactly as it does today. See renderItems for the rest of the guard. */
+        .body-table td, .body-table th { line-height: 15px; }
 
         .footer-section { position: absolute; left: 0; bottom: 2.5mm; width: 100%; box-sizing: border-box; padding: 0 5mm; }
         .footer-section hr { width: 100%; margin: 0 0 1mm 0; }
@@ -346,7 +352,14 @@
                     const rowHeight = getElHeight(tr);
                     currentHeight += rowHeight;
 
-                    if (currentHeight > adjustedMaxHeight) {
+                    // One row's height is held back as clearance, so the page is called full a
+                    // row early. Pinning the line box above removes most of the drift between the
+                    // zoom this was paginated at and the 100% the printout is rendered at; what
+                    // it cannot remove is a name wrapping onto a different number of lines when
+                    // character widths shift, and a row is the unit that arrives in. Without this
+                    // the rows over the limit are painted past a page box that is overflow:hidden
+                    // and are gone from the printout (Amal and Sabhya, Slack 2026-09-02).
+                    if (currentHeight + rowHeight > adjustedMaxHeight) {
                         tbody.removeChild(tr);
                         currentHeight -= rowHeight;
 

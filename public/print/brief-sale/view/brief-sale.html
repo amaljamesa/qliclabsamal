@@ -122,6 +122,19 @@
             font-size: 13px;
         }
 
+        /* The line box is pinned rather than left to `normal`, which is what makes a row the
+           same height at every zoom level. Left to itself Chrome derives it from the font's own
+           metrics and rounds to device pixels, so the same row measures 17px at 100%, 15.74px at
+           80% and 16.67px at 75% - and since pagination budgets rows against a fixed 29cm page,
+           an 80% preview packed five more rows onto a sheet than the printout (rendered at 100%
+           regardless of zoom) has room for. 15px is exactly what `normal` already computes to
+           here at 100%, so this changes nothing about how the report looks or how many rows fit
+           on a sheet - it only stops the answer moving when someone zooms. */
+        #maintable td,
+        #maintable th {
+            line-height: 15px;
+        }
+
         /* A single long unbroken name (no spaces to wrap at) would otherwise force its column
            wider than the declared 45% and shove the Amount column off the sheet. Breaking
            mid-word keeps the column at its intended width - the row just gets taller, which
@@ -190,12 +203,18 @@
         // Breathing room left between the last row and the footer.
         //
         // Pagination measures the report as it stands when generated, which is exact at that
-        // moment - but a line box's height is rounded to whole device pixels, and that rounding
-        // changes with the browser's zoom level. Over ~50 rows those fractions accumulate into
-        // a few pixels, which is enough for a page that fitted exactly at one zoom level to
-        // collide at another (a report generated at 80% and then viewed at 100% printed its
-        // last two rows through the footer). The gap absorbs that drift. It costs at most one
-        // row per page, and only on pages that were about to fill exactly.
+        // moment - but printing does not use that moment. Chrome renders a print job at 100%
+        // whatever the browser is zoomed to, and text metrics are not proportional across zoom
+        // levels: measured on this report, one line box is 17px at 100% and 15.74px at 80%, so a
+        // sheet that packed 40 rows in an 80% preview has room for only 35 of them on paper. The
+        // five rows over are not pushed to the next sheet, they are painted past a page box that
+        // is overflow:hidden and are simply gone - which is what "page one ends at 50, page two
+        // starts at 53" was (Amal and Sabhya, Slack 2026-09-02).
+        //
+        // Pinning the line box in CSS removes most of that (40 rows becomes 36), but not all: how
+        // wide a character renders shifts with zoom too, so a name that wraps onto two lines at
+        // 100% can still fit on one at 80% and free up a row. There is no pinning a font's
+        // advance widths, so the last row of clearance below is what covers the remainder.
         var FOOTER_SAFETY_PX = 8;
 
         var other = "";
@@ -363,9 +382,19 @@
         // rows-per-page number can be right for every page. Comparing bottom edges also means
         // the table's own margins and header row are accounted for automatically, with nothing
         // to keep in sync by hand.
-        function bodyOverflows(context) {
+        // `row` is the row just appended, and its height is held back as clearance: the page is
+        // declared full one row before it truly is. That row is the unit the residual drift comes
+        // in - a name that wraps differently at another zoom costs or saves exactly one line, and
+        // a line is what decides whether one more row fits. Reserving it means a pagination
+        // measured at any zoom still fits when the print job lays the same rows out at 100%.
+        //
+        // It costs one row per page, roughly 3% more sheets. That is the price of the guarantee,
+        // and it buys back rows that were being dropped from the printout altogether. Passing no
+        // row (the total line) reserves nothing beyond the fixed gap, since nothing follows it.
+        function bodyOverflows(context, row) {
+            var clearance = FOOTER_SAFETY_PX + (row ? row.getBoundingClientRect().height : 0);
             return context.maintable.getBoundingClientRect().bottom >
-                context.pageDiv.getBoundingClientRect().bottom - FOOTER_SAFETY_PX;
+                context.pageDiv.getBoundingClientRect().bottom - clearance;
         }
 
         function buildDataRow(item) {
@@ -427,7 +456,7 @@
                 var table_row = buildDataRow(loading_list_details[i]);
                 context.maintable.appendChild(table_row);
 
-                if (bodyOverflows(context)) {
+                if (bodyOverflows(context, table_row)) {
                     // rows[0] is the column-header row, so a length of 1 means this row is the
                     // only data on the page and still doesn't fit - a name long enough to wrap
                     // past a whole page on its own. Moving it to a fresh page would overflow
