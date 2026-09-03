@@ -1917,11 +1917,29 @@
             qrc.style.marginRight = '0.53cm';
 
             if (footerData.others.upi_id != "" && footerData.config.include_payment_qrcode == true && footerData.config?.is_packing_slip != true) {
-                if (pageSize == "a4") {
-                    new QRCode(qrc, { text: footerData.others.upi_id, height: 90, width: 90 });
-                } else if (pageSize == "a5") {
-                    new QRCode(qrc, { text: footerData.others.upi_id, height: 70, width: 70 });
-                }
+                var qrSizePx = pageSize == "a4" ? 90 : 70;
+
+                // The square is reserved here rather than left to the QR library to establish.
+                //
+                // This box is measured, not just drawn: getFooterReserveHeightPx() renders the
+                // footer into a hidden probe and measures it, and everything the body is allowed
+                // to occupy is the page minus that number. Left to size itself, this div is only
+                // as tall as whatever the library has put inside it AT THAT MOMENT - and the real
+                // qrcodejs build finishes asynchronously, drawing to a canvas and then setting an
+                // <img> from canvas.toDataURL(), which carries no height until the data URL
+                // loads. The probe then measures a footer 90px shorter than the one that
+                // eventually prints, the body is handed 90px it does not have, and the block that
+                // ends the body - the HSN tax summary - is laid out underneath the footer, where
+                // the overflow cap silently clips it away. That is the "HSN summary hidden under
+                // footer" report.
+                //
+                // Reserving the square up front makes the measurement right whether the library
+                // has finished or not. min-height rather than height because "Scan to Pay" is
+                // appended inside this same div and has to add its line below the code.
+                qrc.style.width = qrSizePx + 'px';
+                qrc.style.minHeight = qrSizePx + 'px';
+
+                new QRCode(qrc, { text: footerData.others.upi_id, height: qrSizePx, width: qrSizePx });
 
                 var scanToPayText = document.createElement('div');
                 scanToPayText.style.fontSize = pageSize == "a4" ? '12px' : '10px';
