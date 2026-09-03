@@ -57,3 +57,11 @@ backend/staticfiles/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Screen recordings and demo assets kept alongside the project but not part of it.
+# These were committed once by accident (~95MB of video), which made every push upload
+# them; ignoring them keeps them on disk and out of the history.
+*.mp4
+*.webm
+*.zip
+preview-pdf-sample.pdf
