@@ -144,6 +144,16 @@
             line-height: 15px;
         }
 
+        /* No gaps between cells, and this is load-bearing rather than cosmetic. The default 2px
+           of border-spacing is rounded to device pixels like everything else, so it measured 2px
+           at 100% zoom and 1.333px at 75% - and because it sits between every pair of rows AND
+           every pair of columns, that difference moved both the row heights and the column
+           widths, which moved the wrapping, which moved the page breaks. Zero has nothing to
+           round. */
+        #maintable {
+            border-spacing: 0;
+        }
+
         /* A single long unbroken name (no spaces to wrap at) would otherwise force its column
            wider than the declared 45% and shove the Amount column off the sheet. Breaking
            mid-word keeps the column at its intended width - the row just gets taller, which
@@ -195,6 +205,7 @@
 
     <script src="../../../assets/js/report-scope.js"></script>
     <script src="../../../assets/js/report-payload.js"></script>
+    <script src="../../../assets/js/report-textwrap.js"></script>
     <script src="../../../assets/js/report-zoom.js"></script>
 
     <script>
@@ -202,6 +213,9 @@
         // the .page CSS, and (read off the rendered element's data attributes) the preview
         // wrapper that embeds this file. One source of truth keeps the wrapper's sizing math
         // in step with the real rendered page.
+        var CM_TO_PX = 96 / 2.54;
+        // The table's own declared width, as a share of the page - `width: 90%` in buildMainTable.
+        var TABLE_WIDTH_SHARE = 0.9;
         var PAGE_WIDTH_CM = 21;
         var PAGE_HEIGHT_CM = 29.7;
 
@@ -224,7 +238,11 @@
         // wide a character renders shifts with zoom too, so a name that wraps onto two lines at
         // 100% can still fit on one at 80% and free up a row. There is no pinning a font's
         // advance widths, so the last row of clearance below is what covers the remainder.
-        var FOOTER_SAFETY_PX = 8;
+        // 16 rather than the 8 it was: predicted row heights and rendered ones agree to about a
+        // hundredth of a pixel, which is nothing per row and roughly 2px by the bottom of a page
+        // of seventy. The gap absorbs that accumulation. It is a fixed cost per page, not a
+        // per-row one, so it does not grow with the report.
+        var FOOTER_SAFETY_PX = 16;
 
         var other = "";
         var company_details = "";
@@ -312,20 +330,27 @@
             page.appendChild(Top_elements);
         }
 
+        // The columns, and the share of the table each one takes. These used to be percentages
+        // written straight onto the cells and left to table-layout:auto, which sizes a column to
+        // the content it happens to hold - and does that sizing against the device scale, so the
+        // name column came out 347.8px at 100% zoom and 351.5px at 90%. A column that changes
+        // width wraps text differently, which moves a page break, which is the whole bug. The
+        // shares are turned into fixed pixel widths in columnWidths() instead, computed from the
+        // page's own cm width, so every zoom level gets the same columns.
+        var COLUMN_SHARES = [8, 10, 10, 5, 45, 10];
+        var COLUMN_TITLES = ['Sl No', 'Bill No', 'Date', 'Cash / Cr', " Buyer's Name", 'Amount'];
+
         function buildTableHeader() {
             var header_row = document.createElement('tr');
-            var headers = [
-                { text: 'Sl No', width: '8%', align: 'center' },
-                { text: 'Bill No', width: '10%', align: 'center' },
-                { text: 'Date', width: '10%', align: 'center' },
-                { text: 'Cash / Cr', width: '5%', align: 'left' },
-                { text: " Buyer's Name", width: '45%', align: 'left' },
-                { text: 'Amount', width: '10%', align: 'center' }
-            ];
-            headers.forEach(function (h) {
+            var widths = columnWidths();
+            var aligns = ['center', 'center', 'center', 'left', 'left', 'center'];
+            var headers = COLUMN_TITLES.map(function (text, index) {
+                return { text: text, align: aligns[index] };
+            });
+            headers.forEach(function (h, index) {
                 var th = document.createElement('th');
                 th.innerHTML = h.text;
-                th.style.width = h.width;
+                th.style.width = widths[index] + 'px';
                 th.style.textAlign = h.align;
                 th.style.borderTop = '2px solid black';
                 th.style.borderBottom = '2px solid black';
@@ -380,7 +405,7 @@
             page_count++;
             footer();
 
-            return { pageDiv: pageDiv, maintable: maintable };
+            return { pageDiv: pageDiv, maintable: maintable, pageEl: page };
         }
 
         // True once the table has grown past the box reserved for it - i.e. the point at which
@@ -391,19 +416,103 @@
         // rows-per-page number can be right for every page. Comparing bottom edges also means
         // the table's own margins and header row are accounted for automatically, with nothing
         // to keep in sync by hand.
-        // `row` is the row just appended, and its height is held back as clearance: the page is
-        // declared full one row before it truly is. That row is the unit the residual drift comes
-        // in - a name that wraps differently at another zoom costs or saves exactly one line, and
-        // a line is what decides whether one more row fits. Reserving it means a pagination
-        // measured at any zoom still fits when the print job lays the same rows out at 100%.
+        // The line height and vertical padding a data row is built from. Read once off a real
+        // rendered row rather than hard-coded, so they cannot drift from the CSS - and read from
+        // the FIRST page only, because these are the numbers every later page is then budgeted
+        // against. Both are pinned in CSS (see the line-height rule), so what is read here is the
+        // same at any zoom.
+        var ROW_LINE_HEIGHT_PX = 15;
+        var ROW_VERTICAL_PADDING_PX = 2;
+        // The gap the table leaves between one row and the next, matching the border-spacing
+        // declared in the CSS above. Zero, and deliberately a constant rather than a value read
+        // back from the page: the used value is rounded to device pixels, so reading it made
+        // every number derived from it move with the zoom level.
+        var ROW_SPACING_PX = 0;
+        var HEADER_ROW_HEIGHT_PX = 0;
+        var countNameLines = null;
+        var countPaymentLines = null;
+
+        // Every column's width in px, worked out from the page rather than measured off one.
         //
-        // It costs one row per page, roughly 3% more sheets. That is the price of the guarantee,
-        // and it buys back rows that were being dropped from the printout altogether. Passing no
-        // row (the total line) reserves nothing beyond the fixed gap, since nothing follows it.
-        function bodyOverflows(context, row) {
-            var clearance = FOOTER_SAFETY_PX + (row ? row.getBoundingClientRect().height : 0);
-            return context.maintable.getBoundingClientRect().bottom >
-                context.pageDiv.getBoundingClientRect().bottom - clearance;
+        // The table is 90% of a page that is a fixed 21cm, and border-spacing takes 2px between
+        // each pair of columns, so what is left is shared out in the declared proportions. Every
+        // term is a constant or a CSS length, so the answer is the same at every zoom - which is
+        // the point, and the reason this is not simply read back from a rendered table.
+        function columnWidths() {
+            var tableWidth = PAGE_WIDTH_CM * CM_TO_PX * TABLE_WIDTH_SHARE;
+            var spacing = ROW_SPACING_PX * (COLUMN_SHARES.length + 1);
+            var usable = tableWidth - spacing;
+            var total = COLUMN_SHARES.reduce(function (sum, share) { return sum + share; }, 0);
+            return COLUMN_SHARES.map(function (share) { return (share / total) * usable; });
+        }
+
+        // Establishes the metrics pagination is run against: the name column's usable text
+        // width, the font it is set in, and the row geometry above. One probe row, rendered and
+        // removed - the widths themselves are computed, not measured, so nothing here depends on
+        // the zoom the report happens to be generated at.
+        function prepareRowMetrics(context) {
+            var probe = buildDataRow({
+                row_sl: 0, reference: '', date: '', paid_topay: 'Credit', 'Account Name': 'X', value: ''
+            });
+            context.maintable.appendChild(probe);
+
+            var nameCell = probe.querySelector('td.buyer-name');
+            var style = window.getComputedStyle(nameCell);
+
+            var lineHeight = parseFloat(style.lineHeight);
+            if (lineHeight > 0) {
+                ROW_LINE_HEIGHT_PX = lineHeight;
+            }
+            // From the declared padding rather than a rendered row's height, which would fold in
+            // however many lines that particular row happened to wrap to.
+            ROW_VERTICAL_PADDING_PX = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+
+            var font = style.font || (style.fontSize + ' ' + style.fontFamily);
+            var sidePadding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+            var widths = columnWidths();
+
+            countNameLines = createLineCounter(font, widths[4] - sidePadding, true);
+            // No mid-word breaking on this one: it carries no overflow-wrap rule, so a word too
+            // wide for the column overflows rather than splitting.
+            countPaymentLines = createLineCounter(font, widths[3] - sidePadding, false);
+
+            measureHeaderRow(context.maintable, widths);
+            context.maintable.removeChild(probe);
+            applyColumnWidths(context.maintable);
+        }
+
+        // The height of the column-header row, modelled rather than measured for the same reason
+        // the data rows are: read back from the page it comes out 36px at 100% zoom and 34.2px at
+        // 70%, and since it is what every page's budget starts from, that alone moved a page
+        // break. "Cash / Cr" is the one that wraps, in a column of 5%.
+        function measureHeaderRow(maintable, widths) {
+            var th = maintable.rows[0].cells[0];
+            var style = window.getComputedStyle(th);
+            var font = style.font || (style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily);
+            var sidePadding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+            var lineHeight = parseFloat(style.lineHeight) || ROW_LINE_HEIGHT_PX;
+
+            var lines = 1;
+            for (var i = 0; i < COLUMN_TITLES.length; i++) {
+                var counter = createLineCounter(font, widths[i] - sidePadding, false);
+                lines = Math.max(lines, counter(COLUMN_TITLES[i]));
+            }
+
+            HEADER_ROW_HEIGHT_PX = lines * lineHeight
+                + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+                + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+        }
+
+        // Pins those widths onto a page's table. table-layout:fixed is what makes them binding -
+        // left on auto the browser goes back to sizing columns to whatever that page's own rows
+        // happen to contain, which is exactly the variation this removes.
+        function applyColumnWidths(maintable) {
+            var widths = columnWidths();
+            maintable.style.tableLayout = 'fixed';
+            var headerCells = maintable.rows[0].cells;
+            for (var i = 0; i < headerCells.length && i < widths.length; i++) {
+                headerCells[i].style.width = widths[i] + 'px';
+            }
         }
 
         function buildDataRow(item) {
@@ -448,45 +557,64 @@
             return table_row_total;
         }
 
-        // Moves a row that didn't fit onto a fresh page. Returns the new page's context.
-        function carryRowToNewPage(context, row) {
-            context.maintable.removeChild(row);
-            header();
-            var next = openPageBody();
-            next.maintable.appendChild(row);
-            return next;
+        // How tall a row WILL be, worked out from the data rather than read back from the page.
+        // This is what makes the page breaks identical at every zoom - see report-textwrap.js.
+        //
+        // The TALLEST cell decides the row, and two columns here can wrap: the buyer's name, and
+        // the Cash / Cr column, which is narrow enough for "Credit" to take two lines. The
+        // spacing the table leaves between rows counts too - it belongs to the table rather than
+        // to any row, so it is invisible in a row's own height, and at 2px across thirty rows it
+        // is four rows' worth of page.
+        function predictRowHeight(item) {
+            var name = item['Account Name'] != null ? item['Account Name'] : item.account;
+            var lines = Math.max(countNameLines(name), countPaymentLines(item.paid_topay));
+            return lines * ROW_LINE_HEIGHT_PX + ROW_VERTICAL_PADDING_PX + ROW_SPACING_PX;
+        }
+
+        // How much table there is room for before the footer. Both edges come off a page box
+        // that is a fixed 29.7cm, so this is the same number at every zoom.
+        function tableBudget(context) {
+            return context.pageDiv.getBoundingClientRect().bottom
+                - context.maintable.getBoundingClientRect().top - FOOTER_SAFETY_PX;
         }
 
         function body() {
 
             var context = openPageBody();
+            prepareRowMetrics(context);
+
+            var budget = tableBudget(context);
+            var used = HEADER_ROW_HEIGHT_PX + 2 * ROW_SPACING_PX;
 
             for (var i = 0; i < loading_list_details.length; i++) {
-                var table_row = buildDataRow(loading_list_details[i]);
-                context.maintable.appendChild(table_row);
+                var predicted = predictRowHeight(loading_list_details[i]);
 
-                if (bodyOverflows(context, table_row)) {
-                    // rows[0] is the column-header row, so a length of 1 means this row is the
-                    // only data on the page and still doesn't fit - a name long enough to wrap
-                    // past a whole page on its own. Moving it to a fresh page would overflow
-                    // that one too, forever. Keeping it here overflows a single page instead of
-                    // hanging the report.
-                    if (context.maintable.rows.length <= 2) {
-                        continue;
-                    }
-                    context = carryRowToNewPage(context, table_row);
+                // Decided BEFORE the row goes in, so nothing is ever measured mid-page. The
+                // first data row is exempt: a name long enough to fill a page on its own would
+                // otherwise be carried forward for ever.
+                if (used + predicted > budget && context.maintable.rows.length > 1) {
+                    header();
+                    context = openPageBody();
+                    applyColumnWidths(context.maintable);
+                    used = HEADER_ROW_HEIGHT_PX + 2 * ROW_SPACING_PX;
                 }
+
+                context.maintable.appendChild(buildDataRow(loading_list_details[i]));
+                used += predicted;
             }
 
             sumNumbers();
 
             // The total row is subject to the same budget - on a page that filled exactly, it
-            // would otherwise be the thing that lands on top of the footer.
-            var table_row_total = buildTotalRow();
-            context.maintable.appendChild(table_row_total);
-            if (bodyOverflows(context) && context.maintable.rows.length > 2) {
-                carryRowToNewPage(context, table_row_total);
+            // would otherwise be the thing that lands on top of the footer. One line, no name to
+            // wrap, so its height is the plain single-line case.
+            if (used + ROW_LINE_HEIGHT_PX + ROW_VERTICAL_PADDING_PX + ROW_SPACING_PX > budget
+                && context.maintable.rows.length > 1) {
+                header();
+                context = openPageBody();
+                applyColumnWidths(context.maintable);
             }
+            context.maintable.appendChild(buildTotalRow());
         }
 
         // -------------------------------------------------------------Footer------------------------------------------------
