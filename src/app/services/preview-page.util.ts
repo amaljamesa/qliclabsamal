@@ -135,6 +135,22 @@ export function getNaturalContentSizePx(doc: Document): { width: number; height:
 // page margin under @media print, so the gaps do not exist there, and handing the print path a
 // taller box would leave a strip of nothing after the last page for the printer to honour as an
 // extra sheet.
+// Whether the embedded report currently has pages, i.e. whether it is worth measuring at all.
+//
+// The layouts rebuild themselves from scratch on every zoom change and again before printing:
+// the existing pages are removed and the new ones appended one at a time. A fit that measures
+// during that window sees a document the size of an empty body, decides the report needs no
+// scaling down, and leaves it at scale 1 - and when the rebuild finishes, a 21cm report is
+// sitting unscaled in a dialog too narrow to hold it, spilling off the right-hand edge. That is
+// what printing after a zoom change produced (Amal, Slack 2026-09-03), because print is the one
+// moment guaranteed to trigger a rebuild.
+//
+// Every layout these previews embed builds .page elements (the journal voucher's carry a second
+// class alongside), so their absence means mid-rebuild rather than nothing to show.
+export function hasRenderedPages(doc: Document): boolean {
+  return doc.querySelectorAll('.page').length > 0;
+}
+
 export function measureFrameContentHeight(iframe: HTMLIFrameElement): number | null {
   const doc = iframe.contentDocument;
   const paper = doc && getNaturalContentSizePx(doc);
@@ -172,6 +188,18 @@ export function setPrintPageSize(dimensions: PageDimensionsCm): void {
     document.head.appendChild(styleEl);
   }
   styleEl.textContent = `@page { size: ${dimensions.widthCm}cm ${dimensions.heightCm}cm; margin: 0; }`;
+}
+
+// Undoes prepareIframeForPrint. The caller re-fits afterwards; this only puts back what the
+// print sizing took away, including the scrolling the preview needs on screen and must not have
+// while printing.
+export function restoreIframeAfterPrint(iframe: HTMLIFrameElement): void {
+  iframe.style.width = '';
+  iframe.style.height = '';
+  const doc = iframe.contentDocument;
+  if (doc) {
+    doc.documentElement.style.overflow = '';
+  }
 }
 
 // The embedded layouts expose this once they are watching for zoom changes (report-zoom.js).
@@ -217,6 +245,14 @@ export function prepareIframeForPrint(iframe: HTMLIFrameElement): void {
   iframe.style.transform = 'none';
   iframe.style.width = `${size.width}px`;
   iframe.style.height = `${size.height}px`;
+
+  // A frame even a pixel short of its content grows a scrollbar, and a scrollbar inside a frame
+  // is painted into the print exactly as it appears on screen - a grey strip down the edge of
+  // every sheet (Amal, Slack 2026-09-03). The height above is computed to match, but "computed
+  // to match" is a poor thing to hang a printout on when the cost of being wrong is a scrollbar
+  // on the paper. Nothing needs to scroll while printing regardless: the frame is laid out at
+  // the report's full height precisely so that all of it prints.
+  doc.documentElement.style.overflow = 'hidden';
 
   const repaginate = (iframe.contentWindow as RepaginatingWindow | null)?.repaginateForPrint;
   if (typeof repaginate !== 'function') {

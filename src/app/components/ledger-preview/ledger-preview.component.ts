@@ -1,8 +1,10 @@
 import { AfterViewInit, Component, ElementRef, Input, OnDestroy, ViewChild } from '@angular/core';
 import { PreviewPdfService } from '../../services/preview-pdf.service';
-import { getPageDimensionsCm, measureFrameContentHeight, prepareIframeForPrint } from '../../services/preview-page.util';
+import { getPageDimensionsCm, hasRenderedPages, measureFrameContentHeight, prepareIframeForPrint, restoreIframeAfterPrint } from '../../services/preview-page.util';
 
 const RESIZE_DEBOUNCE_MS = 200;
+// Long enough to let a rebuild finish, short enough not to show the unscaled report meanwhile.
+const REBUILD_RETRY_MS = 120;
 
 // Embeds the actual ledger report (LedgerReportComponent, at /print/ledger) inside an
 // iframe and scales that iframe to fit the screen - like how a PDF viewer auto-fits a
@@ -81,9 +83,7 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
   };
 
   private readonly onAfterPrint = (): void => {
-    const iframe = this.ledgerFrame.nativeElement;
-    iframe.style.width = '';
-    iframe.style.height = '';
+    restoreIframeAfterPrint(this.ledgerFrame.nativeElement);
     this.fitFrame();
   };
 
@@ -164,6 +164,29 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
     const wrapper = this.frameWrapper.nativeElement;
     const doc = iframe.contentDocument;
     if (!doc || !doc.documentElement) {
+      return;
+    }
+
+    // Two states this must not measure in, both of which end with the report the wrong size on
+    // screen until something else happens to fit it again.
+    //
+    // An explicit width means the frame is laid out for printing (prepareIframeForPrint sets it
+    // to the page's own width, narrower than the frame's on-screen box). Fitting against that
+    // computes a scale for a report 400px narrower than the one that comes back, and since the
+    // scale is then multiplied by the zoom factor, the result is a report LARGER than its
+    // container - spilling off the side of the dialog, which is what printing after a zoom
+    // change produced (Amal, Slack 2026-09-03). onAfterPrint clears the width and re-fits, so
+    // there is nothing to schedule here.
+    //
+    // No pages at all means the layout is mid-rebuild: it removes its pages and appends the new
+    // ones one at a time, and every zoom change and every print starts one. Measuring in that
+    // window sizes the report against an empty body.
+    if (iframe.style.width) {
+      return;
+    }
+    if (!hasRenderedPages(doc)) {
+      clearTimeout(this.resizeTimer);
+      this.resizeTimer = setTimeout(() => this.fitFrame(), REBUILD_RETRY_MS);
       return;
     }
 
