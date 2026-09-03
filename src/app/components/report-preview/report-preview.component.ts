@@ -4,8 +4,8 @@ import { ActivatedRoute } from '@angular/router';
 import { PaperSize, ReportPrintService } from '../../services/report-print.service';
 import { PreviewPdfService } from '../../services/preview-pdf.service';
 import {
-  getNaturalContentSizePx,
   getPageDimensionsCm,
+  measureFrameContentHeight,
   matchPaperSize,
   prepareIframeForPrint
 } from '../../services/preview-page.util';
@@ -257,7 +257,7 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
     // Height uses the floor-immune calculation instead (see getNaturalContentSizePx) -
     // scrollHeight bottoms out at the iframe's own fixed CSS box even when the true content
     // is shorter, which shows up as dead gray space below a short report.
-    const naturalHeight = getNaturalContentSizePx(doc)?.height ?? doc.documentElement.scrollHeight;
+    const naturalHeight = measureFrameContentHeight(iframe) ?? doc.documentElement.scrollHeight;
     if (naturalWidth === 0 || naturalHeight === 0) {
       return;
     }

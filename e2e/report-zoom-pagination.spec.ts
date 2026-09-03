@@ -95,6 +95,12 @@ const CASES: LayoutCase[] = [
   }
 ];
 
+// Each case launches a whole browser per zoom level - the zoom has to be a launch flag, there
+// being no way to change it at runtime - and five launches plus five full report renders runs to
+// around 28 seconds, close enough to the 30s default to fail on timing alone when the suite is
+// run alongside others. The work is genuinely this slow rather than stuck.
+test.describe.configure({ timeout: 120_000 });
+
 for (const layout of CASES) {
   test(`${layout.id}: paginates the same at every zoom level`, async () => {
     const results: Record<number, { perPage: number[]; worstClip: number }> = {};

@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, ElementRef, Input, OnDestroy, ViewChild } from '@angular/core';
 import { PreviewPdfService } from '../../services/preview-pdf.service';
-import { getNaturalContentSizePx, getPageDimensionsCm, prepareIframeForPrint } from '../../services/preview-page.util';
+import { getPageDimensionsCm, measureFrameContentHeight, prepareIframeForPrint } from '../../services/preview-page.util';
 
 const RESIZE_DEBOUNCE_MS = 200;
 
@@ -191,7 +191,7 @@ export class LedgerPreviewComponent implements AfterViewInit, OnDestroy {
     // even when true content is shorter. Unlike width, height has no content-rendering
     // variance to worry about (each .page's height is hard-clipped to its declared cm value),
     // so it's safe to use the exact calculation here while width stays conservative above.
-    const naturalHeight = getNaturalContentSizePx(doc)?.height ?? doc.documentElement.scrollHeight;
+    const naturalHeight = measureFrameContentHeight(iframe) ?? doc.documentElement.scrollHeight;
     if (naturalWidth === 0 || naturalHeight === 0) {
       return;
     }

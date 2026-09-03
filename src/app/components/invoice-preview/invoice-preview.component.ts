@@ -12,8 +12,8 @@ import { adoptPayloadFromFrame } from '../../services/preview-payload';
 import { InvoiceExcelService } from '../../services/invoice-excel.service';
 import { PreviewPdfService } from '../../services/preview-pdf.service';
 import {
-  getNaturalContentSizePx,
   getPageDimensionsCm,
+  measureFrameContentHeight,
   matchPaperSize,
   prepareIframeForPrint
 } from '../../services/preview-page.util';
@@ -275,7 +275,7 @@ export class InvoicePreviewComponent implements AfterViewInit, OnDestroy {
     // even when true content is shorter. Unlike width, height has no content-rendering
     // variance to worry about (each .page's height is hard-clipped to its declared cm value),
     // so it's safe to use the exact calculation here while width stays conservative above.
-    const naturalHeight = getNaturalContentSizePx(doc)?.height ?? doc.documentElement.scrollHeight;
+    const naturalHeight = measureFrameContentHeight(iframe) ?? doc.documentElement.scrollHeight;
     if (naturalWidth === 0 || naturalHeight === 0) {
       return;
     }

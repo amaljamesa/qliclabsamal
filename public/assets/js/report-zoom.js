@@ -46,6 +46,9 @@
     var isPrinting = false;
     var timer;
 
+    // Returns whatever the layout's entry point returned, so a caller that needs the new
+    // pagination in hand - prepareIframeForPrint measures the report straight afterwards - can
+    // tell a finished rebuild from one that has merely been started.
     function rerender() {
       try {
         var result = regenerate();
@@ -56,8 +59,10 @@
             console.error('Could not re-render after a zoom change:', error);
           });
         }
+        return result;
       } catch (error) {
         console.error('Could not re-render after a zoom change:', error);
+        return undefined;
       }
     }
 

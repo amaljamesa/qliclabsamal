@@ -120,6 +120,46 @@ export function getNaturalContentSizePx(doc: Document): { width: number; height:
   };
 }
 
+// The height the preview has to give the frame ON SCREEN, which is not the same number as the
+// paper height above: the layouts separate their sheets with a margin (0.5cm on these reports)
+// so the pages read as separate sheets against the grey backdrop, and that gap is part of the
+// document even though it is not part of any page.
+//
+// Leaving it out is what put a second scrollbar inside the preview (Priyanka, Slack 2026-09-03):
+// a four-page report measured 4384px of paper but stood 4460px tall, so the frame was set 76px
+// shorter than the thing inside it and the frame itself scrolled. It goes unnoticed in headless
+// Chrome, whose overlay scrollbars take no space and report clientHeight == scrollHeight - it
+// takes a real browser with classic scrollbars to see it.
+//
+// Print deliberately keeps using the paper height instead: every one of these layouts zeroes the
+// page margin under @media print, so the gaps do not exist there, and handing the print path a
+// taller box would leave a strip of nothing after the last page for the printer to honour as an
+// extra sheet.
+export function measureFrameContentHeight(iframe: HTMLIFrameElement): number | null {
+  const doc = iframe.contentDocument;
+  const paper = doc && getNaturalContentSizePx(doc);
+  if (!doc || !paper) {
+    return null;
+  }
+
+  // Shrinking the box to the paper height first is what makes the read honest. scrollHeight
+  // never reports less than the element's own box, so asking a frame that is already tall
+  // enough just gets the box size back - the very floor getNaturalContentSizePx exists to dodge.
+  // Paper height is always at or below the true extent (the extras only ever add), so measuring
+  // from there returns the document's own height.
+  //
+  // Adding up the extras instead of measuring them was the first attempt and does not hold:
+  // .page margins are only one of the sources. view-bill keeps the browser's default 8px body
+  // margin on screen (its `body { margin: 0 }` sits inside @media print), and that alone left
+  // the frame short. Whatever a layout does, the document knows its own height.
+  const previousHeight = iframe.style.height;
+  iframe.style.height = `${paper.height}px`;
+  const measured = doc.documentElement.scrollHeight;
+  iframe.style.height = previousHeight;
+
+  return Math.max(paper.height, measured);
+}
+
 // Points the printing document's own @page rule at the report's actual paper size. Without
 // this, printing falls back to whatever default the browser assumes (commonly Letter), which
 // doesn't match what the iframe's internal page-break-after:always rules assume - that
@@ -136,7 +176,10 @@ export function setPrintPageSize(dimensions: PageDimensionsCm): void {
 
 // The embedded layouts expose this once they are watching for zoom changes (report-zoom.js).
 interface RepaginatingWindow extends Window {
-  repaginateForPrint?: () => void;
+  // Returns the layout's own return value: a thenable from the layouts whose entry point is
+  // async, and nothing from the rest. That is the only signal distinguishing a rebuild that
+  // has finished from one that has merely been started.
+  repaginateForPrint?: () => unknown;
 }
 
 // Lays an embedded report out at its true size for printing, and has it re-paginate itself
@@ -181,7 +224,17 @@ export function prepareIframeForPrint(iframe: HTMLIFrameElement): void {
     // needs nothing - the size set above is all it wanted.
     return;
   }
-  repaginate();
+  const outcome = repaginate();
+
+  // An async entry point - loading-list's is `async` - has only STARTED rebuilding by the time
+  // it returns, and measuring here catches it mid-teardown: its pages are gone and the ones
+  // replacing them are not up yet. Reading that gave a one-page height for a three-page report,
+  // which would have printed a single sheet. The rebuild finishes on its own microtasks, well
+  // before the browser snapshots the document, so the height set above (measured from the pages
+  // that were up a moment ago) is both correct and the safest thing to leave in place.
+  if (outcome && typeof (outcome as PromiseLike<unknown>).then === 'function') {
+    return;
+  }
 
   const repaginated = getNaturalContentSizePx(doc);
   if (repaginated) {
