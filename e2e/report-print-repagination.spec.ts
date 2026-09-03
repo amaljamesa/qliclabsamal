@@ -118,7 +118,12 @@ test('the preview re-paginates the frame it just resized for printing', async ({
       // The frame has to be tall enough for the pages that exist AFTER re-pagination, or the
       // ones past its box are cropped out of the printed document.
       framePx: Math.round(parseFloat(frame.style.height)),
-      pagesPx: Math.round(pages.length * 29 * (96 / 2.54)),
+      // Read from the layout's own declaration rather than stated here: the reports print on
+      // real A4 (see print-sheet-alignment.spec.ts for why that matters), and a hard-coded
+      // height would assert this test's assumption instead of the component's behaviour.
+      pagesPx: Math.round(
+        pages.length * parseFloat((pages[0] as HTMLElement).dataset['pageHCm']!) * (96 / 2.54)
+      ),
       worstOverlap: worst((table, footer) => table.bottom - footer.top, '.Dfoot'),
       worstClip: Math.max(...pages.map((pg) =>
         pg.querySelector('#maintable')!.getBoundingClientRect().bottom - pg.getBoundingClientRect().bottom))
