@@ -68,6 +68,52 @@ function loadingListPayload(count: number) {
   };
 }
 
+const BE_DETAILS = {
+  beb_name: COMPANY.be_name, beb_addline1: COMPANY.be_addline1, beb_addline2: COMPANY.be_addline2,
+  beb_addline3: '', pin: COMPANY.be_pin, phone: COMPANY.be_phone, beb_gstin: COMPANY.be_gstin
+};
+
+function viewBillPayload(count: number) {
+  return {
+    heading: { name: 'View Bills' },
+    be_details: BE_DETAILS,
+    master_details: { tax_date: '01-04-2026 to 30-06-2026', consolidate_check: 2 },
+    items: Array.from({ length: count }, (_, i) => {
+      const basic = 1000 + i * 87.5;
+      return {
+        pmt_mid: 2328 + i, type: 'Purchase', date: '01-06-2026',
+        reference: `P/26/${String(60 + i).padStart(5, '0')}`,
+        account: 'JABSONS FOODS PVT LTD', account_name: 'JABSONS FOODS PVT LTD',
+        products: i % 4 === 0 ? `${LONG_NAME} ${i}` : `MDH GARAM MASALA ${i}`,
+        mrp: '70.000', qty: '24.000', rate: basic.toFixed(2),
+        disc1: 0, disc1_amt: 0, disc2: 0, disc2_amt: 0, basic, tax_per: 18,
+        taxes: Number((basic * 0.18).toFixed(2)), total: Number((basic * 1.18).toFixed(2))
+      };
+    })
+  };
+}
+
+function gstSalePayload(count: number) {
+  return {
+    columns: [], heading: { name: 'Sales Register' },
+    be_details: BE_DETAILS,
+    master_details: { tax_date: '01-04-2026 to 30-06-2026' },
+    items: Array.from({ length: count }, (_, i) => {
+      const basic = Number((900 + i * 412.75).toFixed(2));
+      return {
+        pmt_mid: String(50824 + i), inouts: 'Outward', pstt_name: 'Sales', psttl2_name: 'Local Sales',
+        pmt_doc_date: '2026-06-01', reference: `S/26/${String(47 + i).padStart(5, '0')}`,
+        paidtopay: 'Credit',
+        account_name: i % 4 === 0 ? `${LONG_NAME} ${i}` : `PINNACLE GLOBE ${i}`,
+        GSTIN: '29ABCFP4059K1ZT', B2BB2C: 'B2B', gst_region: 'Local', gst_supply_type: 'Regular',
+        basic_tot: basic, taxes_tot: Number((basic * 0.18).toFixed(2)), round_off: 0,
+        total_value: Number((basic * 1.18).toFixed(2)), ExemptedBasic: 0,
+        TaxableGST18: basic, TaxGST18: Number((basic * 0.18).toFixed(2))
+      };
+    })
+  };
+}
+
 interface LayoutCase {
   id: string;
   url: string;
@@ -77,11 +123,12 @@ interface LayoutCase {
   payload: unknown;
 }
 
-// Only the two layouts whose pinned line box was verified to reproduce their existing 100%
-// rendering exactly. gst-sale and view-bill have the same defect and are not covered here: their
-// cells mix font sizes, so a single pinned value shifted how many rows fit at 100% (view-bill
-// 38 to 40, gst-sale 26 to 22) - a change to every printed report that needs its own measurement
-// per cell group rather than being tacked onto this fix.
+// Every report layout that paginates by measuring its own rows. All four had the same defect and
+// all four are now pinned against it: a line box left to `normal`, and border-spacing, are both
+// rounded to device pixels, so both moved with the zoom level and took the page breaks with them.
+//
+// The two invoice-shaped layouts are deliberately absent: the journal voucher prints two fixed
+// rows and never paginates, and the invoice designs measure nothing per row.
 const CASES: LayoutCase[] = [
   {
     id: 'brief-sale', url: '/print/brief-sale/view/brief-sale.html?message=1',
@@ -92,6 +139,16 @@ const CASES: LayoutCase[] = [
     id: 'loading-list', url: '/print/loading-list/view/loading-list.html?message=1',
     storageKey: 'loadingData', storage: 'local', table: '.body-table',
     payload: loadingListPayload(120)
+  },
+  {
+    id: 'view-bill', url: '/print/view-bill/view/view-bill.html?message=1',
+    storageKey: 'loadingDataViewBills', storage: 'session', table: '#bodytable',
+    payload: viewBillPayload(180)
+  },
+  {
+    id: 'gst-sale', url: '/print/gst-sale/view/gst-sale.html?message=1',
+    storageKey: 'temp_tax_register', storage: 'local', table: '#bodytable',
+    payload: gstSalePayload(92)
   }
 ];
 

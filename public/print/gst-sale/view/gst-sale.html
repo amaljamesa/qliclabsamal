@@ -115,6 +115,30 @@
             overflow-wrap: anywhere;
             word-break: break-word;
         }
+
+        /* Two quantities pinned so that pagination cannot move with the browser's zoom, the same
+           pair that was pinned in the brief sale layout.
+
+           A line box left to `normal` is derived from the font's metrics and rounded to device
+           pixels, so the same row measured 16px at 75% zoom, 15.56px at 90% and 15px at 100%.
+           11.5px is what a line actually occupies here at 100% - derived from a cell that wrapped,
+           as (height - padding - border) / lines - so pinning it changes nothing about how this
+           report renders today and only stops the answer moving.
+
+           border-spacing is the larger of the two and the reason pinning the line box alone was
+           not enough: it is rounded the same way (2px at 100%, 1.33px at 75%, 1.11px at 90%) and
+           it sits between every pair of rows AND columns, so it moved both axes at once. Zero has
+           nothing to round. Rows sit 2px tighter as a result, which is what takes a page from
+           26 rows to 26 - fewer sheets for the same report, and the same trade already
+           made in brief-sale. */
+        #bodytable td,
+        #bodytable th {
+            line-height: 11.5px;
+        }
+
+        #bodytable {
+            border-spacing: 0;
+        }
     </style>
 </head>
 
