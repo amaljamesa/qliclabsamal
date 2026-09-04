@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { applyPaperSize, HARDCODED_BULK_TEST_INVOICE, PaperSize } from './invoice-print.service';
+import { applyPaperSize, CARRIED_TOTAL_DEMO_INVOICE, HARDCODED_BULK_TEST_INVOICE, PaperSize } from './invoice-print.service';
 import { PreviewDialogService } from './preview-dialog.service';
 import { getPreviewPayload, setPreviewPayload } from './preview-payload';
 
@@ -32,7 +32,12 @@ const REPORT_TARGETS: Record<string, ReportTarget> = {
   // the HTML design differs between them.
   'invoice-d2': { key: 'temp_inv_data', label: 'Invoice Design 2', paperSizes: ['a4', 'a5'] },
   'invoice-d3': { key: 'temp_inv_data', label: 'Invoice Design 3', paperSizes: ['a4', 'a5'] },
-  'invoice-d4': { key: 'temp_inv_data', label: 'Invoice Design 4', paperSizes: ['a4', 'a5'] }
+  'invoice-d4': { key: 'temp_inv_data', label: 'Invoice Design 4', paperSizes: ['a4', 'a5'] },
+  // The main invoice layout, loaded with enough lines that the total is carried onto a page of
+  // its own. Listed here because nothing else in the app reaches that page: the invoice preview
+  // and the bulk print both show a sample that fits on one sheet, so the padding that page gets
+  // could only be seen from a test fixture.
+  'invoice-carried-total': { key: 'temp_inv_data', label: 'Invoice - total on its own page' }
 };
 
 export const REPORT_LAYOUTS = Object.entries(REPORT_TARGETS).map(([id, target]) => ({
@@ -343,6 +348,8 @@ const SAMPLE_REPORT_DATA: Record<string, unknown> = {
     master_details: { tax_date: '01-04-2026 to 30-06-2026' },
     items: buildGstSaleRows(55)
   },
+
+  'invoice-carried-total': { invoices: [CARRIED_TOTAL_DEMO_INVOICE] },
 
   'brief-sale': {
     other: {

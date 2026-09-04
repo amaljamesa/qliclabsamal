@@ -31,7 +31,10 @@ const REPORT_SOURCES: Record<string, string> = {
   // payload's others.page_size, which is exactly why nothing about the size is stated here.
   'invoice-d2': '/print/invoice-d2/view/invoice-d2.html?message=1',
   'invoice-d3': '/print/invoice-d3/view/invoice-d3.html?message=1',
-  'invoice-d4': '/print/invoice-d4/view/invoice-d4.html?message=1'
+  'invoice-d4': '/print/invoice-d4/view/invoice-d4.html?message=1',
+  // The main invoice layout rather than one of the alternative designs - the carried-total page
+  // is handled there.
+  'invoice-carried-total': '/print/invoice/view/invoice.html?message=1'
 };
 
 // Generic responsive preview wrapper, shared by every report layout listed above. Embeds a

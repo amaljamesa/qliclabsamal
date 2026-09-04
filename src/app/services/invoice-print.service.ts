@@ -632,3 +632,22 @@ export const HARDCODED_BULK_TEST_INVOICE = {
     { cess_tax_rate: '0%', taxable_value: '51.34', state_tax_rate: '2.5%', cess_tax_amount: '0.00', central_tax_rate: '2.5%', state_tax_amount: '1.28', total_tax_amount: '2.56', central_tax_amount: '1.28', integrated_tax_rate: '5%', integrated_tax_amount: '2.56' }
   ]
 };
+
+// An invoice with enough lines to fill a sheet and leave the total with nowhere to go, so it is
+// carried onto a second page on its own. That page gets padded out - the table running the height
+// of the sheet with the blank in the middle and the total sitting on the footer - and this demo is
+// what makes that case reachable from the app rather than only from a test fixture.
+//
+// Same reasoning as MULTIPAGE_DEMO_PRODUCTS in data.service.ts: the only way to exercise, or show
+// anyone, multi-page output is data with enough lines to overflow a sheet. 33 is the count that
+// leaves the total alone - fewer and it fits under the last item, more and other rows follow it
+// over, at which point the page is no longer the one being demonstrated.
+export const CARRIED_TOTAL_DEMO_INVOICE = {
+  ...HARDCODED_BULK_TEST_INVOICE,
+  items: Array.from({ length: 33 }, (_, index) => ({
+    ...HARDCODED_BULK_TEST_INVOICE.items[index % HARDCODED_BULK_TEST_INVOICE.items.length],
+    sl_no: index + 1
+  })),
+  master_details: { ...HARDCODED_BULK_TEST_INVOICE.master_details, inv_no: 'RSP-S-26-00033' }
+};
+
