@@ -34,7 +34,8 @@ const REPORT_SOURCES: Record<string, string> = {
   'invoice-d4': '/print/invoice-d4/view/invoice-d4.html?message=1',
   // The main invoice layout rather than one of the alternative designs - the carried-total page
   // is handled there.
-  'invoice-carried-total': '/print/invoice/view/invoice.html?message=1'
+  'invoice-carried-total': '/print/invoice/view/invoice.html?message=1',
+  'invoice-carried-total-hsn': '/print/invoice/view/invoice.html?message=1'
 };
 
 // Generic responsive preview wrapper, shared by every report layout listed above. Embeds a

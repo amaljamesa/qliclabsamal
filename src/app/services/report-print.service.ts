@@ -37,7 +37,11 @@ const REPORT_TARGETS: Record<string, ReportTarget> = {
   // its own. Listed here because nothing else in the app reaches that page: the invoice preview
   // and the bulk print both show a sample that fits on one sheet, so the padding that page gets
   // could only be seen from a test fixture.
-  'invoice-carried-total': { key: 'temp_inv_data', label: 'Invoice - total on its own page' }
+  'invoice-carried-total': { key: 'temp_inv_data', label: 'Invoice - total on its own page' },
+  // The same invoice with the HSN summary switched on, so the two can be shown side by side.
+  // The summary follows the total over and fills most of that page, which is a different picture
+  // from the total sitting alone - both are worth being able to point at.
+  'invoice-carried-total-hsn': { key: 'temp_inv_data', label: 'Invoice - total on its own page (with HSN)' }
 };
 
 export const REPORT_LAYOUTS = Object.entries(REPORT_TARGETS).map(([id, target]) => ({
@@ -350,6 +354,13 @@ const SAMPLE_REPORT_DATA: Record<string, unknown> = {
   },
 
   'invoice-carried-total': { invoices: [CARRIED_TOTAL_DEMO_INVOICE] },
+
+  'invoice-carried-total-hsn': {
+    invoices: [{
+      ...CARRIED_TOTAL_DEMO_INVOICE,
+      config: { ...CARRIED_TOTAL_DEMO_INVOICE.config, print_hsn_summary: true }
+    }]
+  },
 
   'brief-sale': {
     other: {
