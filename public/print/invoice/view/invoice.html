@@ -397,6 +397,10 @@
             let adjustedMaxHeight = 0;
             const middleGap = cmToPx(pageSize == 'a4' ? 0.05 : 0.05);
             let hsn = false;
+            // Set when the total row did not fit under the last item and was carried onto a page
+            // of its own. That page then has to be padded out like any other - see
+            // fillCarriedTotalPage.
+            let totalCarriedToNewPage = false;
 
             // Base proportions for each possible column. Actual invoices only ever show a
             // subset of these (product_columns is configurable per business/invoice), so
@@ -816,7 +820,10 @@
                     ({ bodySection, bodyTable } = createNewPageWithHeaderFooter());
                     tbody = bodyTable.querySelector('tbody');
 
-                    // FIX: No filler rows â content sits at top naturally
+                    // The filler is not added here because what follows the total on this page -
+                    // the amount in words, the HSN summary, the terms - is not known yet. It goes
+                    // in at the end instead, once the page is complete: see fillCarriedTotalPage.
+                    totalCarriedToNewPage = true;
                     currentHeight = 0;
 
                     tbody.appendChild(totalRow);
@@ -1502,6 +1509,15 @@
                         let pageNum = i - copyStartIndex + 1;
                         addSectionToPage(pg, generateFooterSection, jsonData, jsonData.others, pageNum);
                     }
+                    pinFooterToPageBottom(pg);
+                }
+
+                // The page the total was carried onto is padded out so it reads like any other:
+                // the table running the height of the sheet with the blank in the middle, and the
+                // total sitting on the footer at the bottom (Priyanka, 2026-09-03). Done after the
+                // footers exist, because the space to fill is the space above one.
+                if (totalCarriedToNewPage) {
+                    fillCarriedTotalPage(allPages[allPages.length - 1]);
                 }
 
                 // Cap body sections so they don't extend behind footer (only this copy's pages)
@@ -1557,6 +1573,74 @@
                         pg.appendChild(wrapper);
                     }
                 }
+            }
+
+
+            // Pushes the footer to the foot of the sheet.
+            //
+            // generateFooterSection already asks for this with margin-top:auto, but it sets it on
+            // .footer-wrapper, and addSectionToPage drops every section inside an anonymous div -
+            // so the auto margin sat on a child of the flex item rather than on the flex item
+            // itself and did nothing. On a full page that went unnoticed, the body reaching far
+            // enough down that the footer landed near the bottom anyway. On a short last page it
+            // left the footer stranded a third of the way down the sheet with the rest blank.
+            function pinFooterToPageBottom(pg) {
+                let wrapper = pg.querySelector('.footer-wrapper');
+                if (!wrapper) return;
+                let flexItem = wrapper.parentElement;
+                if (flexItem && flexItem.parentElement === pg) {
+                    flexItem.style.marginTop = 'auto';
+                }
+            }
+
+            // Fills the gap above the total on a page the total was carried onto, with a single
+            // bordered row, so the table's rules run down the sheet the way they do when a short
+            // invoice leaves blank space between its items and its total.
+            //
+            // Measured against the footer rather than computed from the running height: by this
+            // point the page is finished and the footer is where it will print, so the gap is
+            // simply what is left between the two.
+            function fillCarriedTotalPage(pg) {
+                if (!pg) return;
+                let table = pg.querySelector('.body-table');
+                let tbody = table ? table.querySelector('tbody') : null;
+                let footer = pg.querySelector('.footer-wrapper');
+                if (!table || !tbody || !footer || !tbody.firstElementChild) return;
+
+                // Sized from the page's own budget rather than the footer's rendered top. The
+                // footer is pinned with an auto margin, so the space between it and the table is
+                // free space the footer does not occupy - filling all of it pushes the total
+                // height past the sheet and trips the shrink-to-fit pass, which then scales the
+                // whole page down. What is actually free is the sheet less its padding and less
+                // what the sections already take, measured the same way that pass measures it.
+                let pageHeightPx = pageSize == 'a4' ? cmToPx(29.7) : cmToPx(21);
+                let availableHeight = pageHeightPx - cmToPx(0.53 + 0.15);
+                let usedHeight = 0;
+                Array.from(pg.children).forEach(function (child) {
+                    if (child.classList.contains('imgwatermark') || child.classList.contains('watermark')) return;
+                    usedHeight += getElHeight(child);
+                });
+
+                let gap = availableHeight - usedHeight - middleGap;
+                if (gap <= 2) return;
+
+                // One cell per column, bordered left and right exactly as the empty rows in
+                // renderTaxSplitUp are - a single colspan cell would leave the blank area with an
+                // outer box and no column rules running through it, which is not what the blank
+                // between items and total looks like on a page that fits.
+                let spacerRow = document.createElement('tr');
+                spacerRow.className = 'empty-row';
+                product_columns.forEach(function () {
+                    let td = document.createElement('td');
+                    td.style.borderTop = 'none';
+                    td.style.borderBottom = 'none';
+                    td.style.borderLeft = '1px solid black';
+                    td.style.borderRight = '1px solid black';
+                    td.style.height = gap + 'px';
+                    td.innerHTML = '';
+                    spacerRow.appendChild(td);
+                });
+                tbody.insertBefore(spacerRow, tbody.firstElementChild);
             }
 
             function appendEmptyRowsToTaxSplitUp(remainingHeight) {
