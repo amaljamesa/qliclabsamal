@@ -648,6 +648,12 @@ export const CARRIED_TOTAL_DEMO_INVOICE = {
     ...HARDCODED_BULK_TEST_INVOICE.items[index % HARDCODED_BULK_TEST_INVOICE.items.length],
     sl_no: index + 1
   })),
+  // Without the HSN summary, which is the condition the case was reported under (Priyanka,
+  // 2026-09-04: "if just total goes to next page WITHOUT hsn summary"). It matters to the demo:
+  // with the summary switched on it follows the total over and fills most of the page, so the
+  // blank the fix produces is a few centimetres and easy to miss. Without it the total is alone
+  // on the sheet and the padding is the whole page.
+  config: { ...HARDCODED_BULK_TEST_INVOICE.config, print_hsn_summary: false },
   master_details: { ...HARDCODED_BULK_TEST_INVOICE.master_details, inv_no: 'RSP-S-26-00033' }
 };
 
