@@ -124,6 +124,19 @@
         .body-table { width: 100%; }
         .body-table th, .body-table td { text-align: center; vertical-align: top; }
 
+        /* The line box is pinned rather than left to `normal`, which is what stops a row's height
+           moving with the browser's zoom. Left to itself Chrome derives it from the font's own
+           metrics and rounds to device pixels, so the same row measured 16.5px at 100% zoom and
+           15.87px at 90% - and since the rows are budgeted against a fixed page, a 90% preview
+           put 51 lines on the first sheet where 100% puts 48. The pagination is decided from
+           those measurements, so the sheet then had more on it than the budget had allowed for
+           and the footer was pushed off the bottom, taking the date and page number with it
+           (Priyanka, 2026-09-08).
+           14px is exactly what `normal` already computes to here at 100%, so nothing about the
+           printed page changes - it only stops the answer moving when someone zooms. Every cell
+           in this table is 12px, so one value covers them. */
+        .body-table th, .body-table td { line-height: 14px; }
+
         /* Built incrementally, one row at a time, with per-row height measurements used to
            decide page breaks - table-layout:auto (the default) would recalculate column
            widths from all rows collectively as they're added, going stale mid-construction.
