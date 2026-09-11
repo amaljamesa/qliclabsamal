@@ -639,12 +639,15 @@ export const HARDCODED_BULK_TEST_INVOICE = {
 // what makes that case reachable from the app rather than only from a test fixture.
 //
 // Same reasoning as MULTIPAGE_DEMO_PRODUCTS in data.service.ts: the only way to exercise, or show
-// anyone, multi-page output is data with enough lines to overflow a sheet. 33 is the count that
+// anyone, multi-page output is data with enough lines to overflow a sheet. 27 is the count that
 // leaves the total alone - fewer and it fits under the last item, more and other rows follow it
-// over, at which point the page is no longer the one being demonstrated.
+// over, at which point the page is no longer the one being demonstrated. It was 33 until the
+// columns were resolved in pixels rather than percentages (getColumnWidth in the layout), which
+// changed how the text wraps and so how many lines fit on a sheet; the invoice number is just a
+// label and does not track the count.
 export const CARRIED_TOTAL_DEMO_INVOICE = {
   ...HARDCODED_BULK_TEST_INVOICE,
-  items: Array.from({ length: 33 }, (_, index) => ({
+  items: Array.from({ length: 27 }, (_, index) => ({
     ...HARDCODED_BULK_TEST_INVOICE.items[index % HARDCODED_BULK_TEST_INVOICE.items.length],
     sl_no: index + 1
   })),

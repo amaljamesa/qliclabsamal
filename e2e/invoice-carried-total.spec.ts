@@ -18,8 +18,10 @@ import fs from 'fs';
 const DIR = 'C:/Users/DELLLA~1/AppData/Local/Temp/claude/d--Qliclabs/fdeac636-5356-4e46-97af-283e1a94365e/scratchpad';
 const INVOICE = JSON.parse(fs.readFileSync(`${DIR}/invoice.json`, 'utf8'));
 
-// 33 items is the count that pushes the total, and nothing else, onto a second page.
-const ITEMS_THAT_CARRY_THE_TOTAL = 33;
+// The count that pushes the total, and nothing else, onto a second page. It was 33 until the
+// columns were resolved in pixels rather than percentages, which changed how the text wraps and
+// so how many lines fit on a sheet.
+const ITEMS_THAT_CARRY_THE_TOTAL = 27;
 
 function payload(itemCount: number) {
   return {

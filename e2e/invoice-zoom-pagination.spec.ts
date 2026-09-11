@@ -22,6 +22,7 @@ interface Measurement {
   perPage: number[];
   worstFooterPastSheet: number;
   pagesMissingDateRow: number;
+  columnWidths: number[];
 }
 
 async function measureAtZoom(zoom: number): Promise<Measurement> {
@@ -51,10 +52,14 @@ async function measureAtZoom(zoom: number): Promise<Measurement> {
         if (!footer) continue;
         worst = Math.max(worst, footer.getBoundingClientRect().bottom - pg.getBoundingClientRect().bottom);
       }
+      const table = pages[0].querySelector('.body-table') as HTMLElement;
       return {
         perPage: pages.map((pg) => pg.querySelectorAll('.body-table tbody tr').length),
         worstFooterPastSheet: Math.round(worst * 10) / 10,
-        pagesMissingDateRow: missing
+        pagesMissingDateRow: missing,
+        columnWidths: Array.from(table.rows[0].cells).map(
+          (cell) => Math.round((cell as HTMLElement).getBoundingClientRect().width * 100) / 100
+        )
       };
     });
   } finally {
@@ -88,4 +93,31 @@ test('the invoice puts the same rows on a sheet at every zoom', async () => {
       Object.fromEntries(ZOOMS.map((z, i) => [`${z * 100}%`, firstSheetCounts[i]]))
     )}`
   ).toBeLessThanOrEqual(1);
+});
+
+// The columns have to come out the same width at every zoom too. They were declared as
+// percentages, which are resolved against the table's used width and rounded to device pixels, so
+// they shifted as the zoom moved - the description column measured 494.91px at 100% and 493.96px
+// at 75%. Under a tenth of a percent, but a figure that only just fits its column is decided by
+// exactly that: a quantity broke into "1157" and "6", and the amount column lost the end of
+// "232387.00" (Priyanka, 2026-09-09). They are computed in pixels from the page's own width now.
+test('the invoice columns are the same width at every zoom', async () => {
+  const widths = new Map<number, number[]>();
+  for (const zoom of ZOOMS) {
+    widths.set(zoom, (await measureAtZoom(zoom)).columnWidths);
+  }
+
+  const reference = widths.get(1)!;
+  expect(reference.length, 'the fixture should have several columns').toBeGreaterThan(1);
+
+  for (const [zoom, columns] of widths) {
+    expect(columns.length, `${zoom * 100}%: same number of columns`).toBe(reference.length);
+    columns.forEach((width, index) => {
+      // A hundredth of a pixel is measurement noise; a tenth is enough to move a wrap.
+      expect(
+        Math.abs(width - reference[index]),
+        `${zoom * 100}%: column ${index} was ${width}px against ${reference[index]}px at 100%`
+      ).toBeLessThanOrEqual(0.1);
+    });
+  }
 });

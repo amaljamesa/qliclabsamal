@@ -137,6 +137,12 @@
            in this table is 12px, so one value covers them. */
         .body-table th, .body-table td { line-height: 14px; }
 
+        /* The widths set on these cells are pixel widths (see getColumnWidth), and they are meant
+           as the whole column - border-box makes the padding and the cell borders count inside
+           that figure rather than adding to it. Without it the columns sum past the page and the
+           table renders wider than the sheet it is laid out for. */
+        .body-table th, .body-table td { box-sizing: border-box; }
+
         /* Built incrementally, one row at a time, with per-row height measurements used to
            decide page breaks - table-layout:auto (the default) would recalculate column
            widths from all rows collectively as they're added, going stale mid-construction.
@@ -461,7 +467,28 @@
                 return style ? parseFloat(style.width) : 100 / product_columns.length;
             };
             const totalBaseWidth = product_columns.reduce((sum, col) => sum + columnBaseWidth(col.name), 0);
-            const getColumnWidthPercent = (name) => (columnBaseWidth(name) / totalBaseWidth * 100) + '%';
+
+            // The share above, resolved to PIXELS against the page's own declared width rather
+            // than handed to the browser as a percentage.
+            //
+            // A percentage is resolved against the table's used width, and that resolution is
+            // rounded to device pixels - which move with the browser's zoom. Measured on the
+            // 68-line demo, the description column came out 494.91px at 100% zoom and 493.96px at
+            // 75%, and the columns either side moved with it. Under a tenth of a percent, but a
+            // cell whose content only just fits is decided by exactly that: the same quantity
+            // sat on one line at one zoom and broke into "1157" and "6" at another, and the
+            // amount column lost the end of its figure (Priyanka, 2026-09-09).
+            //
+            // The page is a fixed 21cm (14.8 for A5) less its 0.53cm side padding, and a CSS
+            // centimetre is a fixed number of CSS pixels, so this width is the same at every zoom
+            // and so are the columns computed from it.
+            // The CSS specification's fixed ratio, not getPxPerCm() - that measures a rendered
+            // 10cm box, and the measurement is itself rounded to device pixels, which is the
+            // very thing being designed out here.
+            const CSS_PX_PER_CM = 96 / 2.54;
+            const bodyTableWidthPx = () => ((pageSize == 'a4' ? 21 : 14.8) - 0.53 * 2) * CSS_PX_PER_CM;
+            const getColumnWidth = (name) =>
+                (columnBaseWidth(name) / totalBaseWidth * bodyTableWidthPx()) + 'px';
 
             function setupBodySection() {
                 if (currentPageCount != 1) {
@@ -494,7 +521,7 @@
                         if (column.name == "sl_no") {
                             column.display_name = "SL";
                         }
-                        th.style.width = getColumnWidthPercent(column.name);
+                        th.style.width = getColumnWidth(column.name);
                         if (column.name == "marks_nos_container" || column.name == "no_pkgs") {
                             th.style.maxWidth = '1.85cm';
                         }
@@ -543,7 +570,7 @@
                             td.style.fontSize = '10.5px';
                         }
                         const styles = columnStyles[column.name] || {};
-                        td.style.width = getColumnWidthPercent(column.name);
+                        td.style.width = getColumnWidth(column.name);
                         td.style.textAlign = styles.textAlign;
                         td.style.paddingRight = styles.paddingRight;
                         td.style.whiteSpace = styles.whiteSpace;
