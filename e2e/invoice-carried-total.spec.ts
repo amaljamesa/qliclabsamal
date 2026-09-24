@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import fs from 'fs';
+import path from 'path';
 
 // When the total row does not fit under the last item it is carried onto a page of its own, and
 // that page used to print as a stub: the total at the top, the footer stranded a third of the way
@@ -15,8 +16,12 @@ import fs from 'fs';
 // What it should look like is what a short invoice already looks like: the table running the
 // height of the sheet with the blank in the middle, and the total sitting on the footer.
 
-const DIR = 'C:/Users/DELLLA~1/AppData/Local/Temp/claude/d--Qliclabs/fdeac636-5356-4e46-97af-283e1a94365e/scratchpad';
-const INVOICE = JSON.parse(fs.readFileSync(`${DIR}/invoice.json`, 'utf8'));
+// Checked in alongside the spec rather than generated into a temp folder: a fixture only this
+// machine can see makes the test unrunnable for everyone else. It is the same payload the app
+// ships as HARDCODED_BULK_TEST_INVOICE.
+const INVOICE = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'fixtures', 'invoice-sample.json'), 'utf8')
+);
 
 // The count that pushes the total, and nothing else, onto a second page. It was 33 until the
 // columns were resolved in pixels rather than percentages, which changed how the text wraps and

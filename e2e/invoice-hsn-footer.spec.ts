@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import fs from 'fs';
+import path from 'path';
 
 // The HSN tax summary was printing underneath the footer, and being clipped away by the overflow
 // cap that guards it - "HSN summary hidden under footer" (Urgent, 2026-09-03). The footer's height
@@ -16,10 +17,12 @@ import fs from 'fs';
 // the fault never appeared here. The route override below stands in for the real one by rendering
 // NOTHING, which is the same thing the real library looks like at probe time.
 
-const INVOICE = JSON.parse(fs.readFileSync(
-  'C:/Users/DELLLA~1/AppData/Local/Temp/claude/d--Qliclabs/fdeac636-5356-4e46-97af-283e1a94365e/scratchpad/invoice.json',
-  'utf8'
-));
+// Checked in alongside the spec rather than generated into a temp folder: a fixture only this
+// machine can see makes the test unrunnable for everyone else. It is the same payload the app
+// ships as HARDCODED_BULK_TEST_INVOICE.
+const INVOICE = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'fixtures', 'invoice-sample.json'), 'utf8')
+);
 
 const UPI = 'upi://pay?pa=sunshine@hdfcbank&pn=Sunshine%20Limited';
 
