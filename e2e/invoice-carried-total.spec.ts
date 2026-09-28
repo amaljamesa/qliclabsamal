@@ -26,9 +26,9 @@ const INVOICE = JSON.parse(
 // The count that pushes the total, and nothing else, onto a second page. It moves whenever the
 // columns do, because the description column's width decides how many lines each row takes: 33
 // when the columns were percentages, 27 once they were resolved in pixels, 38 once they were
-// sized to their content, and 37 now the page reserves more room at its foot for the footer's
-// last line.
-const ITEMS_THAT_CARRY_THE_TOTAL = 37;
+// sized to their content, and 36 now the page reserves 0.8cm at its foot so the footer's last
+// line survives the sheet cut.
+const ITEMS_THAT_CARRY_THE_TOTAL = 36;
 
 function payload(itemCount: number) {
   return {
@@ -86,12 +86,12 @@ test('the carried total sits on the footer with the blank above it', async ({ pa
 
   // The footer belongs at the foot of the sheet. It used to sit ~845px above it.
   //
-  // The allowance tracks .page's bottom padding, which is deliberately 0.4cm (~15px): the
+  // The allowance tracks .page's bottom padding, which is deliberately 0.8cm (~30px): the
   // footer's last line - the date and page number - was printing 5.66px from where the sheet is
   // cut, and losing that race on the second page of a real print. "At the bottom" means resting
   // on that padding, not flush against the paper's edge.
   expect(last.footerBottomGap, 'the footer must print at the bottom of the sheet')
-    .toBeLessThanOrEqual(18);
+    .toBeLessThanOrEqual(34);
 
   // And the total immediately above the footer rather than at the top of the page.
   expect(last.totalToFooterGap, 'the total must end up against the footer')
@@ -113,6 +113,6 @@ test('a page that ends normally is left alone', async ({ page }) => {
   const last = await page.evaluate(readLastPage);
 
   expect(last.pageCount).toBe(1);
-  expect(last.footerBottomGap, 'the footer still prints at the bottom').toBeLessThanOrEqual(18);
+  expect(last.footerBottomGap, 'the footer still prints at the bottom').toBeLessThanOrEqual(34);
   expect(last.scaled, 'a page that already fits must not be scaled').toBe(false);
 });

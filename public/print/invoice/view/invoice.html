@@ -50,9 +50,11 @@
                difference between what this layout lays out and what the print engine cuts has
                doubled by then - which is why the date went missing from the second page while the
                first kept it (Priyanka, 2026-09-28, at 90% zoom with Ctrl+P).
-               0.4cm gives that line ~15px of room instead. It costs 0.25cm of usable height,
-               which is under a fifth of a row. */
-            padding: 0.53cm 0.53cm 0.4cm 0.53cm;
+               0.4cm was the first attempt and was not enough - the line came back onto the sheet
+               but printed with its bottom sliced off, so the cut was landing inside it. 0.8cm
+               gives it ~30px, which is past both the 3-5mm a printer typically cannot reach and
+               whatever this is. It costs 0.65cm of usable height, about half a row. */
+            padding: 0.53cm 0.53cm 0.8cm 0.53cm;
             box-shadow: 0 0 0.5cm rgba(0, 0, 0, 0.5);
             display: flex;
             flex-direction: column;
@@ -273,7 +275,7 @@
         // three separate places, and raising the bottom padding to give the footer's last line
         // room to print left two of them behind: the page that carries a total on its own is
         // padded out to a stale height, so its footer sat 7px lower than the pages either side.
-        const PAGE_VERTICAL_PADDING_CM = 0.53 + 0.4;
+        const PAGE_VERTICAL_PADDING_CM = 0.53 + 0.8;
 
         function getPageContentHeightPx() {
             let heightCm = pageSize == 'a4' ? 29.7 : 21;

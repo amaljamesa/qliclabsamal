@@ -647,13 +647,13 @@ export const HARDCODED_BULK_TEST_INVOICE = {
 // label and does not track the count.
 export const CARRIED_TOTAL_DEMO_INVOICE = {
   ...HARDCODED_BULK_TEST_INVOICE,
-  // 37 is the count that leaves the total alone on the second page: fewer and it fits under the
+  // 36 is the count that leaves the total alone on the second page: fewer and it fits under the
   // last item, more and other rows follow it over, at which point the page is no longer the one
   // being demonstrated. It moves whenever the columns do, since their widths decide how many
   // lines a description takes, and with how much room the page keeps at its foot: it was 33 when
-  // the columns were percentages, 27 when they were resolved in pixels, and 38 before the bottom
-  // padding was raised to keep the footer's last line clear of the sheet cut.
-  items: Array.from({ length: 37 }, (_, index) => ({
+  // the columns were percentages, 27 when they were resolved in pixels, and 38 before the page's
+  // bottom padding was raised to keep the footer's last line clear of the sheet cut.
+  items: Array.from({ length: 36 }, (_, index) => ({
     ...HARDCODED_BULK_TEST_INVOICE.items[index % HARDCODED_BULK_TEST_INVOICE.items.length],
     sl_no: index + 1
   })),
