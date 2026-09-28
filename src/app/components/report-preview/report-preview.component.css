@@ -191,3 +191,21 @@
     display: none !important;
   }
 }
+
+/* Sits alongside the paper-size switch in the toolbar, so it reads as another render option
+   rather than a form control that has wandered in. */
+.hsn-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #1e293b;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.hsn-switch input {
+  margin: 0;
+  cursor: pointer;
+}

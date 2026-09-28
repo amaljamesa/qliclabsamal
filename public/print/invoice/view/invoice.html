@@ -487,8 +487,104 @@
             // very thing being designed out here.
             const CSS_PX_PER_CM = 96 / 2.54;
             const bodyTableWidthPx = () => ((pageSize == 'a4' ? 21 : 14.8) - 0.53 * 2) * CSS_PX_PER_CM;
-            const getColumnWidth = (name) =>
-                (columnBaseWidth(name) / totalBaseWidth * bodyTableWidthPx()) + 'px';
+
+            // What each column actually needs, measured, rather than the share it was declared.
+            //
+            // The shares above are a fixed table: hsn 4%, tax_rate 4%, sl_no 2%. They are fine
+            // while an invoice shows six or seven columns, and wrong as soon as it shows ten -
+            // every share is normalised against the total, so each column gets thinner as columns
+            // are added, while what has to fit inside it does not. On an invoice with every
+            // optional column turned on, 4% of the table is 29.8px and an eight-digit HSN code is
+            // 48px, so the code ran into the MRP beside it and the headers "HSN/SAC" and "MRP"
+            // ran together into one word. Reported from a customer's invoice, and reproducible on
+            // the "Invoice - all fields" sample (Priyanka, 2026-09-24).
+            //
+            // So each column is measured against its own header and its own widest value, and
+            // given at least that. Measured with canvas rather than by rendering, for the reason
+            // the row heights are: canvas metrics are the same at every zoom, a rendered
+            // measurement is rounded to device pixels and is not.
+            const _measureCanvas = document.createElement('canvas').getContext('2d');
+            const measureText = (text, font) => {
+                _measureCanvas.font = font;
+                return _measureCanvas.measureText(text == null ? '' : String(text)).width;
+            };
+
+            // Columns whose text wraps rather than overflowing: they can be given whatever is left
+            // and will use it by taking more lines, so they are the ones that absorb the slack.
+            const WRAPPING_COLUMNS = { pro_name: true, marks_nos_container: true, no_pkgs: true };
+            // Cell borders plus a little air, so a value never sits flush against the rule.
+            const CELL_CHROME_PX = 8;
+            // The description is never squeezed below this share, however many columns there are -
+            // a 40px description column is not an invoice anyone can read.
+            const WRAPPING_FLOOR_SHARE = 0.28;
+
+            const columnWidthsPx = (function () {
+                const fontSize = pageSize == 'a4' ? 12 : 11;
+                const headerFont = 'bold ' + fontSize + 'px Arial, sans-serif';
+                const cellFont = fontSize + 'px Arial, sans-serif';
+                const available = bodyTableWidthPx();
+
+                // The total row prints its figures larger and bolder than the rows above it - 16px
+                // against 12 on A4 - so a column measured only against its item values comes out
+                // too narrow for its own total. That is how "1987.00" ended up wider than the
+                // Amount column it sits in.
+                const totalFontSize = pageSize == 'a4' ? 16 : 13;
+                const totalFont = 'bold ' + totalFontSize + 'px Arial, sans-serif';
+                const totalValues = {
+                    qty: jsonData.others.total_qty,
+                    free_qty: jsonData.others.total_free_qty,
+                    disc1_per: jsonData.others.total_disc1,
+                    disc2_per: jsonData.others.total_disc2,
+                    amount: jsonData.others.total_amount
+                };
+
+                const needed = product_columns.map(function (column) {
+                    let width = measureText(column.display_name, headerFont);
+                    if (!WRAPPING_COLUMNS[column.name]) {
+                        for (let i = 0; i < items.length; i++) {
+                            width = Math.max(width, measureText(items[i][column.name], cellFont));
+                        }
+                        if (Object.prototype.hasOwnProperty.call(totalValues, column.name)) {
+                            width = Math.max(width, measureText(totalValues[column.name], totalFont));
+                        }
+                    }
+                    return width + CELL_CHROME_PX;
+                });
+
+                const wrappingIndexes = product_columns
+                    .map((column, index) => (WRAPPING_COLUMNS[column.name] ? index : -1))
+                    .filter((index) => index !== -1);
+                const fixedTotal = needed.reduce(
+                    (sum, width, index) => sum + (wrappingIndexes.includes(index) ? 0 : width), 0
+                );
+
+                if (wrappingIndexes.length === 0) {
+                    // Nothing to absorb the difference, so the measured widths are scaled to fit.
+                    const scale = available / needed.reduce((sum, width) => sum + width, 0);
+                    return needed.map((width) => width * scale);
+                }
+
+                const floor = available * WRAPPING_FLOOR_SHARE;
+                let forWrapping = available - fixedTotal;
+                let fixedScale = 1;
+                if (forWrapping < floor) {
+                    // Not enough room for everything: the fixed columns give way rather than the
+                    // description, which is the one a reader needs most of.
+                    forWrapping = floor;
+                    fixedScale = (available - floor) / fixedTotal;
+                }
+
+                const share = forWrapping / wrappingIndexes.length;
+                return needed.map((width, index) =>
+                    wrappingIndexes.includes(index) ? share : width * fixedScale
+                );
+            })();
+
+            const getColumnWidth = (name) => {
+                const index = product_columns.findIndex((column) => column.name === name);
+                return (index === -1 ? columnBaseWidth(name) / totalBaseWidth * bodyTableWidthPx()
+                    : columnWidthsPx[index]) + 'px';
+            };
 
             function setupBodySection() {
                 if (currentPageCount != 1) {

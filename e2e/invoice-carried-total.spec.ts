@@ -23,10 +23,11 @@ const INVOICE = JSON.parse(
   fs.readFileSync(path.join(__dirname, 'fixtures', 'invoice-sample.json'), 'utf8')
 );
 
-// The count that pushes the total, and nothing else, onto a second page. It was 33 until the
-// columns were resolved in pixels rather than percentages, which changed how the text wraps and
-// so how many lines fit on a sheet.
-const ITEMS_THAT_CARRY_THE_TOTAL = 27;
+// The count that pushes the total, and nothing else, onto a second page. It moves whenever the
+// columns do, because the description column's width decides how many lines each row takes: 33
+// when the columns were percentages, 27 once they were resolved in pixels, 38 now they are sized
+// to their content.
+const ITEMS_THAT_CARRY_THE_TOTAL = 38;
 
 function payload(itemCount: number) {
   return {

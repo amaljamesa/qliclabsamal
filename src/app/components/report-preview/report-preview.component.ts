@@ -35,7 +35,8 @@ const REPORT_SOURCES: Record<string, string> = {
   // The main invoice layout rather than one of the alternative designs - the carried-total page
   // is handled there.
   'invoice-carried-total': '/print/invoice/view/invoice.html?message=1',
-  'invoice-carried-total-hsn': '/print/invoice/view/invoice.html?message=1'
+  'invoice-carried-total-hsn': '/print/invoice/view/invoice.html?message=1',
+  'invoice-all-fields': '/print/invoice/view/invoice.html?message=1'
 };
 
 // Generic responsive preview wrapper, shared by every report layout listed above. Embeds a
@@ -74,6 +75,10 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
   reportTitle = 'Report';
   // Empty for the layouts that only render one paper size, which is what hides the switch.
   paperSizes: PaperSize[] = [];
+  // Same idea for the HSN summary: a flag in the payload, so turning it off re-renders the same
+  // layout. False for the layouts that never draw one, which is what hides the switch.
+  showHsnToggle = false;
+  hsnSummaryOn = false;
   // Not a stored preference: set from the size the embedded report actually rendered at (see
   // fitFrame), so the highlighted button always reflects what is on screen rather than what
   // was last clicked.
@@ -155,6 +160,16 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
   // Switching paper size rewrites the payload's page_size and reloads the frame - the layout
   // renders either size from the same HTML, so there is no second file to point at. The
   // reload fires the existing load handler, which re-fits and re-reads the active size.
+  // Turns the HSN summary on or off and reloads the frame, the same way the paper size switch
+  // does - the reload fires the existing load handler, which re-fits the frame.
+  toggleHsnSummary(): void {
+    if (!this.reportPrintService.setHsnSummary(this.reportKey, !this.hsnSummaryOn)) {
+      return;
+    }
+    this.hsnSummaryOn = !this.hsnSummaryOn;
+    this.reportFrame.nativeElement.src = this.frameSrc;
+  }
+
   setPaperSize(size: PaperSize): void {
     if (size === this.activeSize) {
       return;
@@ -170,6 +185,8 @@ export class ReportPreviewComponent implements AfterViewInit, OnDestroy {
     const reportKey = this.report || this.route.snapshot.paramMap.get('report') || '';
     this.reportKey = reportKey;
     this.paperSizes = this.reportPrintService.getPaperSizes(reportKey) ?? [];
+    this.showHsnToggle = this.reportPrintService.supportsHsnToggle(reportKey);
+    this.hsnSummaryOn = this.reportPrintService.isHsnSummaryOn(reportKey);
     this.frameSrc = REPORT_SOURCES[reportKey] ?? '';
     this.reportTitle = reportKey
       .split('-')

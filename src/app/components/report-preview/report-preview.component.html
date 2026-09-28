@@ -15,6 +15,17 @@
       }
     </span>
   }
+  <!-- Only the layouts that draw an HSN summary get this; it is a flag in the payload, so
+       switching it re-renders the same layout. -->
+  @if (showHsnToggle) {
+    <label class="hsn-switch">
+      <input
+        type="checkbox"
+        [checked]="hsnSummaryOn"
+        (change)="toggleHsnSummary()" />
+      HSN summary
+    </label>
+  }
   <!-- Saves the file directly, with no print dialog to drive - and always exports the paper size
        currently on screen. -->
   <button id="pdfButton" type="button" [disabled]="isBuildingPdf" (click)="downloadPdf()">

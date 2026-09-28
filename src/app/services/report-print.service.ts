@@ -20,6 +20,10 @@ interface ReportTarget {
   // size is a field in the payload). Listing them here is what puts the A4/A5 switch on
   // their preview; the layouts without it never show one.
   paperSizes?: PaperSize[];
+  // Puts an HSN summary switch on the preview. Same idea as the paper size: the summary is a
+  // flag in the payload, so turning it off is a re-render of the same layout rather than a
+  // different one. Only worth offering where the layout draws a summary at all.
+  hsnToggle?: boolean;
 }
 
 const REPORT_TARGETS: Record<string, ReportTarget> = {
@@ -41,7 +45,12 @@ const REPORT_TARGETS: Record<string, ReportTarget> = {
   // The same invoice with the HSN summary switched on, so the two can be shown side by side.
   // The summary follows the total over and fills most of that page, which is a different picture
   // from the total sitting alone - both are worth being able to point at.
-  'invoice-carried-total-hsn': { key: 'temp_inv_data', label: 'Invoice - total on its own page (with HSN)' }
+  'invoice-carried-total-hsn': { key: 'temp_inv_data', label: 'Invoice - total on its own page (with HSN)' },
+  // Every optional column at once - HSN/SAC, MRP, both discounts and the tax rate - which is the
+  // shape a real customer invoice takes and which none of the other samples exercise. The header
+  // row is where it shows: at ten columns the narrow ones have less width than their own titles
+  // need, so "HSN/SAC" and "MRP" run into each other, as do "Disc2.%" and "Tax%".
+  'invoice-all-fields': { key: 'temp_inv_data', label: 'Invoice - all fields', hsnToggle: true }
 };
 
 export const REPORT_LAYOUTS = Object.entries(REPORT_TARGETS).map(([id, target]) => ({
@@ -97,6 +106,29 @@ export class ReportPrintService {
     return true;
   }
 
+  // Whether this layout's preview should offer an HSN summary switch.
+  supportsHsnToggle(reportId: string): boolean {
+    return REPORT_TARGETS[reportId]?.hsnToggle === true;
+  }
+
+  /** Whether the payload currently loaded in the preview asks for an HSN summary. */
+  isHsnSummaryOn(reportId: string): boolean {
+    const invoice = firstInvoiceOf(reportId);
+    return invoice?.config?.print_hsn_summary === true;
+  }
+
+  // Flips the flag on the payload already loaded and reports whether anything changed, so the
+  // caller knows to reload the frame. Edits the payload rather than rebuilding the sample, for
+  // the same reason setStoredPaperSize does: it keeps working once real invoice data is wired up.
+  setHsnSummary(reportId: string, on: boolean): boolean {
+    const invoice = firstInvoiceOf(reportId);
+    if (!invoice?.config) {
+      return false;
+    }
+    invoice.config.print_hsn_summary = on;
+    return true;
+  }
+
   openSampleReportPreview(reportId: string, pageSize: PaperSize = 'a4'): void {
     const sample = INVOICE_DESIGN_IDS.includes(reportId)
       ? buildInvoiceDesignSample(pageSize)
@@ -110,6 +142,39 @@ export class ReportPrintService {
 }
 
 const INVOICE_DESIGN_IDS = ['invoice-d2', 'invoice-d3', 'invoice-d4'];
+
+// Names for the all-fields demo, long enough that the description column wraps the way a real
+// customer's does rather than sitting on one tidy line.
+const ALL_FIELDS_PRODUCT_NAMES = [
+  'MDH DEGGI MIRCH CHILLY POWDER 100GM',
+  'JABSONS P NUT KARI SING NARIYAL 200GM',
+  'R-PURE YELLOW CHILLI POWDER 500GM POUCH',
+  'MUKUNDA CASHEW SALTED 100GM',
+  'SNAPIN CHILLI FLAKES 35GM',
+  'BASMATI RICE PREMIUM LONG GRAIN 5KG BAG',
+  'MDH KASOORI METHI 500GM CANISTER',
+  'FILTER COFFEE POWDER 80:20 500GM'
+];
+
+// The invoice payloads travel either bare or wrapped in { invoices: [...] } - a bulk print sends
+// the array, a single preview sends the invoice itself - so both shapes are unwrapped here rather
+// than at every call site.
+interface InvoicePayloadShape {
+  config?: { print_hsn_summary?: boolean };
+}
+
+function firstInvoiceOf(reportId: string): InvoicePayloadShape | null {
+  const target = REPORT_TARGETS[reportId];
+  if (!target) {
+    return null;
+  }
+  const payload = getPreviewPayload(target.key) as
+    { invoices?: InvoicePayloadShape[] } & InvoicePayloadShape | null;
+  if (!payload) {
+    return null;
+  }
+  return Array.isArray(payload.invoices) ? payload.invoices[0] ?? null : payload;
+}
 
 // The invoice designs read the same JSON schema as the main invoice layout, so their sample
 // is that layout's payload rather than a second copy that would drift from it. Two changes
@@ -354,6 +419,43 @@ const SAMPLE_REPORT_DATA: Record<string, unknown> = {
   },
 
   'invoice-carried-total': { invoices: [CARRIED_TOTAL_DEMO_INVOICE] },
+
+  // The reference Priyanka sent is an invoice with every optional column turned on, which is
+  // what a real customer's looks like and what none of the other samples cover. Built from the
+  // same base payload so only the columns differ.
+  'invoice-all-fields': {
+    invoices: [{
+      ...CARRIED_TOTAL_DEMO_INVOICE,
+      config: { ...CARRIED_TOTAL_DEMO_INVOICE.config, print_hsn_summary: true },
+      // Ten columns, in the order the reference shows them.
+      product_columns: [
+        { id: '1', name: 'sl_no', visible: '', sequence: '', display_name: 'SL' },
+        { id: '6', name: 'pro_name', visible: '', sequence: '', display_name: 'Description of Goods/Services' },
+        { id: '10', name: 'hsn', visible: '', sequence: '', display_name: 'HSN/SAC' },
+        { id: '18', name: 'mrp', visible: '', sequence: '', display_name: 'MRP' },
+        { id: '14', name: 'qty', visible: '', sequence: '', display_name: 'Qty' },
+        { id: '17', name: 'rate', visible: '', sequence: '', display_name: 'Rate' },
+        { id: '20', name: 'disc1_per', visible: '', sequence: '', display_name: 'Disc.%' },
+        { id: '22', name: 'disc2_per', visible: '', sequence: '', display_name: 'Disc2.%' },
+        { id: '25', name: 'tax_rate', visible: '', sequence: '', display_name: 'Tax%' },
+        { id: '26', name: 'amount', visible: '', sequence: '', display_name: 'Amount' }
+      ],
+      // Values in every one of those columns, so no cell is empty by accident and the widths are
+      // tested against real content rather than blanks.
+      items: CARRIED_TOTAL_DEMO_INVOICE.items.map((item, index) => ({
+        ...item,
+        sl_no: index + 1,
+        // The base payload carries placeholders like "nan" and "N/A" in its name column, which
+        // read as a bug rather than as sample data on a page whose whole point is being looked at.
+        pro_name: ALL_FIELDS_PRODUCT_NAMES[index % ALL_FIELDS_PRODUCT_NAMES.length],
+        hsn: ['09042211', '21069099', '30049099', '34011190'][index % 4],
+        mrp: (100 + index * 12.5).toFixed(2),
+        disc1_per: String(5 + (index % 3)),
+        disc2_per: String(2 + (index % 2)),
+        tax_rate: ['5', '12', '18'][index % 3]
+      }))
+    }]
+  },
 
   'invoice-carried-total-hsn': {
     invoices: [{
