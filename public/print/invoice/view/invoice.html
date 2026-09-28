@@ -40,7 +40,19 @@
             background: white;
             position: relative;
             margin: 0 auto;
-            padding: 0.53cm 0.53cm 0.15cm 0.53cm;
+            /* The bottom was 0.15cm, which left the footer's last line - the date, "Computer
+               Generated Document" and the page number - sitting 5.66px above where the printer
+               cuts the sheet. Measured, not estimated: the sheet cut and the page's own bottom
+               land within a hundredth of a pixel of each other here, and that line is the only
+               thing in the whole page with so little room beneath it.
+               5.66px is not enough to survive a print. The page boxes are stacked, so the cut for
+               page 2 is twice as far from the origin as the cut for page 1 and any per-page
+               difference between what this layout lays out and what the print engine cuts has
+               doubled by then - which is why the date went missing from the second page while the
+               first kept it (Priyanka, 2026-09-28, at 90% zoom with Ctrl+P).
+               0.4cm gives that line ~15px of room instead. It costs 0.25cm of usable height,
+               which is under a fifth of a row. */
+            padding: 0.53cm 0.53cm 0.4cm 0.53cm;
             box-shadow: 0 0 0.5cm rgba(0, 0, 0, 0.5);
             display: flex;
             flex-direction: column;
@@ -256,9 +268,16 @@
             return cm * getPxPerCm();
         }
 
+        // The vertical padding declared on .page, in cm - the two have to agree, because every
+        // height budget below is the sheet less this. It was written out as `0.53 + 0.15` in
+        // three separate places, and raising the bottom padding to give the footer's last line
+        // room to print left two of them behind: the page that carries a total on its own is
+        // padded out to a stale height, so its footer sat 7px lower than the pages either side.
+        const PAGE_VERTICAL_PADDING_CM = 0.53 + 0.4;
+
         function getPageContentHeightPx() {
             let heightCm = pageSize == 'a4' ? 29.7 : 21;
-            let paddingCm = 0.53 + 0.15;
+            let paddingCm = PAGE_VERTICAL_PADDING_CM;
             return cmToPx(heightCm - paddingCm);
         }
 
@@ -1680,7 +1699,7 @@
                 for (let i = copyStartIndex; i < allPages.length; i++) {
                     let pg = allPages[i];
                     let pageHeightPx = pageSize == 'a4' ? cmToPx(29.7) : cmToPx(21);
-                    let paddingPx = cmToPx(0.53 + 0.15);
+                    let paddingPx = cmToPx(PAGE_VERTICAL_PADDING_CM);
                     let availableHeight = pageHeightPx - paddingPx;
 
                     let contentHeight = 0;
@@ -1750,7 +1769,7 @@
                 // whole page down. What is actually free is the sheet less its padding and less
                 // what the sections already take, measured the same way that pass measures it.
                 let pageHeightPx = pageSize == 'a4' ? cmToPx(29.7) : cmToPx(21);
-                let availableHeight = pageHeightPx - cmToPx(0.53 + 0.15);
+                let availableHeight = pageHeightPx - cmToPx(PAGE_VERTICAL_PADDING_CM);
                 let usedHeight = 0;
                 Array.from(pg.children).forEach(function (child) {
                     if (child.classList.contains('imgwatermark') || child.classList.contains('watermark')) return;
